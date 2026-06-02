@@ -101,15 +101,35 @@ export default function RelatorioMensal() {
     // Próximas visitas
     const proximas=appointments.data||[]
 
+    // Vendas por fazenda — mês atual vs anterior
+    const fMapMes={}, fMapAnt={}
+    sm.forEach(s=>{ fMapMes[s.farm_id]=(fMapMes[s.farm_id]||0)+Number(s.total||0) })
+    sa.forEach(s=>{ fMapAnt[s.farm_id]=(fMapAnt[s.farm_id]||0)+Number(s.total||0) })
+
+    // Fazendas com queda >40%
+    const fazendasEmQueda=fs.filter(f=>{
+      const atual=fMapMes[f.id]||0, ant=fMapAnt[f.id]||0
+      return ant>0 && atual<ant && ((ant-atual)/ant*100)>40
+    }).map(f=>({...f,atual:fMapMes[f.id]||0,anterior:fMapAnt[f.id]||0,queda:((fMapAnt[f.id]-(fMapMes[f.id]||0))/fMapAnt[f.id]*100).toFixed(1)}))
+
+    // Vendedores com queda >30% — agrupamos por seller_id quando disponível, senão geral
+    const vMapMes={}, vMapAnt={}
+    sm.forEach(s=>{ const k=s.seller_id||'geral'; vMapMes[k]=(vMapMes[k]||0)+Number(s.total||0) })
+    sa.forEach(s=>{ const k=s.seller_id||'geral'; vMapAnt[k]=(vMapAnt[k]||0)+Number(s.total||0) })
+    const vendedoresEmQueda=sl.filter(s=>{
+      const atual=vMapMes[s.id]||0, ant=vMapAnt[s.id]||0
+      return ant>0 && atual<ant && ((ant-atual)/ant*100)>30
+    }).map(s=>({...s,atual:vMapMes[s.id]||0,anterior:vMapAnt[s.id]||0,queda:((vMapAnt[s.id]-(vMapMes[s.id]||0))/vMapAnt[s.id]*100).toFixed(1)}))
+
     setDados({
-      fatMes,fatAnt,tickMes,tickAnt,
+      fatMes,fatAnt,tickMes,tickAnt,fazendasEmQueda,vendedoresEmQueda,
       pedMes:sm.length,pedAnt:sa.length,
       visitMes:vm.length,visitAnt:va.length,
       carteiraAtiva:ativas.size,carteiraTot:fs.length,
       scoreMedia,checklists:ck.length,
       topVendedores,topFazendas,segMap,
       novasFazendas,esquecidas,comDesconto,
-      proximas,sellers:sl,farms:fs,
+      proximas,sellers:sl,farms:fs,fazendasEmQueda,vendedoresEmQueda,
     })
     setLoading(false)
   }
@@ -167,6 +187,8 @@ export default function RelatorioMensal() {
       dados.scoreMedia>0?`Score técnico médio da carteira: ${dados.scoreMedia}/100.`:'',
       dados.novasFazendas?.length>0?`${dados.novasFazendas.length} nova(s) fazenda(s) cadastrada(s) no mês.`:'',
       dados.esquecidas?.length>0?`${dados.esquecidas.length} fazenda(s) sem visita há mais de 45 dias — atenção requerida.`:'',
+      dados.fazendasEmQueda?.length>0?`${dados.fazendasEmQueda.length} fazenda(s) com queda de faturamento acima de 40% vs mês anterior.`:'',
+      dados.vendedoresEmQueda?.length>0?`${dados.vendedoresEmQueda.length} vendedor(es) com queda acima de 30% vs mês anterior.`:'',
     ].filter(Boolean)
     resumos.forEach(r=>texto('• '+r))
     y+=4
@@ -260,6 +282,38 @@ export default function RelatorioMensal() {
         ]),
         theme:'striped',
         headStyles:{fillColor:[240,125,26],textColor:[255,255,255],fontSize:9},
+        bodyStyles:{fontSize:9},
+        margin:{left:margin,right:margin},
+      })
+      y=doc.lastAutoTable.finalY+8
+    }
+
+    // ── FAZENDAS EM QUEDA ─────────────────────────────────────────────────────
+    if(dados.fazendasEmQueda?.length>0){
+      checkPage(40)
+      subtitulo('Fazendas com queda de faturamento >40% vs mês anterior:')
+      autoTable(doc,{
+        startY:y,
+        head:[['Fazenda','Segmento','Mês atual','Mês anterior','Queda']],
+        body:dados.fazendasEmQueda.map(f=>[f.name,f.segment||'—','R$ '+fmt(f.atual),'R$ '+fmt(f.anterior),'-'+f.queda+'%']),
+        theme:'striped',
+        headStyles:{fillColor:[224,49,49],textColor:[255,255,255],fontSize:9},
+        bodyStyles:{fontSize:9},
+        margin:{left:margin,right:margin},
+      })
+      y=doc.lastAutoTable.finalY+8
+    }
+
+    // ── VENDEDORES EM QUEDA ───────────────────────────────────────────────────
+    if(dados.vendedoresEmQueda?.length>0){
+      checkPage(40)
+      subtitulo('Vendedores com queda de faturamento >30% vs mês anterior:')
+      autoTable(doc,{
+        startY:y,
+        head:[['Vendedor','Mês atual','Mês anterior','Queda']],
+        body:dados.vendedoresEmQueda.map(s=>[s.name,'R$ '+fmt(s.atual),'R$ '+fmt(s.anterior),'-'+s.queda+'%']),
+        theme:'striped',
+        headStyles:{fillColor:[224,49,49],textColor:[255,255,255],fontSize:9},
         bodyStyles:{fontSize:9},
         margin:{left:margin,right:margin},
       })
@@ -387,6 +441,14 @@ export default function RelatorioMensal() {
                   <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}>
                     <span style={{color:'var(--text-dim)'}}>Novas fazendas no mês</span>
                     <span style={{fontWeight:600,color:'var(--blue)'}}>{dados.novasFazendas?.length||0}</span>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}>
+                    <span style={{color:'var(--text-dim)'}}>Fazendas em queda (+40%)</span>
+                    <span style={{fontWeight:600,color:dados.fazendasEmQueda?.length>0?'var(--red)':'var(--green)'}}>{dados.fazendasEmQueda?.length||0}</span>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}>
+                    <span style={{color:'var(--text-dim)'}}>Vendedores em queda (+30%)</span>
+                    <span style={{fontWeight:600,color:dados.vendedoresEmQueda?.length>0?'var(--red)':'var(--green)'}}>{dados.vendedoresEmQueda?.length||0}</span>
                   </div>
                   <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}>
                     <span style={{color:'var(--text-dim)'}}>Próximos compromissos</span>
