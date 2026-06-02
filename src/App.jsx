@@ -12,6 +12,7 @@ import Produtos from './screens/Produtos'
 import Regioes from './screens/Regioes'
 import Config from './screens/Config'
 import Pipeline from './screens/Pipeline'
+import RelatorioMensal from './screens/RelatorioMensal'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -31,6 +32,7 @@ function AppContent() {
           <Route path="/produtos"   element={<Produtos />} />
           <Route path="/regioes"    element={<Regioes />} />
           <Route path="/pipeline" element={<Pipeline />} />
+          <Route path="/relatorio" element={<RelatorioMensal />} />
           <Route path="/config"     element={<Config />} />
         </Routes>
       </div>

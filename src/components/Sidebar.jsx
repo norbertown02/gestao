@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import {
-  IconLayoutDashboard, IconReceipt, IconRoute, IconClipboardList, IconTargetArrow,
+  IconLayoutDashboard, IconReceipt, IconRoute, IconClipboardList, IconTargetArrow, IconFileText,
   IconChartBar, IconUsers, IconBuildingStore, IconMapPin,
   IconSettings, IconLogout
 } from '@tabler/icons-react'
@@ -18,6 +18,7 @@ const NAV = [
   { to: '/regioes',    label: 'Regiões',       Icon: IconMapPin },
   { section: 'Sistema' },
   { to: '/pipeline',   label: 'Pipeline',      Icon: IconTargetArrow },
+  { to: '/relatorio',  label: 'Rel. Mensal',   Icon: IconFileText },
   { section: 'Sistema' },
   { to: '/config',     label: 'Configurações', Icon: IconSettings },
 ]
