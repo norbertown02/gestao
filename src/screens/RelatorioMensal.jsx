@@ -21,24 +21,24 @@ function mesRange(ano,mes) {
 }
 
 export default function RelatorioMensal() {
-  const [mesSel,    setMesSel]    = useState(getMes(-1)) // mês anterior por padrão
+  const [mesSel,    setMesSel]    = useState(getMes(0)) // mês anterior por padrão
   const [dados,     setDados]     = useState(null)
   const [loading,   setLoading]   = useState(false)
   const [gerandoPDF,setGerandoPDF]= useState(false)
 
   // Meses disponíveis (últimos 12)
-  const mesesOpcoes = Array.from({length:12},(_,i)=>getMes(-i-1))
+  const mesesOpcoes = Array.from({length:13},(_,i)=>getMes(-i))
 
   useEffect(()=>{ carregar() },[mesSel])
 
   async function carregar() {
     setLoading(true)
     const [ini,fim]   = mesRange(mesSel.ano,mesSel.mes)
-    const mesAntObj   = getMes(-(12-mesesOpcoes.findIndex(m=>m.ano===mesSel.ano&&m.mes===mesSel.mes))-1)
 
     // Mês anterior para comparação
-    const d=new Date(mesSel.ano,mesSel.mes-2,1)
-    const iniAnt=toISO(d), fimAnt=toISO(new Date(mesSel.ano,mesSel.mes-1,0))
+    const dAnt=new Date(mesSel.ano,mesSel.mes-2,1)
+    const iniAnt=toISO(dAnt)
+    const fimAnt=toISO(new Date(mesSel.ano,mesSel.mes-1,0))
 
     const [
       salesMes, salesAnt, visitsMes, visitsAnt,
