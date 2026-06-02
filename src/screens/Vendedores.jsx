@@ -71,7 +71,7 @@ export default function Vendedores() {
     const visitas  = visitsVendedor.length
     const cobertura= farmsVendedor.length?Math.round((new Set(visitsVendedor.map(v=>v.farm_id)).size/farmsVendedor.length)*100):0
     const scoreMedia=checksVendedor.length?Math.round(checksVendedor.reduce((a,c)=>a+Number(c.overall_score||0),0)/checksVendedor.length):0
-    const conversao= visitas?((salesVendedor.length/visitas)*100).toFixed(0):0
+    const fazVisitadas=new Set(visitsVendedor.map(v=>v.farm_id)).size; const fazComVenda=new Set(salesVendedor.map(s=>s.farm_id)).size; const conversao=fazVisitadas?((fazComVenda/fazVisitadas)*100).toFixed(0):0
 
     return { ...seller, fat, pedidos, ticket, visitas, cobertura, scoreMedia, conversao, farmsCount:farmsVendedor.length }
   })

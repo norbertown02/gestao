@@ -43,7 +43,7 @@ export default function Pipeline() {
   const totalFarms    = farms.length
   const visitadas30d  = new Set(visits.filter(v=>v.visit_date>=d30).map(v=>v.farm_id)).size
   const positivasFarms= new Set(visits.filter(v=>v.visit_date>=d30&&v.outcome==='positiva').map(v=>v.farm_id))
-  const compraramApos = new Set(sales.filter(s=>s.sale_date>=d30&&positivasFarms.has(s.farm_id))).size
+  const compraramApos = new Set(sales.filter(s=>s.sale_date>=d30&&positivasFarms.has(s.farm_id)).map(s=>s.farm_id)).size
 
   const funil=[
     {name:'Carteira total',    value:totalFarms,    fill:'#1971c2'},
