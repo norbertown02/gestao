@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import logo from '../assets/logo-nutrialle.jpg'
 import {
   IconLayoutDashboard, IconReceipt, IconRoute, IconClipboardList, IconTargetArrow, IconFileText,
   IconChartBar, IconUsers, IconBuildingStore, IconMapPin,
@@ -28,7 +29,7 @@ export default function Sidebar() {
   return (
     <div className="sidebar">
       <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center' }}>
-        <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--orange)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, flexShrink: 0 }}>N</div>
+        <img src={logo} alt="Nutrialle" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}/>
         <div style={{ marginLeft: 10 }}>
           <div style={{ fontWeight: 700, fontSize: 14 }}>Nutrialle</div>
           <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>Gestão</div>

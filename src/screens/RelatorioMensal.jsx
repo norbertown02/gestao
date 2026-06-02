@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import { IconDownload, IconFileText, IconCalendar } from '@tabler/icons-react'
 import jsPDF from 'jspdf'
+import logoNutrialle from '../assets/logo-nutrialle.jpg'
 import autoTable from 'jspdf-autotable'
 
 function fmt(n) { return Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
@@ -144,12 +145,14 @@ export default function RelatorioMensal() {
 
     // ── CAPA ──────────────────────────────────────────────────────────────────
     doc.setFillColor(...laranja); doc.rect(0,0,W,60,'F')
-    doc.setFontSize(28); doc.setTextColor(255,255,255); doc.setFont('helvetica','bold')
-    doc.text('NUTRIALLE',margin,30)
+    // Logo
+    try { doc.addImage(logoNutrialle,'JPEG',margin,10,40,40) } catch(e) {}
+    doc.setFontSize(22); doc.setTextColor(255,255,255); doc.setFont('helvetica','bold')
+    doc.text('NUTRIALLE',margin+46,28)
     doc.setFontSize(12); doc.setFont('helvetica','normal')
-    doc.text('Relatório Mensal — '+mesSel.label.charAt(0).toUpperCase()+mesSel.label.slice(1),margin,42)
+    doc.text('Relatório Mensal — '+mesSel.label.charAt(0).toUpperCase()+mesSel.label.slice(1),margin+46,38)
     doc.setFontSize(9)
-    doc.text('Gerado em '+new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}),margin,52)
+    doc.text('Gerado em '+new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}),margin+46,46)
     y=75
 
     // ── RESUMO EXECUTIVO ──────────────────────────────────────────────────────
