@@ -2,22 +2,27 @@ import { NavLink } from 'react-router-dom'
 import logo from '../assets/logo-nutrialle.jpg'
 import {
   IconLayoutDashboard, IconReceipt, IconClipboardList, IconTargetArrow, IconFileText,
-  IconChartBar, IconSettings, IconLogout
+  IconChartBar, IconSettings, IconLogout, IconRoute, IconUsers, IconMapPin,
+  IconBuildingStore, IconTargetArrow as IconMeta
 } from '@tabler/icons-react'
 import { useAuth } from '../lib/useAuth'
 
 const NAV = [
   { section: 'Geral' },
-  { to: '/',           label: 'Dashboard',         Icon: IconLayoutDashboard },
+  { to: '/',           label: 'Dashboard',           Icon: IconLayoutDashboard },
   { section: 'Comercial' },
-  { to: '/vendas',     label: 'Vendas',             Icon: IconReceipt },
+  { to: '/vendas',     label: 'Vendas',               Icon: IconReceipt },
+  { to: '/vendedores', label: 'Vendedores',           Icon: IconUsers },
+  { to: '/regioes',    label: 'Regiões',              Icon: IconMapPin },
+  { to: '/produtos',   label: 'Produtos',             Icon: IconBuildingStore },
+  { to: '/visitas',    label: 'Visitas',              Icon: IconRoute },
   { to: '/carteira',   label: 'Carteira de Fazendas', Icon: IconChartBar },
-  { to: '/checklists', label: 'Checklists',         Icon: IconClipboardList },
+  { to: '/checklists', label: 'Checklists',           Icon: IconClipboardList },
   { section: 'Gestão' },
-  { to: '/pipeline',   label: 'Pipeline',           Icon: IconTargetArrow },
-  { to: '/relatorio',  label: 'Relatório de Vendas', Icon: IconFileText },
+  { to: '/pipeline',   label: 'Pipeline',             Icon: IconTargetArrow },
+  { to: '/relatorio',  label: 'Relatório de Vendas',  Icon: IconFileText },
   { section: 'Sistema' },
-  { to: '/config',     label: 'Configurações',      Icon: IconSettings },
+  { to: '/config',     label: 'Configurações',        Icon: IconSettings },
 ]
 
 export default function Sidebar() {

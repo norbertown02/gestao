@@ -21,6 +21,33 @@ function mesRange(ano,mes) {
   return [toISO(ini),toISO(fim)]
 }
 
+
+function trimestreRange(ano, trim) {
+  const mesIni = (trim-1)*3+1
+  const ini = new Date(ano, mesIni-1, 1)
+  const fim = new Date(ano, mesIni+2, 0)
+  return [ini.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+}
+function anoRange(ano) {
+  return [ano+'-01-01', ano+'-12-31']
+}
+function getPeriodoRange(tipo, ano, mes, trim) {
+  if(tipo==='mensal') return mesRange(ano, mes)
+  if(tipo==='trimestral') return trimestreRange(ano, trim)
+  return anoRange(ano)
+}
+function getAnteriorRange(tipo, ano, mes, trim) {
+  if(tipo==='mensal') {
+    const d = new Date(ano, mes-2, 1)
+    return [d.toISOString().split('T')[0], new Date(ano, mes-1, 0).toISOString().split('T')[0]]
+  }
+  if(tipo==='trimestral') {
+    const trimAnt = trim===1?4:trim-1
+    const anoAnt = trim===1?ano-1:ano
+    return trimestreRange(anoAnt, trimAnt)
+  }
+  return anoRange(ano-1)
+}
 export default function RelatorioMensal() {
   const [mesSel,    setMesSel]    = useState(getMes(0))
   const [tipoPeriodo, setTipoPeriodo] = useState('mensal') // mensal | trimestral | anual
