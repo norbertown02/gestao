@@ -1,27 +1,23 @@
 import { NavLink } from 'react-router-dom'
 import logo from '../assets/logo-nutrialle.jpg'
 import {
-  IconLayoutDashboard, IconReceipt, IconRoute, IconClipboardList, IconTargetArrow, IconFileText,
-  IconChartBar, IconUsers, IconBuildingStore, IconMapPin,
-  IconSettings, IconLogout
+  IconLayoutDashboard, IconReceipt, IconClipboardList, IconTargetArrow, IconFileText,
+  IconChartBar, IconSettings, IconLogout
 } from '@tabler/icons-react'
 import { useAuth } from '../lib/useAuth'
 
 const NAV = [
-  { section: 'Relatórios' },
-  { to: '/',           label: 'Dashboard',   Icon: IconLayoutDashboard },
-  { to: '/vendas',     label: 'Vendas',       Icon: IconReceipt },
-  { to: '/visitas',    label: 'Visitas',       Icon: IconRoute },
-  { to: '/checklists', label: 'Checklists',    Icon: IconClipboardList },
-  { to: '/carteira',   label: 'Carteira',      Icon: IconChartBar },
-  { to: '/vendedores', label: 'Vendedores',    Icon: IconUsers },
-  { to: '/produtos',   label: 'Produtos',      Icon: IconBuildingStore },
-  { to: '/regioes',    label: 'Regiões',       Icon: IconMapPin },
+  { section: 'Geral' },
+  { to: '/',           label: 'Dashboard',         Icon: IconLayoutDashboard },
+  { section: 'Comercial' },
+  { to: '/vendas',     label: 'Vendas',             Icon: IconReceipt },
+  { to: '/carteira',   label: 'Carteira de Fazendas', Icon: IconChartBar },
+  { to: '/checklists', label: 'Checklists',         Icon: IconClipboardList },
+  { section: 'Gestão' },
+  { to: '/pipeline',   label: 'Pipeline',           Icon: IconTargetArrow },
+  { to: '/relatorio',  label: 'Relatório de Vendas', Icon: IconFileText },
   { section: 'Sistema' },
-  { to: '/pipeline',   label: 'Pipeline',      Icon: IconTargetArrow },
-  { to: '/relatorio',  label: 'Rel. Mensal',   Icon: IconFileText },
-  { section: 'Sistema' },
-  { to: '/config',     label: 'Configurações', Icon: IconSettings },
+  { to: '/config',     label: 'Configurações',      Icon: IconSettings },
 ]
 
 export default function Sidebar() {

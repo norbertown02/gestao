@@ -22,7 +22,10 @@ function mesRange(ano,mes) {
 }
 
 export default function RelatorioMensal() {
-  const [mesSel,    setMesSel]    = useState(getMes(0)) // mês anterior por padrão
+  const [mesSel,    setMesSel]    = useState(getMes(0))
+  const [tipoPeriodo, setTipoPeriodo] = useState('mensal') // mensal | trimestral | anual
+  const [anoSel,    setAnoSel]    = useState(new Date().getFullYear())
+  const [trimSel,   setTrimSel]   = useState(Math.ceil((new Date().getMonth()+1)/3))
   const [dados,     setDados]     = useState(null)
   const [loading,   setLoading]   = useState(false)
   const [gerandoPDF,setGerandoPDF]= useState(false)
@@ -30,16 +33,12 @@ export default function RelatorioMensal() {
   // Meses disponíveis (últimos 12)
   const mesesOpcoes = Array.from({length:13},(_,i)=>getMes(-i))
 
-  useEffect(()=>{ carregar() },[mesSel])
+  useEffect(()=>{ carregar() },[mesSel, tipoPeriodo, anoSel, trimSel])
 
   async function carregar() {
     setLoading(true)
-    const [ini,fim]   = mesRange(mesSel.ano,mesSel.mes)
-
-    // Mês anterior para comparação
-    const dAnt=new Date(mesSel.ano,mesSel.mes-2,1)
-    const iniAnt=toISO(dAnt)
-    const fimAnt=toISO(new Date(mesSel.ano,mesSel.mes-1,0))
+    const [ini,fim] = getPeriodoRange(tipoPeriodo, anoSel, mesSel.mes, trimSel)
+    const [iniAnt,fimAnt] = getAnteriorRange(tipoPeriodo, anoSel, mesSel.mes, trimSel)
 
     const [
       salesMes, salesAnt, visitsMes, visitsAnt,
