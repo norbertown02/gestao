@@ -13,6 +13,7 @@ import Regioes from './screens/Regioes'
 import Config from './screens/Config'
 import Pipeline from './screens/Pipeline'
 import RelatorioMensal from './screens/RelatorioMensal'
+import DashboardTime from './screens/DashboardTime'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -32,6 +33,7 @@ function AppContent() {
           <Route path="/produtos"   element={<Produtos />} />
           <Route path="/regioes"    element={<Regioes />} />
           <Route path="/pipeline" element={<Pipeline />} />
+          <Route path="/time" element={<DashboardTime />} />
           <Route path="/relatorio" element={<RelatorioMensal />} />
           <Route path="/config"     element={<Config />} />
         </Routes>
