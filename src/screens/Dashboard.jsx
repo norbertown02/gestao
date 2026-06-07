@@ -39,7 +39,6 @@ export default function Dashboard() {
   const [topFazend,  setTopFazend]  = useState([])
   const [loading,    setLoading]    = useState(true)
   const [cotacoes,   setCotacoes]   = useState({abertas:0,valorAberto:0,txConversao:0})
-  const [cotacoes,   setCotacoes]   = useState({abertas:0,valorAberto:0,txConversao:0})
 
   useEffect(() => { carregar() }, [])
 
