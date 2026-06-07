@@ -17,7 +17,7 @@ const STATUS_CFG = {
 export default function Cotacoes() {
   const [loading, setLoading] = useState(true)
   const [quotes, setQuotes] = useState([])
-  const [profiles, setProfiles] = useState([])
+  const [sellers, setSellers] = useState([])
   const [farms, setFarms] = useState([])
   const [filtroStatus, setFiltroStatus] = useState('todos')
 
@@ -25,13 +25,13 @@ export default function Cotacoes() {
 
   async function carregar() {
     setLoading(true)
-    const [rQuotes, rProfiles, rFarms] = await Promise.all([
+    const [rQuotes, rSellers, rFarms] = await Promise.all([
       supabase.from('quotes').select('*').order('created_at', {ascending: false}),
-      supabase.from('profiles').select('id,name,email'),
+      supabase.from('sellers').select('id,name,email'),
       supabase.from('farms').select('id,name,segment,prospect'),
     ])
     setQuotes(rQuotes.data || [])
-    setProfiles(rProfiles.data || [])
+    setSellers(rSellers.data || [])
     setFarms(rFarms.data || [])
     setLoading(false)
   }
@@ -88,7 +88,7 @@ export default function Cotacoes() {
   })
   const porVendedor = Object.values(vMap).map(v => ({
     ...v,
-    name: profiles.find(p=>p.id===v.id)?.name || profiles.find(p=>p.id===v.id)?.email || 'Desconhecido',
+    name: sellers.find(s=>s.user_id===v.id)?.name || 'Desconhecido',
     tx: v.total > 0 ? Math.round(v.convertidas/v.total*100) : 0,
   })).sort((a,b)=>b.total-a.total)
 
@@ -275,7 +275,7 @@ export default function Cotacoes() {
                   ? <tr><td colSpan={6} style={{textAlign:'center',color:'var(--text-faint)'}}>Nenhuma cotação</td></tr>
                   : quotesFiltered.map(q=>{
                     const farm    = farms.find(f=>f.id===q.farm_id)
-                    const profile = profiles.find(p=>p.id===q.seller_id)
+                    const profile = sellers.find(s=>s.user_id===q.seller_id)
                     const cfg     = STATUS_CFG[q.status]||STATUS_CFG.rascunho
                     const expirou = q.valid_until&&q.valid_until<hoje
                     return (
@@ -284,7 +284,7 @@ export default function Cotacoes() {
                           {farm?.name||'—'}
                           {farm?.prospect&&<span style={{fontSize:10,color:'var(--amber)',marginLeft:6}}>prospecto</span>}
                         </td>
-                        <td style={{fontSize:12,color:'var(--text-dim)'}}>{profile?.name||profile?.email||'—'}</td>
+                        <td style={{fontSize:12,color:'var(--text-dim)'}}>{profile?.name||'—'}</td>
                         <td style={{fontSize:12,color:'var(--text-faint)'}}>
                           {q.created_at ? new Date(q.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}) : '—'}
                         </td>
