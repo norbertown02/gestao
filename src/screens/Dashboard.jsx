@@ -78,15 +78,6 @@ export default function Dashboard() {
     const txConversao = (enviadas+convertidas)>0 ? Math.round(convertidas/(enviadas+convertidas)*100) : 0
     setCotacoes({abertas:abertas.length, valorAberto, txConversao})
 
-    // Cotações
-    const {data:quotes} = await supabase.from('quotes').select('status,total')
-    const qs = quotes||[]
-    const abertas = qs.filter(q=>q.status==='rascunho'||q.status==='enviada')
-    const convertidas = qs.filter(q=>q.status==='convertida').length
-    const enviadas = qs.filter(q=>q.status==='enviada').length
-    const valorAberto = abertas.reduce((a,q)=>a+Number(q.total||0),0)
-    const txConversao = (enviadas+convertidas)>0 ? Math.round(convertidas/(enviadas+convertidas)*100) : 0
-    setCotacoes({abertas:abertas.length, valorAberto, txConversao})
 
     // Evolução diária
     const diasMes={}
