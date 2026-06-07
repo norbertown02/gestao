@@ -81,27 +81,21 @@ export default function RelatorioMensal() {
       supabase.from('appointments').select('*').gte('appointment_date',toISO(new Date())).lte('appointment_date',toISO(new Date(new Date().setDate(new Date().getDate()+30)))),
     ])
 
-    // Evolucao ultimos 6 meses para grafico
+    // Evolucao 6 meses
     const d6m = new Date()
-    d6m.setMonth(d6m.getMonth()-5)
-    d6m.setDate(1)
+    d6m.setMonth(d6m.getMonth()-5); d6m.setDate(1)
     const ini6m = toISO(d6m)
-    const [salesEvol, quotesEvol] = await Promise.all([
-      supabase.from('sales').select('sale_date,total').gte('sale_date',ini6m),
-      supabase.from('quotes').select('created_at,status').gte('created_at',ini6m),
-    ])
+    const salesEvol = await supabase.from("sales").select("sale_date,total").gte("sale_date",ini6m)
+    const quotesEvol = await supabase.from("quotes").select("created_at,total").gte("created_at",ini6m)
     const evolMap = {}
-    for(let i=5;i>=0;i--) {
-      const d=new Date()
-      d.setMonth(d.getMonth()-i)
-      d.setDate(1)
-      const k=d.toISOString().slice(0,7)
-      evolMap[k]={mes:k,label:d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}),vendas:0,cotacoes:0}
+    for(let gi=5;gi>=0;gi--){
+      const gd=new Date(); gd.setMonth(gd.getMonth()-gi); gd.setDate(1)
+      const gk=gd.toISOString().slice(0,7)
+      evolMap[gk]={mes:gk,label:gd.toLocaleDateString("pt-BR",{month:"short",year:"2-digit"}),vendas:0,cotacoes:0}
     }
-    ;(salesEvol.data||[]).forEach(function(s){ const k=s.sale_date&&s.sale_date.slice(0,7); if(evolMap[k]) evolMap[k].vendas+=Number(s.total||0) })
-    ;(quotesEvol.data||[]).forEach(function(q){ const k=q.created_at&&q.created_at.slice(0,7); if(evolMap[k]) evolMap[k].cotacoes++ })
+    ;(salesEvol.data||[]).forEach(s=>{ const k=s.sale_date&&s.sale_date.slice(0,7); if(evolMap[k]) evolMap[k].vendas+=Number(s.total||0) })
+    ;(quotesEvol.data||[]).forEach(q=>{ const k=q.created_at&&q.created_at.slice(0,7); if(evolMap[k]) evolMap[k].cotacoes+=Number(q.total||0) })
     const evolucaoMensal = Object.values(evolMap)
-
 
     // Cotações em aberto
     const {data:quotesData} = await supabase.from('quotes').select('status,total')
@@ -270,62 +264,71 @@ export default function RelatorioMensal() {
     kpis2.forEach((k,i)=>kpiBox(k.label,k.value,margin+i*(colW+4),colW,k.cor))
     y+=22
 
-    // GRAFICO Cotacoes vs Vendas
+    // Grafico linhas
     if(dados.evolucaoMensal && dados.evolucaoMensal.length > 0) {
-      checkPage(80)
-      titulo('Cotacoes Geradas vs Vendas Realizadas - ultimos 6 meses',13,laranja)
+      checkPage(85)
+      titulo("Cotacoes vs Vendas - ultimos 6 meses (R$)",13,laranja)
       linha()
       const evol = dados.evolucaoMensal
-      const gX = margin, gY = y, gW = W-margin*2, gH = 55
-      const maxCot = Math.max(...evol.map(function(e){ return e.cotacoes }), 1)
-      const maxVen = Math.max(...evol.map(function(e){ return e.vendas }), 1)
-      const barW = (gW/evol.length)*0.3
-      const gap = gW/evol.length
-      doc.setFillColor(248,248,248)
-      doc.rect(gX,gY,gW,gH,'F')
-      doc.setDrawColor(220,220,220)
-      doc.rect(gX,gY,gW,gH)
-      for(let ei=0; ei<evol.length; ei++) {
-        const e = evol[ei]
-        const x = gX + ei*gap + gap*0.1
-        const hCot = e.cotacoes>0 ? Math.max(2,(e.cotacoes/maxCot)*(gH-18)) : 1
-        doc.setFillColor(240,125,26)
-        doc.rect(x, gY+gH-14-hCot, barW, hCot, 'F')
-        const hVen = e.vendas>0 ? Math.max(2,(e.vendas/maxVen)*(gH-18)) : 1
-        doc.setFillColor(47,158,68)
-        doc.rect(x+barW+2, gY+gH-14-hVen, barW, hVen, 'F')
-        if(e.cotacoes>0) {
-          doc.setFontSize(5.5)
-          doc.setTextColor(240,125,26)
-          doc.setFont('helvetica','bold')
-          doc.text(String(e.cotacoes), x+barW/2, gY+gH-14-hCot-1.5, {align:'center'})
-        }
-        if(e.vendas>0) {
-          doc.setFontSize(5.5)
-          doc.setTextColor(47,158,68)
-          doc.setFont('helvetica','bold')
-          const vLabel = e.vendas>=1000 ? (e.vendas/1000).toFixed(1)+'k' : String(Math.round(e.vendas))
-          doc.text('R$'+vLabel, x+barW*1.5+2, gY+gH-14-hVen-1.5, {align:'center'})
-        }
-        doc.setFontSize(6)
-        doc.setTextColor(120,120,120)
-        doc.setFont('helvetica','normal')
-        doc.text(e.label, x+barW+1, gY+gH-5, {align:'center'})
+      const gX=margin, gY=y, gW=W-margin*2, gH=60
+      const maxV=Math.max(...evol.map(e=>Math.max(e.cotacoes,e.vendas)),1)
+      const step=gW/((evol.length-1)||1)
+      doc.setFillColor(248,248,248); doc.rect(gX,gY,gW,gH,"F")
+      doc.setDrawColor(220,220,220); doc.rect(gX,gY,gW,gH)
+      doc.setLineWidth(0.2)
+      for(let gi=0;gi<=4;gi++){
+        const gy=gY+4+(gH-20)*gi/4
+        doc.setDrawColor(235,235,235); doc.line(gX,gy,gX+gW,gy)
       }
-      y += gH + 4
+      doc.setDrawColor(240,125,26); doc.setLineWidth(1.2)
+      for(let gi=0;gi<evol.length-1;gi++){
+        const x1=gX+gi*step,x2=gX+(gi+1)*step
+        const y1=gY+4+(gH-20)*(1-evol[gi].cotacoes/maxV)
+        const y2=gY+4+(gH-20)*(1-evol[gi+1].cotacoes/maxV)
+        doc.line(x1,y1,x2,y2)
+      }
       doc.setFillColor(240,125,26)
-      doc.rect(gX,y,5,4,'F')
-      doc.setFontSize(7)
-      doc.setTextColor(50,50,50)
-      doc.setFont('helvetica','normal')
-      doc.text('Cotacoes geradas (qtd)',gX+7,y+3.5)
+      evol.forEach((e,gi)=>{
+        const x1=gX+gi*step
+        const y1=gY+4+(gH-20)*(1-e.cotacoes/maxV)
+        doc.circle(x1,y1,1.2,"F")
+        if(e.cotacoes>0){
+          const lb=e.cotacoes>=1000?(e.cotacoes/1000).toFixed(1)+"k":String(Math.round(e.cotacoes))
+          doc.setFontSize(5); doc.setTextColor(240,125,26); doc.setFont("helvetica","bold")
+          doc.text("R$"+lb,x1,y1-2.5,{align:"center"})
+        }
+      })
+      doc.setDrawColor(47,158,68); doc.setLineWidth(1.2)
+      for(let gi=0;gi<evol.length-1;gi++){
+        const x1=gX+gi*step,x2=gX+(gi+1)*step
+        const y1=gY+4+(gH-20)*(1-evol[gi].vendas/maxV)
+        const y2=gY+4+(gH-20)*(1-evol[gi+1].vendas/maxV)
+        doc.line(x1,y1,x2,y2)
+      }
       doc.setFillColor(47,158,68)
-      doc.rect(gX+65,y,5,4,'F')
-      doc.text('Vendas realizadas (R$)',gX+72,y+3.5)
-      y += 12
+      evol.forEach((e,gi)=>{
+        const x1=gX+gi*step
+        const y1=gY+4+(gH-20)*(1-e.vendas/maxV)
+        doc.circle(x1,y1,1.2,"F")
+        if(e.vendas>0){
+          const lb=e.vendas>=1000?(e.vendas/1000).toFixed(1)+"k":String(Math.round(e.vendas))
+          doc.setFontSize(5); doc.setTextColor(47,158,68); doc.setFont("helvetica","bold")
+          doc.text("R$"+lb,x1,y1-2.5,{align:"center"})
+        }
+      })
+      evol.forEach((e,gi)=>{
+        const x1=gX+gi*step
+        doc.setFontSize(6); doc.setTextColor(120,120,120); doc.setFont("helvetica","normal")
+        doc.text(e.label,x1,gY+gH-3,{align:"center"})
+      })
+      y+=gH+6
+      doc.setFillColor(240,125,26); doc.rect(gX,y,5,3,"F")
+      doc.setFontSize(7); doc.setTextColor(50,50,50); doc.setFont("helvetica","normal")
+      doc.text("Cotacoes geradas (R$)",gX+7,y+2.5)
+      doc.setFillColor(47,158,68); doc.rect(gX+65,y,5,3,"F")
+      doc.text("Vendas realizadas (R$)",gX+72,y+2.5)
+      y+=10
     }
-
-
 
     // ── COMPARATIVO ───────────────────────────────────────────────────────────
     checkPage(40)
