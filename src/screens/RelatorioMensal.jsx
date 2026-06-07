@@ -301,7 +301,7 @@ export default function RelatorioMensal() {
         if(e.vendas>0) {
           doc.setFontSize(5.5); doc.setTextColor(...verde); doc.setFont('helvetica','bold')
           const vLabel = e.vendas>=1000 ? (e.vendas/1000).toFixed(1)+'k' : String(Math.round(e.vendas))
-          doc.text('R
+          doc.text('R$'+vLabel, x+barW*1.5+2, gY+gH-14-hVen-1.5, {align:'center'})
     checkPage(40)
     titulo('Comparativo com Mês Anterior',13,laranja)
     linha()
