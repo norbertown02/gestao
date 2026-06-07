@@ -13,6 +13,7 @@ import Regioes from './screens/Regioes'
 import Config from './screens/Config'
 import Pipeline from './screens/Pipeline'
 import RelatorioMensal from './screens/RelatorioMensal'
+import Cotacoes from './screens/Cotacoes'
 import DashboardTime from './screens/DashboardTime'
 
 function AppContent() {
@@ -35,6 +36,7 @@ function AppContent() {
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/time" element={<DashboardTime />} />
           <Route path="/relatorio" element={<RelatorioMensal />} />
+          <Route path="/cotacoes" element={<Cotacoes />} />
           <Route path="/config"     element={<Config />} />
         </Routes>
       </div>

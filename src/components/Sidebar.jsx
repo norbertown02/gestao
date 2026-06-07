@@ -15,6 +15,7 @@ const NAV = [
   { to: '/vendedores',  label: 'Vendedores',           Icon: IconUsers },
   { to: '/regioes',     label: 'Regiões',              Icon: IconMapPin },
   { to: '/produtos',    label: 'Produtos',             Icon: IconBuildingStore },
+  { to: '/cotacoes',    label: 'Cotações',              Icon: IconChartPie },
   { to: '/relatorio',   label: 'Relatório de Vendas',  Icon: IconFileText },
   { section: 'Time' },
   { to: '/time',        label: 'Dashboard do Time',    Icon: IconChartPie },

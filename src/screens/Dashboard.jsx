@@ -38,6 +38,8 @@ export default function Dashboard() {
   const [topVend,    setTopVend]    = useState([])
   const [topFazend,  setTopFazend]  = useState([])
   const [loading,    setLoading]    = useState(true)
+  const [cotacoes,   setCotacoes]   = useState({abertas:0,valorAberto:0,txConversao:0})
+  const [cotacoes,   setCotacoes]   = useState({abertas:0,valorAberto:0,txConversao:0})
 
   useEffect(() => { carregar() }, [])
 
@@ -65,6 +67,26 @@ export default function Dashboard() {
     const ativas=new Set((allSales||[]).filter(s=>new Date(s.sale_date)>=d90).map(s=>s.farm_id))
 
     setKpis({fatMes,fatAnt,pedMes:sm.length,pedAnt:sa.length,tickMes,tickAnt,visitMes:vm.length,visitAnt:va.length,carteiraAtiva:ativas.size,carteiraTot:fs.length})
+
+    // Cotações
+    const {data:quotes} = await supabase.from('quotes').select('status,total')
+    const qs = quotes||[]
+    const abertas = qs.filter(q=>q.status==='rascunho'||q.status==='enviada')
+    const convertidas = qs.filter(q=>q.status==='convertida').length
+    const enviadas = qs.filter(q=>q.status==='enviada').length
+    const valorAberto = abertas.reduce((a,q)=>a+Number(q.total||0),0)
+    const txConversao = (enviadas+convertidas)>0 ? Math.round(convertidas/(enviadas+convertidas)*100) : 0
+    setCotacoes({abertas:abertas.length, valorAberto, txConversao})
+
+    // Cotações
+    const {data:quotes} = await supabase.from('quotes').select('status,total')
+    const qs = quotes||[]
+    const abertas = qs.filter(q=>q.status==='rascunho'||q.status==='enviada')
+    const convertidas = qs.filter(q=>q.status==='convertida').length
+    const enviadas = qs.filter(q=>q.status==='enviada').length
+    const valorAberto = abertas.reduce((a,q)=>a+Number(q.total||0),0)
+    const txConversao = (enviadas+convertidas)>0 ? Math.round(convertidas/(enviadas+convertidas)*100) : 0
+    setCotacoes({abertas:abertas.length, valorAberto, txConversao})
 
     // Evolução diária
     const diasMes={}
@@ -118,13 +140,20 @@ export default function Dashboard() {
       <div className="page" style={{overflowY:'auto'}}>
 
         {/* KPIs */}
-        <div className="kpi-grid">
+        <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)'}}>
+        <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)',marginTop:0}}>
           {[
             {label:'Faturamento mensal', value:fmtK(kpis.fatMes),   at:kpis.fatMes,   ant:kpis.fatAnt},
             {label:'Pedidos no mês',     value:kpis.pedMes,          at:kpis.pedMes,   ant:kpis.pedAnt},
             {label:'Ticket médio',       value:fmtK(kpis.tickMes),   at:kpis.tickMes,  ant:kpis.tickAnt},
             {label:'Visitas no mês',     value:kpis.visitMes,        at:kpis.visitMes, ant:kpis.visitAnt},
             {label:'Carteira ativa',     value:kpis.carteiraAtiva,   sub:`de ${kpis.carteiraTot} fazendas`},
+            {label:'Cotações em aberto',  value:cotacoes.abertas,     sub:'propostas pendentes'},
+            {label:'Pipeline de vendas',  value:fmtK(cotacoes.valorAberto), sub:'valor em cotações abertas'},
+            {label:'Taxa de conversão',   value:cotacoes.txConversao+'%', sub:'cotações convertidas'},
+            {label:'Cotações em aberto',  value:cotacoes.abertas,     sub:'propostas pendentes'},
+            {label:'Pipeline de vendas',  value:fmtK(cotacoes.valorAberto), sub:'valor em cotações abertas'},
+            {label:'Taxa de conversão',   value:cotacoes.txConversao+'%', sub:'cotações convertidas'},
           ].map(k=>(
             <div key={k.label} className="kpi">
               <div className="label">{k.label}</div>
