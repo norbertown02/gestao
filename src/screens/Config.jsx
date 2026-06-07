@@ -123,7 +123,13 @@ function VendedoresSection() {
 
   async function addSeller() {
     setSaving(true); setMsg('')
-    const { error } = await supabase.from('sellers').insert({name:form.name,email:form.email,password:form.password,role:form.role})
+    // Cria usuário no Auth
+    const { data: authData, error: authError } = await supabase.auth.admin?.createUser?.({
+      email: form.email, password: form.password,
+      user_metadata: { name: form.name, role: form.role }
+    })
+    const user_id = authData?.user?.id || null
+    const { error } = await supabase.from('sellers').insert({name:form.name,email:form.email,role:form.role,user_id,active:true})
     if (!error) { setMsg('Vendedor cadastrado!'); setForm({name:'',email:'',password:'',role:'vendedor'}); setAdding(false); load() }
     else setMsg('Erro: '+error.message)
     setSaving(false)
