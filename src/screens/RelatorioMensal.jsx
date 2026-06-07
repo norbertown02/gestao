@@ -81,6 +81,12 @@ export default function RelatorioMensal() {
       supabase.from('appointments').select('*').gte('appointment_date',toISO(new Date())).lte('appointment_date',toISO(new Date(new Date().setDate(new Date().getDate()+30)))),
     ])
 
+    // Cotações em aberto
+    const {data:quotesData} = await supabase.from('quotes').select('status,total')
+    const qs = quotesData||[]
+    const cotacoesAbertas = qs.filter(q=>q.status==='rascunho'||q.status==='enviada')
+    const valorCotacoesAbertas = cotacoesAbertas.reduce((a,q)=>a+Number(q.total||0),0)
+
     const sm=salesMes.data||[], sa=salesAnt.data||[]
     const vm=visitsMes.data||[], va=visitsAnt.data||[]
     const fs=farms.data||[], ck=checklists.data||[], sl=sellers.data||[]
@@ -156,6 +162,7 @@ export default function RelatorioMensal() {
       topVendedores,topFazendas,segMap,
       novasFazendas,esquecidas,comDesconto,
       proximas,sellers:sl,farms:fs,fazendasEmQueda,vendedoresEmQueda,
+      cotacoesAbertas:cotacoesAbertas.length,valorCotacoesAbertas,
     })
     setLoading(false)
   }
@@ -384,38 +391,65 @@ export default function RelatorioMensal() {
 
   return (
     <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
-      <Topbar title="Relatório Mensal" subtitle="Relatório executivo em PDF"/>
+      <Topbar title="Relatório de Vendas" subtitle="Mensal, trimestral ou anual em PDF"/>
       <div className="page" style={{overflowY:'auto'}}>
 
-        {/* Seletor de mês */}
-        <div className="card" style={{marginBottom:20,maxWidth:500}}>
-          <div className="section-title">Gerar relatório</div>
-          <div style={{display:'flex',gap:12,alignItems:'center',marginTop:8}}>
-            <div style={{flex:1}}>
-              <label>Mês de referência</label>
-              <select
-                value={`${mesSel.ano}-${mesSel.mes}`}
-                onChange={e=>{
-                  const [ano,mes]=e.target.value.split('-').map(Number)
-                  setMesSel({ano,mes,label:new Date(ano,mes-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})})
-                }}
-                style={{marginTop:4}}
-              >
-                {mesesOpcoes.map(m=>(
-                  <option key={`${m.ano}-${m.mes}`} value={`${m.ano}-${m.mes}`}>
-                    {m.label.charAt(0).toUpperCase()+m.label.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              className="btn btn-primary"
-              onClick={gerarPDF}
-              disabled={loading||gerandoPDF||!dados}
-              style={{marginTop:20,minWidth:160}}
-            >
-              <IconDownload size={15}/>
-              {gerandoPDF?'Gerando PDF...':'Baixar PDF'}
+        {/* Seletor de período */}
+        <div className="card" style={{marginBottom:20}}>
+          <div className="section-title">Relatório de Vendas</div>
+          <div style={{display:'flex',gap:8,marginBottom:16,marginTop:8}}>
+            {['mensal','trimestral','anual'].map(t=>(
+              <button key={t} onClick={()=>setTipoPeriodo(t)}
+                className={`btn ${tipoPeriodo===t?'btn-primary':'btn-ghost'} btn-sm`}
+                style={{textTransform:'capitalize'}}>
+                {t.charAt(0).toUpperCase()+t.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div style={{display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap'}}>
+            {tipoPeriodo==='mensal' && (
+              <div style={{flex:1,minWidth:180}}>
+                <label>Mês de referência</label>
+                <select value={`${mesSel.ano}-${mesSel.mes}`}
+                  onChange={e=>{ const [ano,mes]=e.target.value.split('-').map(Number); setMesSel({ano,mes,label:new Date(ano,mes-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}) }}
+                  style={{marginTop:4}}>
+                  {mesesOpcoes.map(m=>(
+                    <option key={`${m.ano}-${m.mes}`} value={`${m.ano}-${m.mes}`}>
+                      {m.label.charAt(0).toUpperCase()+m.label.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {tipoPeriodo==='trimestral' && (
+              <>
+                <div style={{flex:1,minWidth:120}}>
+                  <label>Trimestre</label>
+                  <select value={trimSel} onChange={e=>setTrimSel(Number(e.target.value))} style={{marginTop:4}}>
+                    <option value={1}>1º Trimestre (Jan-Mar)</option>
+                    <option value={2}>2º Trimestre (Abr-Jun)</option>
+                    <option value={3}>3º Trimestre (Jul-Set)</option>
+                    <option value={4}>4º Trimestre (Out-Dez)</option>
+                  </select>
+                </div>
+                <div style={{flex:1,minWidth:100}}>
+                  <label>Ano</label>
+                  <select value={anoSel} onChange={e=>setAnoSel(Number(e.target.value))} style={{marginTop:4}}>
+                    {[0,1,2].map(i=><option key={i} value={new Date().getFullYear()-i}>{new Date().getFullYear()-i}</option>)}
+                  </select>
+                </div>
+              </>
+            )}
+            {tipoPeriodo==='anual' && (
+              <div style={{flex:1,minWidth:100}}>
+                <label>Ano</label>
+                <select value={anoSel} onChange={e=>setAnoSel(Number(e.target.value))} style={{marginTop:4}}>
+                  {[0,1,2].map(i=><option key={i} value={new Date().getFullYear()-i}>{new Date().getFullYear()-i}</option>)}
+                </select>
+              </div>
+            )}
+            <button className="btn btn-primary" onClick={gerarPDF} disabled={loading||gerandoPDF||!dados} style={{minWidth:160}}>
+              <IconDownload size={15}/>{gerandoPDF?'Gerando PDF...':'Baixar PDF'}
             </button>
           </div>
         </div>
@@ -425,7 +459,8 @@ export default function RelatorioMensal() {
             {/* Preview do relatório */}
             <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
               {[
-                {label:'Faturamento',   value:fmtK(dados.fatMes),    sub:`vs ${fmtK(dados.fatAnt)} mês ant.`, cor:parseFloat(pct(dados.fatMes,dados.fatAnt))>=0?'var(--green)':'var(--red)'},
+                {label:'Cotações abertas', value:dados.cotacoesAbertas, sub:`R$ ${fmtK(dados.valorCotacoesAbertas)} em aberto`},
+                {label:'Faturamento',   value:fmtK(dados.fatMes),    sub:`vs ${fmtK(dados.fatAnt)} período ant.`, cor:parseFloat(pct(dados.fatMes,dados.fatAnt))>=0?'var(--green)':'var(--red)'},
                 {label:'Pedidos',       value:dados.pedMes,           sub:`vs ${dados.pedAnt} mês ant.`},
                 {label:'Visitas',       value:dados.visitMes,         sub:`vs ${dados.visitAnt} mês ant.`},
                 {label:'Score médio',   value:dados.scoreMedia||'—',  sub:`${dados.checklists} checklists`},
