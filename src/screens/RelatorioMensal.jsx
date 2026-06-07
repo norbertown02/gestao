@@ -457,12 +457,12 @@ export default function RelatorioMensal() {
         {loading?<div className="empty">Carregando dados do mês...</div>:dados&&(
           <>
             {/* Preview do relatório */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:12,marginBottom:20}}>
               {[
                 {label:'Cotações abertas', value:dados.cotacoesAbertas, sub:`R$ ${fmtK(dados.valorCotacoesAbertas)} em aberto`},
-                {label:'Faturamento',   value:fmtK(dados.fatMes),    sub:`vs ${fmtK(dados.fatAnt)} período ant.`, cor:parseFloat(pct(dados.fatMes,dados.fatAnt))>=0?'var(--green)':'var(--red)'},
-                {label:'Pedidos',       value:dados.pedMes,           sub:`vs ${dados.pedAnt} mês ant.`},
-                {label:'Visitas',       value:dados.visitMes,         sub:`vs ${dados.visitAnt} mês ant.`},
+                {label:'Faturamento',   value:fmtK(dados.fatMes),    sub:`vs ${fmtK(dados.fatAnt)} ${tipoPeriodo==='mensal'?'mês ant.':tipoPeriodo==='trimestral'?'trim. ant.':'ano ant.'}`, cor:parseFloat(pct(dados.fatMes,dados.fatAnt))>=0?'var(--green)':'var(--red)'},
+                {label:'Pedidos',       value:dados.pedMes,           sub:`vs ${dados.pedAnt} ${tipoPeriodo==='mensal'?'mês ant.':tipoPeriodo==='trimestral'?'trim. ant.':'ano ant.'}`},
+                {label:'Visitas',       value:dados.visitMes,         sub:`vs ${dados.visitAnt} ${tipoPeriodo==='mensal'?'mês ant.':tipoPeriodo==='trimestral'?'trim. ant.':'ano ant.'}`},
                 {label:'Score médio',   value:dados.scoreMedia||'—',  sub:`${dados.checklists} checklists`},
               ].map(k=>(
                 <div key={k.label} className="kpi">
