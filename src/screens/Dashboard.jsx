@@ -139,26 +139,33 @@ export default function Dashboard() {
       <Topbar title="Dashboard Executivo" subtitle="Visão geral da operação — mês corrente"/>
       <div className="page" style={{overflowY:'auto'}}>
 
-        {/* KPIs */}
-        <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)'}}>
-        <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)',marginTop:0}}>
+        {/* KPIs vendas */}
+        <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)',marginBottom:12}}>
           {[
-            {label:'Faturamento mensal', value:fmtK(kpis.fatMes),   at:kpis.fatMes,   ant:kpis.fatAnt},
-            {label:'Pedidos no mês',     value:kpis.pedMes,          at:kpis.pedMes,   ant:kpis.pedAnt},
-            {label:'Ticket médio',       value:fmtK(kpis.tickMes),   at:kpis.tickMes,  ant:kpis.tickAnt},
-            {label:'Visitas no mês',     value:kpis.visitMes,        at:kpis.visitMes, ant:kpis.visitAnt},
-            {label:'Carteira ativa',     value:kpis.carteiraAtiva,   sub:`de ${kpis.carteiraTot} fazendas`},
-            {label:'Cotações em aberto',  value:cotacoes.abertas,     sub:'propostas pendentes'},
-            {label:'Pipeline de vendas',  value:fmtK(cotacoes.valorAberto), sub:'valor em cotações abertas'},
-            {label:'Taxa de conversão',   value:cotacoes.txConversao+'%', sub:'cotações convertidas'},
-            {label:'Cotações em aberto',  value:cotacoes.abertas,     sub:'propostas pendentes'},
-            {label:'Pipeline de vendas',  value:fmtK(cotacoes.valorAberto), sub:'valor em cotações abertas'},
-            {label:'Taxa de conversão',   value:cotacoes.txConversao+'%', sub:'cotações convertidas'},
+            {label:'Faturamento mensal', value:fmtK(kpis.fatMes),  at:kpis.fatMes,  ant:kpis.fatAnt},
+            {label:'Pedidos no mês',     value:kpis.pedMes,         at:kpis.pedMes,  ant:kpis.pedAnt},
+            {label:'Ticket médio',       value:fmtK(kpis.tickMes),  at:kpis.tickMes, ant:kpis.tickAnt},
+            {label:'Carteira ativa',     value:kpis.carteiraAtiva,  sub:`de ${kpis.carteiraTot} fazendas`},
           ].map(k=>(
             <div key={k.label} className="kpi">
               <div className="label">{k.label}</div>
               <div className="value">{k.value}</div>
               {k.ant!==undefined ? <VarBadge atual={k.at} anterior={k.ant}/> : <div className="sub">{k.sub}</div>}
+            </div>
+          ))}
+        </div>
+
+        {/* KPIs cotações */}
+        <div className="kpi-grid" style={{gridTemplateColumns:'repeat(3,1fr)',marginBottom:20}}>
+          {[
+            {label:'Cotações em aberto',  value:cotacoes.abertas,                    sub:'propostas pendentes'},
+            {label:'Pipeline de vendas',  value:fmtK(cotacoes.valorAberto),          sub:'valor em aberto'},
+            {label:'Taxa de conversão',   value:cotacoes.txConversao+'%',            sub:'enviadas convertidas'},
+          ].map(k=>(
+            <div key={k.label} className="kpi">
+              <div className="label">{k.label}</div>
+              <div className="value">{k.value}</div>
+              <div className="sub">{k.sub}</div>
             </div>
           ))}
         </div>
