@@ -81,6 +81,24 @@ export default function RelatorioMensal() {
       supabase.from('appointments').select('*').gte('appointment_date',toISO(new Date())).lte('appointment_date',toISO(new Date(new Date().setDate(new Date().getDate()+30)))),
     ])
 
+    // Evolução últimos 6 meses para gráfico
+    const d6m = new Date(); d6m.setMonth(d6m.getMonth()-5); d6m.setDate(1)
+    const ini6m = toISO(d6m)
+    const [salesEvol, quotesEvol] = await Promise.all([
+      supabase.from('sales').select('sale_date,total').gte('sale_date',ini6m),
+      supabase.from('quotes').select('created_at,status').gte('created_at',ini6m),
+    ])
+    // Agrupa por mês
+    const evolMap = {}
+    for(let i=5;i>=0;i--) {
+      const d=new Date(); d.setMonth(d.getMonth()-i); d.setDate(1)
+      const k=d.toISOString().slice(0,7)
+      evolMap[k]={mes:k,label:d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}),vendas:0,cotacoes:0}
+    }
+    ;(salesEvol.data||[]).forEach(s=>{ const k=s.sale_date?.slice(0,7); if(evolMap[k]) evolMap[k].vendas+=Number(s.total||0) })
+    ;(quotesEvol.data||[]).forEach(q=>{ const k=q.created_at?.slice(0,7); if(evolMap[k]) evolMap[k].cotacoes++ })
+    const evolucaoMensal = Object.values(evolMap)
+
     // Cotações em aberto
     const {data:quotesData} = await supabase.from('quotes').select('status,total')
     const qs = quotesData||[]
@@ -162,7 +180,7 @@ export default function RelatorioMensal() {
       topVendedores,topFazendas,segMap,
       novasFazendas,esquecidas,comDesconto,
       proximas,sellers:sl,farms:fs,fazendasEmQueda,vendedoresEmQueda,
-      cotacoesAbertas:cotacoesAbertas.length,valorCotacoesAbertas,
+      cotacoesAbertas:cotacoesAbertas.length,valorCotacoesAbertas,evolucaoMensal,
     })
     setLoading(false)
   }
