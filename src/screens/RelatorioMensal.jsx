@@ -254,7 +254,7 @@ export default function RelatorioMensal() {
     linha()
     autoTable(doc,{
       startY:y,
-      head:[['Métrica','Mês atual','Mês anterior','Variação']],
+      head:[['Métrica','Período atual','Período anterior','Variação']],
       body:[
         ['Faturamento',fmtK(dados.fatMes),fmtK(dados.fatAnt),(varFat>=0?'+':'')+varFat+'%'],
         ['Pedidos',dados.pedMes,dados.pedAnt,(varPed>=0?'+':'')+varPed+'%'],
@@ -327,7 +327,7 @@ export default function RelatorioMensal() {
       subtitulo('Fazendas com queda de faturamento >40% vs mês anterior:')
       autoTable(doc,{
         startY:y,
-        head:[['Fazenda','Segmento','Mês atual','Mês anterior','Queda']],
+        head:[['Fazenda','Segmento','Período atual','Período anterior','Queda']],
         body:dados.fazendasEmQueda.map(f=>[f.name,f.segment||'—','R$ '+fmt(f.atual),'R$ '+fmt(f.anterior),'-'+f.queda+'%']),
         theme:'striped',
         headStyles:{fillColor:[224,49,49],textColor:[255,255,255],fontSize:9},
@@ -343,7 +343,7 @@ export default function RelatorioMensal() {
       subtitulo('Vendedores com queda de faturamento >30% vs mês anterior:')
       autoTable(doc,{
         startY:y,
-        head:[['Vendedor','Mês atual','Mês anterior','Queda']],
+        head:[['Vendedor','Período atual','Período anterior','Queda']],
         body:dados.vendedoresEmQueda.map(s=>[s.name,'R$ '+fmt(s.atual),'R$ '+fmt(s.anterior),'-'+s.queda+'%']),
         theme:'striped',
         headStyles:{fillColor:[224,49,49],textColor:[255,255,255],fontSize:9},
