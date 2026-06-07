@@ -27,7 +27,7 @@ export default function Cotacoes() {
     setLoading(true)
     const [rQuotes, rSellers, rFarms] = await Promise.all([
       supabase.from('quotes').select('*').order('created_at', {ascending: false}),
-      supabase.from('sellers').select('id,name,email'),
+      supabase.from('sellers').select('id,name,email,user_id').eq('active',true),
       supabase.from('farms').select('id,name,segment,prospect'),
     ])
     setQuotes(rQuotes.data || [])
