@@ -95,12 +95,7 @@ export default function Dashboard() {
     ;(quotesEvol6.data||[]).forEach(q=>{ const k=q.created_at&&q.created_at.slice(0,7); if(em[k]) em[k].Cotacoes+=Number(q.total||0) })
     setEvolucao(Object.values(em))
 
-    // Evolução diária (mantido para compatibilidade)
-    const diasMes={}
-    sm.forEach(s=>{ diasMes[s.sale_date]=(diasMes[s.sale_date]||0)+Number(s.total||0) })
-    setEvolucao(Object.entries(diasMes).sort().map(([d,v])=>({
-      data: new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}), Receita:v
-    })))
+    // Evolucao diaria removida - usando evolucao mensal acima
 
     // Segmentos
     const segMap={}
