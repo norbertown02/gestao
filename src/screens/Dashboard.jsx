@@ -74,7 +74,7 @@ export default function Dashboard() {
     const convertidas = qs.filter(q=>q.status==='convertida').length
     const enviadas = qs.filter(q=>q.status==='enviada').length
     const valorAberto = abertas.reduce((a,q)=>a+Number(q.total||0),0)
-    const txConversao = (enviadas+convertidas)>0 ? Math.round(convertidas/(enviadas+convertidas)*100) : 0
+    const txConversao = qs.length>0 ? Math.round(convertidas/qs.length*100) : 0
     setCotacoes({abertas:abertas.length, valorAberto, txConversao})
 
 
@@ -150,7 +150,7 @@ export default function Dashboard() {
           {[
             {label:'Cotações em aberto',  value:cotacoes.abertas,                    sub:'propostas pendentes'},
             {label:'Pipeline de vendas',  value:fmtK(cotacoes.valorAberto),          sub:'valor em aberto'},
-            {label:'Taxa de conversão',   value:cotacoes.txConversao+'%',            sub:'enviadas convertidas'},
+            {label:'Taxa de conversão',   value:cotacoes.txConversao+'%',            sub:'do total criado'},
           ].map(k=>(
             <div key={k.label} className="kpi">
               <div className="label">{k.label}</div>
