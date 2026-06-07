@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import { IconTrendingUp, IconTrendingDown, IconMinus, IconAlertTriangle, IconClock, IconStar } from '@tabler/icons-react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 
 function fmt(n) { return Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
 function fmtK(n) {
@@ -78,7 +78,24 @@ export default function Dashboard() {
     setCotacoes({abertas:abertas.length, valorAberto, txConversao})
 
 
-    // Evolução diária
+    // Evolucao 6 meses - vendas e cotacoes
+    const d6m = new Date(); d6m.setMonth(d6m.getMonth()-5); d6m.setDate(1)
+    const ini6m = d6m.toISOString().split('T')[0]
+    const [salesEvol6, quotesEvol6] = await Promise.all([
+      supabase.from('sales').select('sale_date,total').gte('sale_date',ini6m),
+      supabase.from('quotes').select('created_at,total').gte('created_at',ini6m),
+    ])
+    const em = {}
+    for(let gi=5;gi>=0;gi--){
+      const gd=new Date(); gd.setMonth(gd.getMonth()-gi); gd.setDate(1)
+      const gk=gd.toISOString().slice(0,7)
+      em[gk]={data:gd.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}),Vendas:0,Cotacoes:0}
+    }
+    ;(salesEvol6.data||[]).forEach(s=>{ const k=s.sale_date&&s.sale_date.slice(0,7); if(em[k]) em[k].Vendas+=Number(s.total||0) })
+    ;(quotesEvol6.data||[]).forEach(q=>{ const k=q.created_at&&q.created_at.slice(0,7); if(em[k]) em[k].Cotacoes+=Number(q.total||0) })
+    setEvolucao(Object.values(em))
+
+    // Evolução diária (mantido para compatibilidade)
     const diasMes={}
     sm.forEach(s=>{ diasMes[s.sale_date]=(diasMes[s.sale_date]||0)+Number(s.total||0) })
     setEvolucao(Object.entries(diasMes).sort().map(([d,v])=>({
@@ -163,18 +180,20 @@ export default function Dashboard() {
         {/* Gráficos */}
         <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:20}}>
           <div className="card">
-            <div className="section-title">Evolução do faturamento</div>
+            <div className="section-title">Vendas vs Cotações — últimos 6 meses</div>
             {evolucao.length>0 ? (
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={evolucao} margin={{top:4,right:8,left:-16,bottom:0}}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/>
                   <XAxis dataKey="data" tick={{fontSize:11}}/>
-                  <YAxis tick={{fontSize:11}} tickFormatter={v=>`R$${(v/1000).toFixed(0)}k`}/>
-                  <Tooltip formatter={v=>[`R$ ${fmt(v)}`,'Receita']}/>
-                  <Line type="monotone" dataKey="Receita" stroke="var(--orange)" strokeWidth={2} dot={false}/>
+                  <YAxis tick={{fontSize:11}} tickFormatter={v=>`R${(v/1000).toFixed(0)}k`}/>
+                  <Tooltip formatter={(v,n)=>[`R$ ${fmt(v)}`,n]}/>
+                  <Legend wrapperStyle={{fontSize:11}}/>
+                  <Line type="monotone" dataKey="Vendas" stroke="var(--green)" strokeWidth={2} dot={{r:3}}/>
+                  <Line type="monotone" dataKey="Cotacoes" stroke="var(--orange)" strokeWidth={2} dot={{r:3}} strokeDasharray="4 2"/>
                 </LineChart>
               </ResponsiveContainer>
-            ) : <div className="empty" style={{padding:40}}>Sem vendas no mês</div>}
+            ) : <div className="empty" style={{padding:40}}>Sem dados</div>}
           </div>
           <div className="card">
             <div className="section-title">Por segmento</div>
