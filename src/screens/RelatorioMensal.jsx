@@ -77,7 +77,7 @@ export default function RelatorioMensal() {
       supabase.from('visits').select('*').gte('visit_date',iniAnt).lte('visit_date',fimAnt),
       supabase.from('farms').select('*').eq('status','ativo'),
       supabase.from('checklists').select('*').gte('applied_at',ini).lte('applied_at',fim),
-      supabase.from('sellers').select('*').eq('active',true),
+      supabase.from('profiles').select('*').eq('active',true),
       supabase.from('appointments').select('*').gte('appointment_date',toISO(new Date())).lte('appointment_date',toISO(new Date(new Date().setDate(new Date().getDate()+30)))),
     ])
 

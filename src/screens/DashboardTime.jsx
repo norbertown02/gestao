@@ -25,7 +25,7 @@ export default function DashboardTime() {
     const d7f = toISO(new Date(hoje.getTime() + 7*86400000))
 
     const [rSellers, rFarms, rVisitsMes, rAllVisits, rSalesMes, rChecks, rAppointments] = await Promise.all([
-      supabase.from('sellers').select('*').eq('active', true),
+      supabase.from('profiles').select('*').eq('active', true),
       supabase.from('farms').select('*').eq('status', 'ativo'),
       supabase.from('visits').select('*').gte('visit_date', inicioMes).lte('visit_date', fimMes),
       supabase.from('visits').select('farm_id,visit_date,seller_id,outcome').gte('visit_date', d90),

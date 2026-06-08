@@ -32,7 +32,7 @@ export default function Vendedores() {
 
   async function carregar() {
     const [sl,fs]=await Promise.all([
-      supabase.from('sellers').select('*').eq('active',true).order('name'),
+      supabase.from('profiles').select('*').eq('active',true).order('name'),
       supabase.from('farms').select('*'),
     ])
     setSellers(sl.data||[])

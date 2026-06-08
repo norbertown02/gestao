@@ -25,7 +25,7 @@ export default function Metas() {
   useEffect(()=>{ if(sellers.length) carregarDados() },[mesSel,sellers])
 
   async function carregarBase() {
-    const {data}=await supabase.from('sellers').select('*').eq('active',true).order('name')
+    const {data}=await supabase.from('profiles').select('*').eq('active',true).order('name')
     setSellers(data||[])
   }
 
