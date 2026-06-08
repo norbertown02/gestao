@@ -114,7 +114,7 @@ function VendedoresSection() {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase.from('sellers').select('*').order('name')
+    const { data } = await supabase.from('profiles').select('*').order('name')
     setSellers(data||[])
     setLoading(false)
   }
@@ -122,21 +122,26 @@ function VendedoresSection() {
   useEffect(()=>{ load() },[])
 
   async function addSeller() {
+    setSaving(true)
     setSaving(true); setMsg('')
     // Cria usuário no Auth
-    const { data: authData, error: authError } = await supabase.auth.admin?.createUser?.({
-      email: form.email, password: form.password,
-      user_metadata: { name: form.name, role: form.role }
+    // Cria usuário via função SQL segura
+    const { data: newUserId, error: fnError } = await supabase.rpc('create_user', {
+      p_email: form.email,
+      p_password: form.password,
+      p_name: form.name,
+      p_role: form.role,
     })
-    const user_id = authData?.user?.id || null
-    const { error } = await supabase.from('sellers').insert({name:form.name,email:form.email,role:form.role,user_id,active:true})
+    if (fnError) { setMsg('Erro: ' + fnError.message); setSaving(false); return }
+    // profiles é populado automaticamente pelo trigger
+    const error = null
     if (!error) { setMsg('Vendedor cadastrado!'); setForm({name:'',email:'',password:'',role:'vendedor'}); setAdding(false); load() }
     else setMsg('Erro: '+error.message)
     setSaving(false)
   }
 
   async function toggleActive(id, active) {
-    await supabase.from('sellers').update({active}).eq('id',id)
+    await supabase.from('profiles').update({active}).eq('id',id)
     setSellers(prev=>prev.map(s=>s.id===id?{...s,active}:s))
   }
 
