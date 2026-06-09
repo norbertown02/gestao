@@ -144,7 +144,7 @@ function VendedoresSection() {
 
   async function salvarRole() {
     if (!editRole) return
-    await supabaseAdmin.from('profiles').update({role:editRole.role}).eq('id',editRole.id)
+    await supabaseAdmin.from('profiles').update({role:editRole.role, name:editRole.name}).eq('id',editRole.id)
     setEditRole(null)
     load()
   }
@@ -160,8 +160,12 @@ function VendedoresSection() {
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:100,display:'flex',alignItems:'center',justifyContent:'center'}}
           onClick={()=>setEditRole(null)}>
           <div style={{background:'var(--surface-1)',borderRadius:16,padding:24,minWidth:320}} onClick={e=>e.stopPropagation()}>
-            <div style={{fontWeight:700,fontSize:16,marginBottom:4}}>Editar perfil</div><div style={{fontSize:13,color:"var(--text-faint)",marginBottom:16}}>{editRole?.name}</div>
-            <label style={{fontSize:12,fontWeight:600,color:'var(--text-dim)'}}>Role</label>
+            <div style={{fontWeight:700,fontSize:16,marginBottom:16}}>Editar perfil</div>
+            <label style={{fontSize:12,fontWeight:600,color:'var(--text-dim)'}}>Nome</label>
+            <input value={editRole?.name||''} onChange={e=>setEditRole(p=>({...p,name:e.target.value}))} style={{marginTop:4,marginBottom:12,width:'100%'}}/>
+            <label style={{fontSize:12,fontWeight:600,color:'var(--text-dim)'}}>E-mail</label>
+            <input value={editRole?.email||''} disabled style={{marginTop:4,marginBottom:12,width:'100%',opacity:0.6}}/>
+            <label style={{fontSize:12,fontWeight:600,color:'var(--text-dim)'}}>Perfil</label>
             <select value={editRole.role} onChange={e=>setEditRole(p=>({...p,role:e.target.value}))} style={{marginTop:4,marginBottom:16,width:'100%'}}>
               <option value="vendedor">Vendedor</option>
               <option value="gestor_comercial">Gestor Comercial</option>
@@ -218,7 +222,7 @@ function VendedoresSection() {
                   <td><span className={`pill ${s.active?'pill-green':'pill-red'}`}>{s.active?'Ativo':'Inativo'}</span></td>
                   <td style={{display:'flex',gap:6}}>
                     <button className={`btn btn-sm ${s.active?'btn-danger':'btn-ghost'}`} onClick={()=>toggleActive(s.id,!s.active)}>{s.active?'Desativar':'Ativar'}</button>
-                    <button className="btn btn-sm btn-ghost" onClick={()=>setEditRole({id:s.id,role:s.role,name:s.name})}>Editar</button>
+                    <button className="btn btn-sm btn-ghost" onClick={()=>setEditRole({id:s.id,role:s.role,name:s.name,email:s.email})}>Editar</button>
                   </td>
                 </tr>
               ))
