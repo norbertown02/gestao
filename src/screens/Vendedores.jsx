@@ -58,7 +58,7 @@ export default function Vendedores() {
   // Quando seller_id for adicionado às vendas, basta trocar a chave
   const mediaTime = sales.length ? sales.reduce((a,s)=>a+Number(s.total||0),0)/sales.length : 0
 
-  const dadosSellers = sellers.map(seller=>{
+  const dadosSellers = sellers.filter(s=>s.role==='vendedor'||s.role==='gestor_comercial').map(seller=>{
     // Fazendas do vendedor — por ora todas são de todos
     const farmsVendedor = farms.filter(f=>f.seller_id===seller.id)
     const salesVendedor = sales.filter(s=>s.seller_id===seller.id)
