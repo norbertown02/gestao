@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
-import * as d3 from 'd3'
-import { feature } from 'topojson-client'
 
 function fmt(n) { return Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
 function fmtK(n) { if(n>=1000000) return `R$ ${(n/1000000).toFixed(1)}M`; if(n>=1000) return `R$ ${(n/1000).toFixed(1)}k`; return `R$ ${fmt(n)}` }
