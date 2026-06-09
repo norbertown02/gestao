@@ -17,6 +17,28 @@ function periodoRange(p) {
   return [new Date(ano,0,1),hoje]
 }
 
+
+function KpiInfo({ texto }) {
+  const [show, setShow] = useState(false)
+  return (
+    <span style={{position:'relative',display:'inline-block',marginLeft:4,cursor:'pointer',verticalAlign:'middle'}}
+      onMouseEnter={()=>setShow(true)} onMouseLeave={()=>setShow(false)}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+        style={{color:'var(--text-faint)',verticalAlign:'middle'}}>
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+      </svg>
+      {show && (
+        <div style={{position:'absolute',bottom:'120%',left:'50%',transform:'translateX(-50%)',
+          background:'var(--surface-1)',border:'1px solid var(--line)',borderRadius:8,
+          padding:'8px 10px',width:200,fontSize:11,color:'var(--text-dim)',
+          zIndex:50,lineHeight:1.4,whiteSpace:'normal',boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}>
+          {texto}
+        </div>
+      )}
+    </span>
+  )
+}
+
 export default function Vendedores() {
   const [periodo,    setPeriodo]    = useState('mes')
   const [sellers,    setSellers]    = useState([])
@@ -71,9 +93,10 @@ export default function Vendedores() {
     const visitas  = visitsVendedor.length
     const cobertura= farmsVendedor.length?Math.round((new Set(visitsVendedor.map(v=>v.farm_id)).size/farmsVendedor.length)*100):0
     const scoreMedia=checksVendedor.length?Math.round(checksVendedor.reduce((a,c)=>a+Number(c.overall_score||0),0)/checksVendedor.length):0
-    const fazVisitadas=new Set(visitsVendedor.map(v=>v.farm_id)).size; const fazComVenda=new Set(salesVendedor.map(s=>s.farm_id)).size; const conversao=fazVisitadas?((fazComVenda/fazVisitadas)*100).toFixed(0):0
+    const fazComVenda=new Set(salesVendedor.map(s=>s.farm_id)).size
+    const cobVendas=farmsVendedor.length?Math.round((fazComVenda/farmsVendedor.length)*100):0
 
-    return { ...seller, fat, pedidos, ticket, visitas, cobertura, scoreMedia, conversao, farmsCount:farmsVendedor.length }
+    return { ...seller, fat, pedidos, ticket, visitas, cobertura, scoreMedia, cobVendas, fazComVenda, farmsCount:farmsVendedor.length }
   })
 
   const mediaFat = dadosSellers.length ? dadosSellers.reduce((a,s)=>a+s.fat,0)/dadosSellers.length : 0
@@ -96,7 +119,7 @@ export default function Vendedores() {
 
   function exportCSV(){
     const rows=[['Nome','Email','Fazendas','Faturamento','Pedidos','Ticket Médio','Visitas','Cobertura%','Score Médio','Conversão%'],
-      ...dadosSellers.map(s=>[s.name,s.email,s.farmsCount,s.fat,s.pedidos,s.ticket,s.visitas,s.cobertura,s.scoreMedia,s.conversao])]
+      ...dadosSellers.map(s=>[s.name,s.email,s.farmsCount,s.fat,s.pedidos,s.ticket,s.visitas,s.cobertura,s.cobVendas,s.scoreMedia])]
     const a=document.createElement('a')
     a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(rows.map(r=>r.join(';')).join('\n'))
     a.download='vendedores.csv';a.click()
@@ -171,7 +194,7 @@ export default function Vendedores() {
                           <td style={{textAlign:'center'}}>
                             {s.scoreMedia>0?<span className="pill" style={{background:s.scoreMedia>=75?'var(--green-bg)':s.scoreMedia>=50?'var(--amber-bg)':'var(--red-bg)',color:s.scoreMedia>=75?'var(--green)':s.scoreMedia>=50?'var(--amber)':'var(--red)'}}>{s.scoreMedia}</span>:'—'}
                           </td>
-                          <td style={{textAlign:'center',color:Number(s.conversao)>=20?'var(--green)':'var(--text-dim)',fontWeight:600}}>{s.conversao}%</td>
+                          <td style={{textAlign:'center',color:s.cobVendas>=50?'var(--green)':s.cobVendas>=30?'var(--amber)':'var(--red)',fontWeight:600}}>{s.cobVendas}% <span style={{fontSize:10,color:'var(--text-faint)'}}>({s.fazComVenda}/{s.farmsCount})</span></td>
                           <td>{detalheId===s.id?<IconChevronUp size={14}/>:<IconChevronDown size={14}/>}</td>
                         </tr>
 
@@ -203,7 +226,7 @@ export default function Vendedores() {
                                     {label:'Ticket médio',  value:fmtK(s.ticket)},
                                     {label:'Visitas',       value:s.visitas},
                                     {label:'Cobertura',     value:`${s.cobertura}%`},
-                                    {label:'Conversão',     value:`${s.conversao}%`},
+                                    {label:'Cob. Vendas',   value:`${s.cobVendas}% (${s.fazComVenda}/${s.farmsCount} faz.)`},
                                   ].map(k=>(
                                     <div key={k.label} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid var(--line)',fontSize:12}}>
                                       <span style={{color:'var(--text-dim)'}}>{k.label}</span>
@@ -218,7 +241,8 @@ export default function Vendedores() {
                                   {[
                                     {label:'Faturamento', val:s.fat,       media:mediaFat,      fmt:fmtK},
                                     {label:'Visitas',     val:s.visitas,   media:dadosSellers.reduce((a,x)=>a+x.visitas,0)/dadosSellers.length, fmt:v=>Math.round(v)},
-                                    {label:'Cobertura',   val:s.cobertura, media:dadosSellers.reduce((a,x)=>a+x.cobertura,0)/dadosSellers.length, fmt:v=>v+'%'},
+                                    {label:'Cob. Visitas', val:s.cobertura, media:dadosSellers.reduce((a,x)=>a+x.cobertura,0)/dadosSellers.length, fmt:v=>v+'%'},
+                                    {label:'Cob. Vendas',  val:s.cobVendas, media:dadosSellers.reduce((a,x)=>a+x.cobVendas,0)/dadosSellers.length, fmt:v=>v+'%'},
                                   ].map(k=>{
                                     const acima=k.val>=k.media
                                     return(
