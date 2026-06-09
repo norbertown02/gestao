@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import { IconTrendingUp, IconTrendingDown, IconMinus, IconAlertTriangle, IconClock, IconStar } from '@tabler/icons-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
@@ -48,11 +48,11 @@ export default function Dashboard() {
     const mesA = mesAnterior()
 
     const [smR, saR, vmR, vaR, fsR] = await Promise.all([
-      supabase.from('sales').select('*').gte('sale_date', mes+'-01'),
-      supabase.from('sales').select('*').gte('sale_date', mesA+'-01').lt('sale_date', mes+'-01'),
-      supabase.from('visits').select('*').gte('visit_date', mes+'-01'),
-      supabase.from('visits').select('*').gte('visit_date', mesA+'-01').lt('visit_date', mes+'-01'),
-      supabase.from('farms').select('*').eq('status','ativo'),
+      supabaseAdmin.from('sales').select('*').gte('sale_date', mes+'-01'),
+      supabaseAdmin.from('sales').select('*').gte('sale_date', mesA+'-01').lt('sale_date', mes+'-01'),
+      supabaseAdmin.from('visits').select('*').gte('visit_date', mes+'-01'),
+      supabaseAdmin.from('visits').select('*').gte('visit_date', mesA+'-01').lt('visit_date', mes+'-01'),
+      supabaseAdmin.from('farms').select('*').eq('status','ativo'),
     ])
 
     const sm=smR.data||[], sa=saR.data||[], vm=vmR.data||[], va=vaR.data||[], fs=fsR.data||[]
@@ -62,13 +62,13 @@ export default function Dashboard() {
     const tickAnt=sa.length?fatAnt/sa.length:0
 
     const d90=new Date(); d90.setDate(d90.getDate()-90)
-    const {data:allSales}=await supabase.from('sales').select('farm_id,sale_date')
+    const {data:allSales}=await supabaseAdmin.from('sales').select('farm_id,sale_date')
     const ativas=new Set((allSales||[]).filter(s=>new Date(s.sale_date)>=d90).map(s=>s.farm_id))
 
     setKpis({fatMes,fatAnt,pedMes:sm.length,pedAnt:sa.length,tickMes,tickAnt,visitMes:vm.length,visitAnt:va.length,carteiraAtiva:ativas.size,carteiraTot:fs.length})
 
     // Cotações
-    const {data:quotes} = await supabase.from('quotes').select('status,total')
+    const {data:quotes} = await supabaseAdmin.from('quotes').select('status,total')
     const qs = quotes||[]
     const abertas = qs.filter(q=>q.status==='rascunho'||q.status==='enviada')
     const convertidas = qs.filter(q=>q.status==='convertida').length
@@ -82,8 +82,8 @@ export default function Dashboard() {
     const d6m = new Date(); d6m.setMonth(d6m.getMonth()-5); d6m.setDate(1)
     const ini6m = d6m.toISOString().split('T')[0]
     const [salesEvol6, quotesEvol6] = await Promise.all([
-      supabase.from('sales').select('sale_date,total').gte('sale_date',ini6m),
-      supabase.from('quotes').select('created_at,total').gte('created_at',ini6m),
+      supabaseAdmin.from('sales').select('sale_date,total').gte('sale_date',ini6m),
+      supabaseAdmin.from('quotes').select('created_at,total').gte('created_at',ini6m),
     ])
     const em = {}
     for(let gi=5;gi>=0;gi--){
@@ -106,7 +106,7 @@ export default function Dashboard() {
     setPendentes(sm.filter(s=>s.status==='pendente_envio').slice(0,5).map(s=>({...s,farmName:fs.find(f=>f.id===s.farm_id)?.name||'—'})))
 
     // Esquecidas >45 dias
-    const {data:allVisits}=await supabase.from('visits').select('farm_id,visit_date').order('visit_date',{ascending:false})
+    const {data:allVisits}=await supabaseAdmin.from('visits').select('farm_id,visit_date').order('visit_date',{ascending:false})
     const ultimaVisita={}
     ;(allVisits||[]).forEach(v=>{ if(!ultimaVisita[v.farm_id]) ultimaVisita[v.farm_id]=v.visit_date })
     const hoje=new Date()

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import { IconFilter, IconDownload, IconTrendingUp, IconTrendingDown, IconChevronDown, IconChevronUp } from '@tabler/icons-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
@@ -32,7 +32,7 @@ export default function Vendas() {
   useEffect(()=>{ if(farms.length) carregarVendas() },[periodo,segmento,farms])
 
   async function carregarBase() {
-    const {data}=await supabase.from('farms').select('*')
+    const {data}=await supabaseAdmin.from('farms').select('*')
     setFarms(data||[])
   }
 
@@ -40,8 +40,8 @@ export default function Vendas() {
     setLoading(true)
     const [ini,fim]=periodoRange(periodo), diff=fim-ini
     const [r,rAnt]=await Promise.all([
-      supabase.from('sales').select('*').gte('sale_date',toISO(ini)).lte('sale_date',toISO(fim)),
-      supabase.from('sales').select('*').gte('sale_date',toISO(new Date(ini-diff))).lte('sale_date',toISO(ini)),
+      supabaseAdmin.from('sales').select('*').gte('sale_date',toISO(ini)).lte('sale_date',toISO(fim)),
+      supabaseAdmin.from('sales').select('*').gte('sale_date',toISO(new Date(ini-diff))).lte('sale_date',toISO(ini)),
     ])
     let sm=r.data||[],sa=rAnt.data||[]
     if(segmento!=='todos'){const ids=farms.filter(f=>f.segment===segmento).map(f=>f.id);sm=sm.filter(s=>ids.includes(s.farm_id));sa=sa.filter(s=>ids.includes(s.farm_id))}

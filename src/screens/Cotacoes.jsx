@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import { IconAlertTriangle, IconFilter } from '@tabler/icons-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Legend } from 'recharts'
@@ -26,9 +26,9 @@ export default function Cotacoes() {
   async function carregar() {
     setLoading(true)
     const [rQuotes, rSellers, rFarms] = await Promise.all([
-      supabase.from('quotes').select('*').order('created_at', {ascending: false}),
-      supabase.from('profiles').select('id,name,email').eq('active',true),
-      supabase.from('farms').select('id,name,segment,prospect'),
+      supabaseAdmin.from('quotes').select('*').order('created_at', {ascending: false}),
+      supabaseAdmin.from('profiles').select('id,name,email').eq('active',true),
+      supabaseAdmin.from('farms').select('id,name,segment,prospect'),
     ])
     setQuotes(rQuotes.data || [])
     setSellers(rSellers.data || [])

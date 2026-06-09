@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import { IconDownload, IconFileText, IconCalendar } from '@tabler/icons-react'
 import jsPDF from 'jspdf'
@@ -71,22 +71,22 @@ export default function RelatorioMensal() {
       salesMes, salesAnt, visitsMes, visitsAnt,
       farms, checklists, sellers, appointments
     ] = await Promise.all([
-      supabase.from('sales').select('*').gte('sale_date',ini).lte('sale_date',fim),
-      supabase.from('sales').select('*').gte('sale_date',iniAnt).lte('sale_date',fimAnt),
-      supabase.from('visits').select('*').gte('visit_date',ini).lte('visit_date',fim),
-      supabase.from('visits').select('*').gte('visit_date',iniAnt).lte('visit_date',fimAnt),
-      supabase.from('farms').select('*').eq('status','ativo'),
-      supabase.from('checklists').select('*').gte('applied_at',ini).lte('applied_at',fim),
-      supabase.from('profiles').select('*').eq('active',true),
-      supabase.from('appointments').select('*').gte('appointment_date',toISO(new Date())).lte('appointment_date',toISO(new Date(new Date().setDate(new Date().getDate()+30)))),
+      supabaseAdmin.from('sales').select('*').gte('sale_date',ini).lte('sale_date',fim),
+      supabaseAdmin.from('sales').select('*').gte('sale_date',iniAnt).lte('sale_date',fimAnt),
+      supabaseAdmin.from('visits').select('*').gte('visit_date',ini).lte('visit_date',fim),
+      supabaseAdmin.from('visits').select('*').gte('visit_date',iniAnt).lte('visit_date',fimAnt),
+      supabaseAdmin.from('farms').select('*').eq('status','ativo'),
+      supabaseAdmin.from('checklists').select('*').gte('applied_at',ini).lte('applied_at',fim),
+      supabaseAdmin.from('profiles').select('*').eq('active',true),
+      supabaseAdmin.from('appointments').select('*').gte('appointment_date',toISO(new Date())).lte('appointment_date',toISO(new Date(new Date().setDate(new Date().getDate()+30)))),
     ])
 
     // Evolucao 6 meses
     const d6m = new Date()
     d6m.setMonth(d6m.getMonth()-5); d6m.setDate(1)
     const ini6m = toISO(d6m)
-    const salesEvol = await supabase.from("sales").select("sale_date,total").gte("sale_date",ini6m)
-    const quotesEvol = await supabase.from("quotes").select("created_at,total").gte("created_at",ini6m)
+    const salesEvol = await supabaseAdmin.from("sales").select("sale_date,total").gte("sale_date",ini6m)
+    const quotesEvol = await supabaseAdmin.from("quotes").select("created_at,total").gte("created_at",ini6m)
     const evolMap = {}
     for(let gi=5;gi>=0;gi--){
       const gd=new Date(); gd.setMonth(gd.getMonth()-gi); gd.setDate(1)
@@ -98,7 +98,7 @@ export default function RelatorioMensal() {
     const evolucaoMensal = Object.values(evolMap)
 
     // Cotações em aberto
-    const {data:quotesData} = await supabase.from('quotes').select('status,total')
+    const {data:quotesData} = await supabaseAdmin.from('quotes').select('status,total')
     const qs = quotesData||[]
     const cotacoesAbertas = qs.filter(q=>q.status==='rascunho'||q.status==='enviada')
     const valorCotacoesAbertas = cotacoesAbertas.reduce((a,q)=>a+Number(q.total||0),0)
@@ -115,7 +115,7 @@ export default function RelatorioMensal() {
 
     // Carteira ativa
     const d90=new Date(); d90.setDate(d90.getDate()-90)
-    const allSales=(await supabase.from('sales').select('farm_id,sale_date')).data||[]
+    const allSales=(await supabaseAdmin.from('sales').select('farm_id,sale_date')).data||[]
     const ativas=new Set(allSales.filter(s=>new Date(s.sale_date)>=d90).map(s=>s.farm_id))
 
     // Top vendedores
@@ -138,7 +138,7 @@ export default function RelatorioMensal() {
 
     // Fazendas esquecidas
     const ultimaVisita={}
-    const allVisits=(await supabase.from('visits').select('farm_id,visit_date').order('visit_date',{ascending:false})).data||[]
+    const allVisits=(await supabaseAdmin.from('visits').select('farm_id,visit_date').order('visit_date',{ascending:false})).data||[]
     allVisits.forEach(v=>{ if(!ultimaVisita[v.farm_id]) ultimaVisita[v.farm_id]=v.visit_date })
     const hoje=new Date()
     const esquecidas=fs.filter(f=>{ const uv=ultimaVisita[f.id]; return !uv||(hoje-new Date(uv+'T12:00:00'))/86400000>45 })

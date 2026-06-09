@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import { IconPlus, IconTrash, IconEdit, IconCheck, IconX } from '@tabler/icons-react'
 
@@ -9,16 +9,16 @@ function useTable(table, order='name') {
 
   async function load() {
     setLoading(true)
-    const { data: rows } = await supabase.from(table).select('*').order(order)
+    const { data: rows } = await supabaseAdmin.from(table).select('*').order(order)
     setData(rows || [])
     setLoading(false)
   }
 
   useEffect(() => { load() }, [])
 
-  async function add(row)           { const { data: novo } = await supabase.from(table).insert(row).select().single(); if(novo) setData(prev=>[...prev,novo]) }
-  async function update(id,changes) { await supabase.from(table).update(changes).eq('id',id); setData(prev=>prev.map(r=>r.id===id?{...r,...changes}:r)) }
-  async function remove(id)         { await supabase.from(table).delete().eq('id',id); setData(prev=>prev.filter(r=>r.id!==id)) }
+  async function add(row)           { const { data: novo } = await supabaseAdmin.from(table).insert(row).select().single(); if(novo) setData(prev=>[...prev,novo]) }
+  async function update(id,changes) { await supabaseAdmin.from(table).update(changes).eq('id',id); setData(prev=>prev.map(r=>r.id===id?{...r,...changes}:r)) }
+  async function remove(id)         { await supabaseAdmin.from(table).delete().eq('id',id); setData(prev=>prev.filter(r=>r.id!==id)) }
 
   return { data, loading, add, update, remove }
 }
@@ -114,7 +114,7 @@ function VendedoresSection() {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase.from('profiles').select('*').order('name')
+    const { data } = await supabaseAdmin.from('profiles').select('*').order('name')
     setSellers(data||[])
     setLoading(false)
   }
@@ -141,7 +141,7 @@ function VendedoresSection() {
   }
 
   async function toggleActive(id, active) {
-    await supabase.from('profiles').update({active}).eq('id',id)
+    await supabaseAdmin.from('profiles').update({active}).eq('id',id)
     setSellers(prev=>prev.map(s=>s.id===id?{...s,active}:s))
   }
 

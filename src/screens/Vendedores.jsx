@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import { IconFilter, IconDownload, IconChevronDown, IconChevronUp, IconUser } from '@tabler/icons-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts'
@@ -32,8 +32,8 @@ export default function Vendedores() {
 
   async function carregar() {
     const [sl,fs]=await Promise.all([
-      supabase.from('profiles').select('*').eq('active',true).order('name'),
-      supabase.from('farms').select('*'),
+      supabaseAdmin.from('profiles').select('*').eq('active',true).order('name'),
+      supabaseAdmin.from('farms').select('*'),
     ])
     setSellers(sl.data||[])
     setFarms(fs.data||[])
@@ -43,9 +43,9 @@ export default function Vendedores() {
     setLoading(true)
     const [ini,fim]=periodoRange(periodo)
     const [sl,vs,ck]=await Promise.all([
-      supabase.from('sales').select('*').gte('sale_date',toISO(ini)).lte('sale_date',toISO(fim)),
-      supabase.from('visits').select('*').gte('visit_date',toISO(ini)).lte('visit_date',toISO(fim)),
-      supabase.from('checklists').select('*').gte('applied_at',toISO(ini)).lte('applied_at',toISO(fim)),
+      supabaseAdmin.from('sales').select('*').gte('sale_date',toISO(ini)).lte('sale_date',toISO(fim)),
+      supabaseAdmin.from('visits').select('*').gte('visit_date',toISO(ini)).lte('visit_date',toISO(fim)),
+      supabaseAdmin.from('checklists').select('*').gte('applied_at',toISO(ini)).lte('applied_at',toISO(fim)),
     ])
     setSales(sl.data||[])
     setVisits(vs.data||[])

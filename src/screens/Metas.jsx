@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import { IconCheck } from '@tabler/icons-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
@@ -25,7 +25,7 @@ export default function Metas() {
   useEffect(()=>{ if(sellers.length) carregarDados() },[mesSel,sellers])
 
   async function carregarBase() {
-    const {data}=await supabase.from('profiles').select('*').eq('active',true).order('name')
+    const {data}=await supabaseAdmin.from('profiles').select('*').eq('active',true).order('name')
     setSellers(data||[])
   }
 
@@ -33,8 +33,8 @@ export default function Metas() {
     setLoading(true)
     const mesStr=`${mesSel.ano}-${String(mesSel.mes).padStart(2,'0')}`
     const [gl,sl]=await Promise.all([
-      supabase.from('goals').select('*').eq('ano',mesSel.ano).eq('mes',mesSel.mes),
-      supabase.from('sales').select('*').gte('sale_date',mesStr+'-01').lte('sale_date',mesStr+'-31'),
+      supabaseAdmin.from('goals').select('*').eq('ano',mesSel.ano).eq('mes',mesSel.mes),
+      supabaseAdmin.from('sales').select('*').gte('sale_date',mesStr+'-01').lte('sale_date',mesStr+'-31'),
     ])
     setGoals(gl.data||[])
     setSales(sl.data||[])
@@ -49,10 +49,10 @@ export default function Metas() {
     const metaVal=parseFloat(String(editMeta[sellerId]||'0').replace(',','.'))
     const existing=goals.find(g=>g.seller_id===sellerId)
     if(existing) {
-      await supabase.from('goals').update({meta_fat:metaVal,updated_at:new Date().toISOString()}).eq('id',existing.id)
+      await supabaseAdmin.from('goals').update({meta_fat:metaVal,updated_at:new Date().toISOString()}).eq('id',existing.id)
       setGoals(prev=>prev.map(g=>g.seller_id===sellerId?{...g,meta_fat:metaVal}:g))
     } else {
-      const {data}=await supabase.from('goals').insert({seller_id:sellerId,ano:mesSel.ano,mes:mesSel.mes,meta_fat:metaVal}).select().single()
+      const {data}=await supabaseAdmin.from('goals').insert({seller_id:sellerId,ano:mesSel.ano,mes:mesSel.mes,meta_fat:metaVal}).select().single()
       if(data) setGoals(prev=>[...prev,data])
     }
     setSaving(p=>({...p,[sellerId]:false}))

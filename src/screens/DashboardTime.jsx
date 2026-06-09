@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import { IconUsers, IconRoute, IconClipboardList, IconBuildingStore, IconAlertTriangle, IconCalendar, IconChartPie } from '@tabler/icons-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
@@ -25,13 +25,13 @@ export default function DashboardTime() {
     const d7f = toISO(new Date(hoje.getTime() + 7*86400000))
 
     const [rSellers, rFarms, rVisitsMes, rAllVisits, rSalesMes, rChecks, rAppointments] = await Promise.all([
-      supabase.from('profiles').select('*').eq('active', true),
-      supabase.from('farms').select('*').eq('status', 'ativo'),
-      supabase.from('visits').select('*').gte('visit_date', inicioMes).lte('visit_date', fimMes),
-      supabase.from('visits').select('farm_id,visit_date,seller_id,outcome').gte('visit_date', d90),
-      supabase.from('sales').select('*').gte('sale_date', inicioMes).lte('sale_date', fimMes),
-      supabase.from('checklists').select('*').gte('applied_at', inicioMes).lte('applied_at', fimMes),
-      supabase.from('appointments').select('*').gte('appointment_date', toISO(hoje)).lte('appointment_date', d7f),
+      supabaseAdmin.from('profiles').select('*').eq('active', true),
+      supabaseAdmin.from('farms').select('*').eq('status', 'ativo'),
+      supabaseAdmin.from('visits').select('*').gte('visit_date', inicioMes).lte('visit_date', fimMes),
+      supabaseAdmin.from('visits').select('farm_id,visit_date,seller_id,outcome').gte('visit_date', d90),
+      supabaseAdmin.from('sales').select('*').gte('sale_date', inicioMes).lte('sale_date', fimMes),
+      supabaseAdmin.from('checklists').select('*').gte('applied_at', inicioMes).lte('applied_at', fimMes),
+      supabaseAdmin.from('appointments').select('*').gte('appointment_date', toISO(hoje)).lte('appointment_date', d7f),
     ])
 
     const sellers = rSellers.data || []
