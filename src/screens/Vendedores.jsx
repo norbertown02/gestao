@@ -60,9 +60,9 @@ export default function Vendedores() {
 
   const dadosSellers = sellers.map(seller=>{
     // Fazendas do vendedor — por ora todas são de todos
-    const farmsVendedor = farms // futuramente: farms.filter(f=>f.seller_id===seller.id)
-    const salesVendedor = sales // futuramente: sales.filter(s=>s.seller_id===seller.id)
-    const visitsVendedor = visits
+    const farmsVendedor = farms.filter(f=>f.seller_id===seller.id)
+    const salesVendedor = sales.filter(s=>s.seller_id===seller.id)
+    const visitsVendedor = visits.filter(v=>v.seller_id===seller.id)
     const checksVendedor = checklists
 
     const fat      = salesVendedor.reduce((a,s)=>a+Number(s.total||0),0)
