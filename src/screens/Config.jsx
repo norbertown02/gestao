@@ -109,6 +109,7 @@ function VendedoresSection() {
   const [loading, setLoading]   = useState(true)
   const [adding, setAdding]     = useState(false)
   const [form, setForm]         = useState({name:'',email:'',password:'',role:'vendedor'})
+  const [editRole, setEditRole]   = useState(null) // {id, role}
   const [saving, setSaving]     = useState(false)
   const [msg, setMsg]           = useState('')
 
@@ -188,7 +189,10 @@ function VendedoresSection() {
                   <td>{s.email}</td>
                   <td><span className={`pill ${s.role==='admin'?'pill-orange':s.role==='gerente'?'pill-blue':'pill-gray'}`}>{s.role}</span></td>
                   <td><span className={`pill ${s.active?'pill-green':'pill-red'}`}>{s.active?'Ativo':'Inativo'}</span></td>
-                  <td><button className={`btn btn-sm ${s.active?'btn-danger':'btn-ghost'}`} onClick={()=>toggleActive(s.id,!s.active)}>{s.active?'Desativar':'Ativar'}</button></td>
+                  <td style={{display:'flex',gap:6}}>
+                    <button className={`btn btn-sm ${s.active?'btn-danger':'btn-ghost'}`} onClick={()=>toggleActive(s.id,!s.active)}>{s.active?'Desativar':'Ativar'}</button>
+                    <button className="btn btn-sm btn-ghost" onClick={()=>setEditRole({id:s.id,role:s.role})}>Editar role</button>
+                  </td>
                 </tr>
               ))
             }
