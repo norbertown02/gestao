@@ -34,25 +34,7 @@ function TableSection({ title, columns, data, loading, onAdd, onUpdate, onDelete
 
   return (
     <div className="card" style={{marginBottom:20}}>
-      {editRole && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:100,display:'flex',alignItems:'center',justifyContent:'center'}}
-          onClick={()=>setEditRole(null)}>
-          <div style={{background:'var(--surface-1)',borderRadius:16,padding:24,minWidth:320}} onClick={e=>e.stopPropagation()}>
-            <div style={{fontWeight:700,fontSize:16,marginBottom:16}}>Editar perfil</div>
-            <label style={{fontSize:12,fontWeight:600,color:'var(--text-dim)'}}>Role</label>
-            <select value={editRole.role} onChange={e=>setEditRole(p=>({...p,role:e.target.value}))} style={{marginTop:4,marginBottom:16,width:'100%'}}>
-              <option value="vendedor">Vendedor</option>
-              <option value="gestor_comercial">Gestor Comercial</option>
-              <option value="gestor">Gestor</option>
-              <option value="admin">Admin</option>
-            </select>
-            <div style={{display:'flex',gap:8}}>
-              <button className="btn btn-primary" style={{flex:1}} onClick={salvarRole}>Salvar</button>
-              <button className="btn btn-ghost" style={{flex:1}} onClick={()=>setEditRole(null)}>Cancelar</button>
-            </div>
-          </div>
-        </div>
-      )}
+
       <div style={{display:'flex',alignItems:'center',marginBottom:14}}>
         <div className="section-title" style={{margin:0}}>{title}</div>
         <button className="btn btn-primary btn-sm" style={{marginLeft:'auto'}} onClick={()=>setAdding(true)}>
@@ -167,6 +149,25 @@ function VendedoresSection() {
 
   return (
     <div className="card" style={{marginBottom:20}}>
+      {editRole && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:100,display:'flex',alignItems:'center',justifyContent:'center'}}
+          onClick={()=>setEditRole(null)}>
+          <div style={{background:'var(--surface-1)',borderRadius:16,padding:24,minWidth:320}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontWeight:700,fontSize:16,marginBottom:16}}>Editar perfil</div>
+            <label style={{fontSize:12,fontWeight:600,color:'var(--text-dim)'}}>Role</label>
+            <select value={editRole.role} onChange={e=>setEditRole(p=>({...p,role:e.target.value}))} style={{marginTop:4,marginBottom:16,width:'100%'}}>
+              <option value="vendedor">Vendedor</option>
+              <option value="gestor_comercial">Gestor Comercial</option>
+              <option value="gestor">Gestor</option>
+              <option value="admin">Admin</option>
+            </select>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn btn-primary" style={{flex:1}} onClick={salvarRole}>Salvar</button>
+              <button className="btn btn-ghost" style={{flex:1}} onClick={()=>setEditRole(null)}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{display:'flex',alignItems:'center',marginBottom:14}}>
         <div className="section-title" style={{margin:0}}>Vendedores</div>
         <button className="btn btn-primary btn-sm" style={{marginLeft:'auto'}} onClick={()=>setAdding(p=>!p)}>
