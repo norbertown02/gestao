@@ -39,6 +39,28 @@ function KpiInfo({ texto }) {
   )
 }
 
+function KpiInfo({ texto }) {
+  const [show, setShow] = useState(false)
+  return (
+    <span style={{position:'relative',display:'inline-block',marginLeft:4,cursor:'help',verticalAlign:'middle'}}
+      onMouseEnter={()=>setShow(true)} onMouseLeave={()=>setShow(false)}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+        style={{color:'var(--text-faint)',verticalAlign:'middle'}}>
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+      </svg>
+      {show && (
+        <div style={{position:'absolute',bottom:'130%',left:'50%',transform:'translateX(-50%)',
+          background:'var(--surface-1)',border:'1px solid var(--line)',borderRadius:8,
+          padding:'8px 10px',width:200,fontSize:11,color:'var(--text-dim)',
+          zIndex:99,lineHeight:1.5,whiteSpace:'normal',boxShadow:'0 4px 16px rgba(0,0,0,0.3)',
+          pointerEvents:'none'}}>
+          {texto}
+        </div>
+      )}
+    </span>
+  )
+}
+
 export default function Vendedores() {
   const [periodo,    setPeriodo]    = useState('mes')
   const [sellers,    setSellers]    = useState([])
@@ -118,7 +140,7 @@ export default function Vendedores() {
   })()
 
   function exportCSV(){
-    const rows=[['Nome','Email','Fazendas','Faturamento','Pedidos','Ticket Médio','Visitas','Cobertura%','Score Médio','Conversão%'],
+    const rows=[['Nome','Email','Fazendas','Faturamento','Pedidos','Ticket Médio','Visitas','Cob. Visitas%','Cob. Vendas%','Score Médio'],
       ...dadosSellers.map(s=>[s.name,s.email,s.farmsCount,s.fat,s.pedidos,s.ticket,s.visitas,s.cobertura,s.cobVendas,s.scoreMedia])]
     const a=document.createElement('a')
     a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(rows.map(r=>r.join(';')).join('\n'))
@@ -152,14 +174,14 @@ export default function Vendedores() {
                 <table>
                   <thead>
                     <tr>
-                      <th>#</th><th>Vendedor</th><th>Fazendas</th>
-                      <th style={{textAlign:'right'}}>Faturamento</th>
-                      <th style={{textAlign:'right'}}>Pedidos</th>
-                      <th style={{textAlign:'right'}}>Ticket médio</th>
-                      <th style={{textAlign:'center'}}>Visitas</th>
-                      <th style={{textAlign:'center'}}>Cobertura</th>
-                      <th style={{textAlign:'center'}}>Score médio</th>
-                      <th style={{textAlign:'center'}}>Conversão</th>
+                      <th>#</th><th>Vendedor</th><th>Fazendas<KpiInfo texto='Total de fazendas na carteira do vendedor'/></th>
+                      <th style={{textAlign:'right'}}>Faturamento<KpiInfo texto='Soma das vendas realizadas no período selecionado'/></th>
+                      <th style={{textAlign:'right'}}>Pedidos<KpiInfo texto='Número total de pedidos/vendas no período'/></th>
+                      <th style={{textAlign:'right'}}>Ticket médio<KpiInfo texto='Valor médio por pedido = Faturamento ÷ Pedidos'/></th>
+                      <th style={{textAlign:'center'}}>Visitas<KpiInfo texto='Total de visitas registradas no período'/></th>
+                      <th style={{textAlign:'center'}}>Cob. Visitas<KpiInfo texto='% de fazendas da carteira que receberam pelo menos 1 visita no período. Ex: 7 de 10 fazendas visitadas = 70%'/></th>
+                      <th style={{textAlign:'center'}}>Score<KpiInfo texto='Média dos scores dos checklists técnicos aplicados nas fazendas no período'/></th>
+                      <th style={{textAlign:'center'}}>Cob. Vendas<KpiInfo texto='% de fazendas da carteira que geraram pelo menos 1 venda no período. Ex: 3 de 10 fazendas com venda = 30%'/></th>
                       <th></th>
                     </tr>
                   </thead>
@@ -225,7 +247,7 @@ export default function Vendedores() {
                                     {label:'Pedidos',       value:s.pedidos},
                                     {label:'Ticket médio',  value:fmtK(s.ticket)},
                                     {label:'Visitas',       value:s.visitas},
-                                    {label:'Cobertura',     value:`${s.cobertura}%`},
+                                    {label:'Cob. Visitas',  value:`${s.cobertura}%`},
                                     {label:'Cob. Vendas',   value:`${s.cobVendas}% (${s.fazComVenda}/${s.farmsCount} faz.)`},
                                   ].map(k=>(
                                     <div key={k.label} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid var(--line)',fontSize:12}}>
