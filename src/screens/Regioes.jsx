@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
+import * as d3 from 'd3'
 
 function fmt(n) { return Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
 function fmtK(n) { if(n>=1000000) return `R$ ${(n/1000000).toFixed(1)}M`; if(n>=1000) return `R$ ${(n/1000).toFixed(1)}k`; return `R$ ${fmt(n)}` }
@@ -13,34 +14,22 @@ function periodoRange(p) {
   return [new Date(ano,0,1),hoje]
 }
 
-// Coordenadas centrais dos estados brasileiros
-const ESTADOS_COORDS = {
-  AC:{cx:120,cy:280,nome:'Acre'}, AL:{cx:580,cy:280,nome:'Alagoas'},
-  AM:{cx:180,cy:220,nome:'Amazonas'}, AP:{cx:460,cy:100,nome:'Amapá'},
-  BA:{cx:530,cy:320,nome:'Bahia'}, CE:{cx:580,cy:200,nome:'Ceará'},
-  DF:{cx:440,cy:340,nome:'Distrito Federal'}, ES:{cx:560,cy:390,nome:'Espírito Santo'},
-  GO:{cx:420,cy:340,nome:'Goiás'}, MA:{cx:490,cy:190,nome:'Maranhão'},
-  MG:{cx:490,cy:370,nome:'Minas Gerais'}, MS:{cx:360,cy:390,nome:'Mato Grosso do Sul'},
-  MT:{cx:310,cy:300,nome:'Mato Grosso'}, PA:{cx:380,cy:180,nome:'Pará'},
-  PB:{cx:600,cy:230,nome:'Paraíba'}, PE:{cx:580,cy:255,nome:'Pernambuco'},
-  PI:{cx:530,cy:225,nome:'Piauí'}, PR:{cx:400,cy:430,nome:'Paraná'},
-  RJ:{cx:530,cy:410,nome:'Rio de Janeiro'}, RN:{cx:610,cy:215,nome:'Rio Grande do Norte'},
-  RO:{cx:200,cy:290,nome:'Rondônia'}, RR:{cx:230,cy:120,nome:'Roraima'},
-  RS:{cx:390,cy:490,nome:'Rio Grande do Sul'}, SC:{cx:420,cy:460,nome:'Santa Catarina'},
-  SE:{cx:590,cy:290,nome:'Sergipe'}, SP:{cx:460,cy:420,nome:'São Paulo'},
-  TO:{cx:430,cy:260,nome:'Tocantins'}
-}
-
 export default function Regioes() {
+  const svgRef = useRef(null)
   const [periodo, setPeriodo] = useState('mes')
   const [farms,   setFarms]   = useState([])
   const [sales,   setSales]   = useState([])
+  const [geo,     setGeo]     = useState(null)
   const [loading, setLoading] = useState(true)
-  const [hover,   setHover]   = useState(null)
+  const [tooltip, setTooltip] = useState(null)
   const [estadoSel, setEstadoSel] = useState(null)
 
-  useEffect(()=>{ carregarBase() },[])
+  useEffect(()=>{
+    fetch('/brazil.json').then(r=>r.json()).then(setGeo)
+    carregarBase()
+  },[])
   useEffect(()=>{ if(farms.length) carregarPeriodo() },[periodo,farms])
+  useEffect(()=>{ if(geo && !loading) desenharMapa() },[geo,sales,farms,estadoSel])
 
   async function carregarBase() {
     const {data}=await supabaseAdmin.from('farms').select('id,name,state,segment')
@@ -59,120 +48,156 @@ export default function Regioes() {
   const porEstado = {}
   farms.forEach(f => {
     if (!f.state) return
-    if (!porEstado[f.state]) porEstado[f.state] = { state: f.state, fazendas: 0, vendas: 0, pedidos: 0, fazIds: new Set() }
+    if (!porEstado[f.state]) porEstado[f.state] = {state:f.state,fazendas:0,vendas:0,pedidos:0,farmIds:new Set()}
     porEstado[f.state].fazendas++
-    porEstado[f.state].fazIds.add(f.id)
+    porEstado[f.state].farmIds.add(f.id)
   })
   sales.forEach(s => {
     const farm = farms.find(f=>f.id===s.farm_id)
-    if (!farm?.state) return
-    if (!porEstado[farm.state]) return
+    if (!farm?.state || !porEstado[farm.state]) return
     porEstado[farm.state].vendas += Number(s.total||0)
     porEstado[farm.state].pedidos++
   })
 
-  const estados = Object.values(porEstado).sort((a,b)=>b.vendas-a.vendas)
-  const maxVenda = Math.max(...estados.map(e=>e.vendas), 1)
+  const maxVenda = Math.max(...Object.values(porEstado).map(e=>e.vendas), 1)
 
+  function desenharMapa() {
+    if (!svgRef.current || !geo) return
+    const svg = d3.select(svgRef.current)
+    svg.selectAll('*').remove()
+
+    const W = svgRef.current.clientWidth || 600
+    const H = 480
+
+    const projection = d3.geoMercator().fitSize([W, H], geo)
+    const path = d3.geoPath().projection(projection)
+
+    // Estados
+    svg.selectAll('path')
+      .data(geo.features)
+      .join('path')
+      .attr('d', path)
+      .attr('fill', d => {
+        const sigla = d.properties.sigla
+        const dados = porEstado[sigla]
+        if (!dados || dados.vendas === 0) return 'var(--surface-2)'
+        return `rgba(240,125,26,${0.15 + (dados.vendas/maxVenda)*0.6})`
+      })
+      .attr('stroke', d => estadoSel===d.properties.sigla ? 'var(--orange)' : 'var(--line)')
+      .attr('stroke-width', d => estadoSel===d.properties.sigla ? 2 : 0.5)
+      .style('cursor', 'pointer')
+      .on('click', (e, d) => {
+        const sigla = d.properties.sigla
+        setEstadoSel(prev => prev===sigla ? null : sigla)
+      })
+      .on('mousemove', (e, d) => {
+        const sigla = d.properties.sigla
+        const dados = porEstado[sigla]
+        setTooltip({
+          x: e.offsetX, y: e.offsetY,
+          nome: d.properties.name,
+          sigla,
+          vendas: dados?.vendas || 0,
+          pedidos: dados?.pedidos || 0,
+          fazendas: dados?.fazendas || 0,
+        })
+      })
+      .on('mouseleave', () => setTooltip(null))
+
+    // Bolhas
+    const bubbleScale = d3.scaleSqrt().domain([0, maxVenda]).range([0, 40])
+    Object.entries(porEstado).forEach(([sigla, dados]) => {
+      if (dados.vendas === 0) return
+      const feature = geo.features.find(f=>f.properties.sigla===sigla)
+      if (!feature) return
+      const centroid = path.centroid(feature)
+      if (isNaN(centroid[0])) return
+      const r = Math.max(8, bubbleScale(dados.vendas))
+      svg.append('circle')
+        .attr('cx', centroid[0])
+        .attr('cy', centroid[1])
+        .attr('r', r)
+        .attr('fill', 'rgba(240,125,26,0.8)')
+        .attr('stroke', 'white')
+        .attr('stroke-width', 1.5)
+        .style('cursor', 'pointer')
+        .on('click', () => setEstadoSel(prev => prev===sigla ? null : sigla))
+        .on('mousemove', (e) => {
+          setTooltip({x:e.offsetX,y:e.offsetY,nome:feature.properties.name,sigla,vendas:dados.vendas,pedidos:dados.pedidos,fazendas:dados.fazendas})
+        })
+        .on('mouseleave', () => setTooltip(null))
+
+      // Label do valor dentro da bolha
+      if (r > 16) {
+        svg.append('text')
+          .attr('x', centroid[0]).attr('y', centroid[1]+1)
+          .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
+          .attr('fill', 'white').attr('font-size', 9).attr('font-weight', 700)
+          .attr('pointer-events', 'none')
+          .text(fmtK(dados.vendas).replace('R$ ',''))
+      }
+    })
+  }
+
+  const estados = Object.values(porEstado).sort((a,b)=>b.vendas-a.vendas)
   const estadoSelData = estadoSel ? porEstado[estadoSel] : null
   const salesEstado = estadoSel ? sales.filter(s=>farms.find(f=>f.id===s.farm_id)?.state===estadoSel) : []
   const farmsEstado = estadoSel ? farms.filter(f=>f.state===estadoSel) : []
 
   return (
     <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
-      <Topbar title="Mapa de Vendas" subtitle="Distribuição por estado"/>
+      <Topbar title="Mapa de Vendas" subtitle="Distribuição geográfica por estado"/>
       <div className="page" style={{overflowY:'auto'}}>
-
-        {/* Filtro período */}
         <div style={{display:'flex',gap:8,marginBottom:20}}>
           {[['mes','Este mês'],['trimestre','Trimestre'],['semestre','Semestre'],['ano','Este ano']].map(([v,l])=>(
-            <button key={v} onClick={()=>setPeriodo(v)}
-              className={`btn ${periodo===v?'btn-primary':'btn-ghost'} btn-sm`}>{l}</button>
+            <button key={v} onClick={()=>{setPeriodo(v)}} className={`btn ${periodo===v?'btn-primary':'btn-ghost'} btn-sm`}>{l}</button>
           ))}
         </div>
 
-        <div style={{display:'grid',gridTemplateColumns:'1fr 340px',gap:20}}>
-          {/* Mapa */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 300px',gap:20}}>
           <div className="card" style={{padding:16,position:'relative'}}>
             <div className="section-title" style={{marginBottom:12}}>Faturamento por Estado</div>
             {loading ? <div className="empty">Carregando...</div> : (
-              <svg viewBox="0 0 700 560" style={{width:'100%',height:'auto'}}>
-                {/* Fundo */}
-                <rect width={700} height={560} fill="var(--surface-2)" rx={12}/>
-
-                {/* Bolhas por estado */}
-                {estados.map(e => {
-                  const coord = ESTADOS_COORDS[e.state]
-                  if (!coord) return null
-                  const r = e.vendas > 0 ? Math.max(12, Math.sqrt(e.vendas/maxVenda)*60) : 8
-                  const isHover = hover === e.state
-                  const isSel = estadoSel === e.state
-                  return (
-                    <g key={e.state} style={{cursor:'pointer'}}
-                      onMouseEnter={()=>setHover(e.state)}
-                      onMouseLeave={()=>setHover(null)}
-                      onClick={()=>setEstadoSel(estadoSel===e.state?null:e.state)}>
-                      <circle
-                        cx={coord.cx} cy={coord.cy} r={r}
-                        fill={e.vendas>0?'rgba(240,125,26,0.7)':'rgba(100,100,100,0.3)'}
-                        stroke={isSel?'var(--orange)':isHover?'white':'none'}
-                        strokeWidth={isSel?3:2}
-                      />
-                      <text x={coord.cx} y={coord.cy+1} textAnchor="middle" dominantBaseline="middle"
-                        fill="white" fontSize={10} fontWeight={600}>{e.state}</text>
-                      {isHover && e.vendas>0 && (
-                        <g>
-                          <rect x={coord.cx+r+4} y={coord.cy-20} width={100} height={40} rx={6}
-                            fill="var(--surface-1)" stroke="var(--line)"/>
-                          <text x={coord.cx+r+54} y={coord.cy-5} textAnchor="middle"
-                            fill="var(--text)" fontSize={9} fontWeight={600}>{coord.nome}</text>
-                          <text x={coord.cx+r+54} y={coord.cy+8} textAnchor="middle"
-                            fill="var(--orange)" fontSize={10} fontWeight={700}>{fmtK(e.vendas)}</text>
-                        </g>
-                      )}
-                    </g>
-                  )
-                })}
-              </svg>
+              <div style={{position:'relative'}}>
+                <svg ref={svgRef} style={{width:'100%',height:480,display:'block'}}
+                  viewBox={`0 0 ${svgRef.current?.clientWidth||600} 480`}/>
+                {tooltip && (
+                  <div style={{position:'absolute',left:tooltip.x+12,top:tooltip.y-20,
+                    background:'var(--surface-1)',border:'1px solid var(--line)',
+                    borderRadius:8,padding:'8px 12px',pointerEvents:'none',zIndex:10,minWidth:160}}>
+                    <div style={{fontWeight:700,fontSize:13}}>{tooltip.nome}</div>
+                    <div style={{fontSize:12,color:'var(--orange)',fontWeight:600}}>{fmtK(tooltip.vendas)}</div>
+                    <div style={{fontSize:11,color:'var(--text-faint)'}}>{tooltip.pedidos} pedidos · {tooltip.fazendas} fazendas</div>
+                  </div>
+                )}
+              </div>
             )}
-            {/* Legenda */}
-            <div style={{display:'flex',gap:16,marginTop:8,fontSize:11,color:'var(--text-faint)'}}>
-              <span>● Maior = mais faturamento</span>
-              <span style={{color:'rgba(100,100,100,0.5)'}}>● Cinza = sem vendas no período</span>
-            </div>
           </div>
 
-          {/* Ranking + detalhe */}
           <div style={{display:'flex',flexDirection:'column',gap:12}}>
-            {/* Ranking */}
             <div className="card" style={{padding:16}}>
-              <div className="section-title" style={{marginBottom:12}}>Ranking por Estado</div>
+              <div className="section-title" style={{marginBottom:12}}>Ranking</div>
               {estados.filter(e=>e.vendas>0).slice(0,8).map((e,i)=>(
-                <div key={e.state} onClick={()=>setEstadoSel(estadoSel===e.state?null:e.state)}
-                  style={{display:'flex',alignItems:'center',gap:8,padding:'6px 8px',borderRadius:8,
-                    cursor:'pointer',marginBottom:4,
+                <div key={e.state} onClick={()=>setEstadoSel(prev=>prev===e.state?null:e.state)}
+                  style={{display:'flex',alignItems:'center',gap:8,padding:'6px 8px',
+                    borderRadius:8,cursor:'pointer',marginBottom:4,
                     background:estadoSel===e.state?'var(--orange-bg)':'transparent'}}>
                   <span style={{width:20,fontSize:11,color:'var(--text-faint)',fontWeight:600}}>#{i+1}</span>
-                  <span style={{flex:1,fontSize:13,fontWeight:600}}>{ESTADOS_COORDS[e.state]?.nome||e.state}</span>
+                  <span style={{flex:1,fontSize:13,fontWeight:600}}>{e.state}</span>
                   <span style={{fontSize:13,fontWeight:700,color:'var(--orange)'}}>{fmtK(e.vendas)}</span>
                 </div>
               ))}
-              {estados.filter(e=>e.vendas>0).length===0 && (
-                <div className="empty" style={{padding:20}}>Sem vendas no período</div>
-              )}
+              {estados.filter(e=>e.vendas>0).length===0 && <div className="empty" style={{padding:20}}>Sem vendas no período</div>}
             </div>
 
-            {/* Detalhe do estado selecionado */}
             {estadoSelData && (
               <div className="card" style={{padding:16}}>
-                <div className="section-title" style={{marginBottom:12}}>
-                  {ESTADOS_COORDS[estadoSel]?.nome||estadoSel}
-                </div>
+                <div className="section-title" style={{marginBottom:12}}>{estadoSel}</div>
                 {[
-                  {label:'Faturamento', value:fmtK(estadoSelData.vendas)},
-                  {label:'Pedidos', value:estadoSelData.pedidos},
-                  {label:'Fazendas', value:estadoSelData.fazendas},
-                  {label:'Cobertura', value:estadoSelData.fazendas?Math.round((new Set(salesEstado.map(s=>s.farm_id)).size/estadoSelData.fazendas)*100)+'%':'0%'},
+                  {label:'Faturamento',value:fmtK(estadoSelData.vendas)},
+                  {label:'Pedidos',value:estadoSelData.pedidos},
+                  {label:'Fazendas',value:estadoSelData.fazendas},
+                  {label:'Cobertura',value:estadoSelData.fazendas?Math.round((new Set(salesEstado.map(s=>s.farm_id)).size/estadoSelData.fazendas)*100)+'%':'0%'},
                 ].map(k=>(
                   <div key={k.label} style={{display:'flex',justifyContent:'space-between',
                     padding:'6px 0',borderBottom:'1px solid var(--line)',fontSize:13}}>
@@ -180,9 +205,9 @@ export default function Regioes() {
                     <span style={{fontWeight:600}}>{k.value}</span>
                   </div>
                 ))}
-                <div style={{marginTop:12,fontSize:12,color:'var(--text-faint)'}}>Fazendas:</div>
+                <div style={{marginTop:12,fontSize:12,color:'var(--text-faint)',marginBottom:4}}>Fazendas:</div>
                 {farmsEstado.slice(0,5).map(f=>(
-                  <div key={f.id} style={{fontSize:12,padding:'4px 0',color:'var(--text-dim)'}}>{f.name}</div>
+                  <div key={f.id} style={{fontSize:12,padding:'3px 0',color:'var(--text-dim)'}}>{f.name}</div>
                 ))}
               </div>
             )}
