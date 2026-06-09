@@ -27,7 +27,7 @@ export default function Cotacoes() {
     setLoading(true)
     const [rQuotes, rSellers, rFarms] = await Promise.all([
       supabase.from('quotes').select('*').order('created_at', {ascending: false}),
-      supabase.from('profiles').select('id,name,email,user_id').eq('active',true),
+      supabase.from('profiles').select('id,name,email').eq('active',true),
       supabase.from('farms').select('id,name,segment,prospect'),
     ])
     setQuotes(rQuotes.data || [])
@@ -88,7 +88,7 @@ export default function Cotacoes() {
   })
   const porVendedor = Object.values(vMap).map(v => ({
     ...v,
-    name: sellers.find(s=>s.id===v.id)?.name || 'Desconhecido',
+    name: sellers.find(s=>s.id===v.id)?.name || sellers.find(s=>s.email===v.id)?.name || 'Desconhecido',
     tx: v.total > 0 ? Math.round(v.convertidas/v.total*100) : 0,
   })).sort((a,b)=>b.total-a.total)
 
