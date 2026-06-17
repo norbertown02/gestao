@@ -16,7 +16,7 @@ function useTable(table, order='name') {
 
   useEffect(() => { load() }, [])
 
-  async function add(row)           { const { data: novo } = await supabaseAdmin.from(table).insert(row).select().single(); if(novo) setData(prev=>[...prev,novo]) }
+  async function add(row)           { const { data: novo, error } = await supabaseAdmin.from(table).insert(row).select().single(); if(error) { alert('Erro: ' + error.message); return; } if(novo) setData(prev=>[...prev,novo]) }
   async function update(id,changes) { await supabaseAdmin.from(table).update(changes).eq('id',id); setData(prev=>prev.map(r=>r.id===id?{...r,...changes}:r)) }
   async function remove(id)         { await supabaseAdmin.from(table).delete().eq('id',id); setData(prev=>prev.filter(r=>r.id!==id)) }
 
