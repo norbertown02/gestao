@@ -7,5 +7,5 @@ export const supabase = createClient(
 export const supabaseAdmin = createClient(
   'https://kruldbtjyhfiswmwmoyz.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtydWxkYnRqeWhmaXN3bXdtb3l6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTY4MzYwNCwiZXhwIjoyMDk1MjU5NjA0fQ.HqA_RMrlnfzm4XewYt9ZC_HJZR4dkQfBdac5Jsqpfcw',
-  { auth: { autoRefreshToken: false, persistSession: false } }
+  { auth: { autoRefreshToken: false, persistSession: false, storageKey: 'nutrialle-admin' } }
 )
