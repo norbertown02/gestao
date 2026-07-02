@@ -274,13 +274,13 @@ export default function Config() {
 
         {aba==='produtos' && (
           <TableSection title="Produtos" data={produtos.data} loading={produtos.loading}
-            onAdd={r=>produtos.add({...r,active:true})} onUpdate={produtos.update} onDelete={produtos.remove}
-            newRowTemplate={{code:'',name:'',segment:'leite',price:'',unit:''}}
+            onAdd={r=>{ const {id:_,...row}=r; const price_kg=row.price&&row.bag_kg?(parseFloat(row.price)/parseFloat(row.bag_kg)).toFixed(4):0; produtos.add({...row,active:true,price_kg}) }} onUpdate={produtos.update} onDelete={produtos.remove}
+            newRowTemplate={{name:'',segment:'leite',price:'',bag_kg:'25',unit:'saco'}}
             columns={[
-              {key:'code',label:'Código'},
               {key:'name',label:'Nome'},
               {key:'segment',label:'Segmento',type:'select',options:SEGS},
               {key:'price',label:'Preço (R$)'},
+              {key:'bag_kg',label:'Kg/Saco'},
               {key:'unit',label:'Unidade'},
               {key:'active',label:'Ativo',render:v=><span className={`pill ${v?'pill-green':'pill-gray'}`}>{v?'Sim':'Não'}</span>},
             ]}
