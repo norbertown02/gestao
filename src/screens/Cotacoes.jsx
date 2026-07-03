@@ -1,311 +1,879 @@
-import { useState, useEffect } from 'react'
-import { supabase, supabaseAdmin } from '../lib/supabase'
+import { useEffect, useMemo, useState } from 'react'
+import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
-import { IconAlertTriangle, IconFilter } from '@tabler/icons-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Legend } from 'recharts'
+import {
+  IconAlertTriangle,
+  IconBuildingStore,
+  IconCalendarTime,
+  IconChartBar,
+  IconChecklist,
+  IconClock,
+  IconDownload,
+  IconFilter,
+  IconReceipt,
+  IconTargetArrow,
+  IconTrendingDown,
+  IconTrendingUp,
+  IconUsers,
+} from '@tabler/icons-react'
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts'
 
-function fmt(n) { return Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
-function fmtK(n) { if(n>=1000000) return `R$ ${(n/1000000).toFixed(1)}M`; if(n>=1000) return `R$ ${(n/1000).toFixed(1)}k`; return `R$ ${fmt(n)}` }
+function fmt(n) {
+  return Number(n || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
 
-const STATUS_CFG = {
-  rascunho:   { label:'Rascunho',   color:'#888' },
-  enviada:    { label:'Enviada',    color:'#f08c00' },
-  convertida: { label:'Convertida', color:'#2f9e44' },
-  cancelada:  { label:'Cancelada',  color:'#e03131' },
+function fmtInt(n) {
+  return Number(n || 0).toLocaleString('pt-BR', {
+    maximumFractionDigits: 0,
+  })
+}
+
+function fmtK(n) {
+  const v = Number(n || 0)
+
+  if (Math.abs(v) >= 1000000) return `R$ ${(v / 1000000).toFixed(1)} mi`
+  if (Math.abs(v) >= 1000) return `R$ ${(v / 1000).toFixed(1)} mil`
+
+  return `R$ ${fmt(v)}`
+}
+
+function pct(atual, anterior) {
+  const a = Number(atual || 0)
+  const b = Number(anterior || 0)
+
+  if (a === 0 && b === 0) return 0
+  if (b === 0) return 100
+
+  return ((a - b) / b) * 100
+}
+
+function toISO(d) {
+  return d.toISOString().split('T')[0]
+}
+
+function periodoRange(periodo) {
+  const hoje = new Date()
+  const ano = hoje.getFullYear()
+  const mes = hoje.getMonth()
+
+  if (periodo === 'mes') return [new Date(ano, mes, 1), hoje]
+  if (periodo === 'trimestre') return [new Date(ano, mes - 2, 1), hoje]
+  if (periodo === 'semestre') return [new Date(ano, mes - 5, 1), hoje]
+
+  return [new Date(ano, 0, 1), hoje]
+}
+
+function periodoAnterior(periodo) {
+  const [ini, fim] = periodoRange(periodo)
+  const diff = fim.getTime() - ini.getTime()
+  const fimAnt = new Date(ini)
+  fimAnt.setDate(fimAnt.getDate() - 1)
+  const iniAnt = new Date(fimAnt.getTime() - diff)
+
+  return [iniAnt, fimAnt]
+}
+
+function dataCurta(data) {
+  if (!data) return '—'
+
+  try {
+    return new Date(data).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+    })
+  } catch {
+    return '—'
+  }
+}
+
+function dataBR(data) {
+  if (!data) return '—'
+
+  try {
+    const safe = String(data).length === 10 ? `${data}T12:00:00` : data
+    return new Date(safe).toLocaleDateString('pt-BR')
+  } catch {
+    return '—'
+  }
+}
+
+function diasDesde(data) {
+  if (!data) return 0
+
+  try {
+    const d = new Date(data)
+    const hoje = new Date()
+
+    return Math.max(0, Math.floor((hoje - d) / 86400000))
+  } catch {
+    return 0
+  }
+}
+
+function getTotal(row) {
+  return Number(row?.total || row?.amount || row?.value || 0)
+}
+
+function getCreatedDate(row) {
+  return row?.created_at?.slice(0, 10) || row?.quote_date || row?.date || ''
+}
+
+function normalizarStatus(status) {
+  const s = String(status || '').toLowerCase()
+
+  if (['rascunho', 'draft'].includes(s)) return 'rascunho'
+  if (['enviada', 'enviado', 'sent'].includes(s)) return 'enviada'
+  if (['convertida', 'convertido', 'aprovada', 'aprovado', 'won'].includes(s)) return 'convertida'
+  if (['cancelada', 'cancelado', 'perdida', 'perdido', 'lost'].includes(s)) return 'cancelada'
+
+  return s || 'rascunho'
+}
+
+const STATUS = {
+  rascunho: { label: 'Rascunho', className: 'draft' },
+  enviada: { label: 'Enviada', className: 'sent' },
+  convertida: { label: 'Convertida', className: 'won' },
+  cancelada: { label: 'Cancelada', className: 'lost' },
+}
+
+function VarBadge({ atual, anterior, invert = false }) {
+  const diff = pct(atual, anterior)
+  const positivo = invert ? diff <= 0 : diff >= 0
+
+  return (
+    <span className={`pipeline-var ${positivo ? 'up' : 'down'}`}>
+      {positivo ? <IconTrendingUp size={12} /> : <IconTrendingDown size={12} />}
+      {diff >= 0 ? '+' : ''}
+      {diff.toFixed(1)}% vs período ant.
+    </span>
+  )
+}
+
+function KpiCard({ icon: Icon, label, value, sub, atual, anterior, tone = 'neutral', invert = false }) {
+  return (
+    <article className={`pipeline-kpi ${tone}`}>
+      <div className="pipeline-kpi-top">
+        <div>
+          <span>{label}</span>
+          <strong>{value}</strong>
+        </div>
+
+        <div className="pipeline-kpi-icon">
+          <Icon size={18} />
+        </div>
+      </div>
+
+      {anterior !== undefined ? (
+        <VarBadge atual={atual} anterior={anterior} invert={invert} />
+      ) : (
+        <small>{sub}</small>
+      )}
+    </article>
+  )
+}
+
+function RankingRow({ index, title, subtitle, value, max, extra }) {
+  const percent = max ? Math.max(5, (Number(value || 0) / max) * 100) : 0
+
+  return (
+    <div className="pipeline-ranking-row">
+      <span className="pipeline-rank">{index + 1}</span>
+
+      <div className="pipeline-ranking-main">
+        <strong>{title}</strong>
+        <small>{subtitle}</small>
+      </div>
+
+      <div className="pipeline-ranking-bar">
+        <span style={{ width: `${percent}%` }} />
+      </div>
+
+      <div className="pipeline-ranking-foot">
+        <strong>{fmtK(value)}</strong>
+        {extra && <span>{extra}</span>}
+      </div>
+    </div>
+  )
+}
+
+function Empty({ children = 'Sem dados para exibir' }) {
+  return <div className="empty">{children}</div>
 }
 
 export default function Cotacoes() {
   const [loading, setLoading] = useState(true)
   const [quotes, setQuotes] = useState([])
+  const [quotesAnt, setQuotesAnt] = useState([])
   const [sellers, setSellers] = useState([])
   const [farms, setFarms] = useState([])
+  const [periodo, setPeriodo] = useState('semestre')
   const [filtroStatus, setFiltroStatus] = useState('todos')
+  const [filtroSegmento, setFiltroSegmento] = useState('todos')
 
-  useEffect(() => { carregar() }, [])
+  useEffect(() => {
+    carregarBase()
+  }, [])
 
-  async function carregar() {
-    setLoading(true)
-    const [rQuotes, rSellers, rFarms] = await Promise.all([
-      supabaseAdmin.from('quotes').select('*').order('created_at', {ascending: false}),
-      supabaseAdmin.from('profiles').select('id,name,email').eq('active',true),
+  useEffect(() => {
+    carregarCotacoes()
+  }, [periodo])
+
+  async function carregarBase() {
+    const [sellersRes, farmsRes] = await Promise.all([
+      supabaseAdmin.from('profiles').select('id,name,email').eq('active', true),
       supabaseAdmin.from('farms').select('id,name,segment,prospect'),
     ])
-    setQuotes(rQuotes.data || [])
-    setSellers(rSellers.data || [])
-    setFarms(rFarms.data || [])
-    setLoading(false)
+
+    setSellers(sellersRes.data || [])
+    setFarms(farmsRes.data || [])
   }
 
-  if (loading) return <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}><div className="empty">Carregando...</div></div>
+  async function carregarCotacoes() {
+    setLoading(true)
 
-  const qs = quotes
-  const total = qs.length
-  const nRascunho   = qs.filter(q=>q.status==='rascunho').length
-  const nEnviada    = qs.filter(q=>q.status==='enviada').length
-  const nConvertida = qs.filter(q=>q.status==='convertida').length
-  const nCancelada  = qs.filter(q=>q.status==='cancelada').length
-  const valorAberto = qs.filter(q=>q.status==='rascunho'||q.status==='enviada').reduce((a,q)=>a+Number(q.total||0),0)
-  const txConversao = total > 0 ? Math.round(nConvertida/total*100) : 0
+    try {
+      const [ini, fim] = periodoRange(periodo)
+      const [iniAnt, fimAnt] = periodoAnterior(periodo)
 
-  // Perda entre etapas
-  const perdaRascunhoEnviada   = nRascunho+nEnviada+nConvertida+nCancelada > 0 ? Math.round((nRascunho)/(total)*100) : 0
-  const perdaEnviadaConvertida = (nEnviada+nConvertida) > 0 ? Math.round((nEnviada)/(nEnviada+nConvertida)*100) : 0
+      const [rQuotes, rQuotesAnt] = await Promise.all([
+        supabaseAdmin
+          .from('quotes')
+          .select('*')
+          .gte('created_at', `${toISO(ini)}T00:00:00`)
+          .lte('created_at', `${toISO(fim)}T23:59:59`)
+          .order('created_at', { ascending: false }),
 
-  // Funil
-  const funilData = [
-    { name:'Criadas',    value:total,       color:'#6BA4D9' },
-    { name:'Enviadas',   value:nEnviada+nConvertida, color:'#f08c00', perda: perdaRascunhoEnviada },
-    { name:'Convertidas',value:nConvertida, color:'#2f9e44', perda: perdaEnviadaConvertida },
-    { name:'Canceladas', value:nCancelada,  color:'#e03131' },
-  ]
+        supabaseAdmin
+          .from('quotes')
+          .select('*')
+          .gte('created_at', `${toISO(iniAnt)}T00:00:00`)
+          .lte('created_at', `${toISO(fimAnt)}T23:59:59`),
+      ])
 
-  // Evolução mensal
-  const mesMap = {}
-  qs.forEach(q => {
-    const mes = q.created_at?.slice(0,7)
-    if (!mes) return
-    if (!mesMap[mes]) mesMap[mes] = {mes, criadas:0, convertidas:0, canceladas:0}
-    mesMap[mes].criadas++
-    if (q.status==='convertida') mesMap[mes].convertidas++
-    if (q.status==='cancelada')  mesMap[mes].canceladas++
-  })
-  const evolucao = Object.entries(mesMap).sort().slice(-6).map(([mes,v]) => ({
-    ...v,
-    label: new Date(mes+'-01T12:00:00').toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}),
-    conversao: v.criadas > 0 ? Math.round(v.convertidas/v.criadas*100) : 0,
-  }))
+      setQuotes(rQuotes.data || [])
+      setQuotesAnt(rQuotesAnt.data || [])
+    } catch (err) {
+      console.error('Erro ao carregar cotações:', err)
+      setQuotes([])
+      setQuotesAnt([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  // Por vendedor
-  const vMap = {}
-  qs.forEach(q => {
-    const k = q.seller_id || 'sem'
-    if (!vMap[k]) vMap[k] = {id:k, total:0, convertidas:0, enviadas:0, rascunho:0, valor:0}
-    vMap[k].total++
-    vMap[k].valor += Number(q.total||0)
-    if (q.status==='convertida') vMap[k].convertidas++
-    if (q.status==='enviada')    vMap[k].enviadas++
-    if (q.status==='rascunho')   vMap[k].rascunho++
-  })
-  const porVendedor = Object.values(vMap).map(v => ({
-    ...v,
-    name: sellers.find(s=>s.id===v.id)?.name || sellers.find(s=>s.email===v.id)?.name || 'Desconhecido',
-    tx: v.total > 0 ? Math.round(v.convertidas/v.total*100) : 0,
-  })).sort((a,b)=>b.total-a.total)
+  const dados = useMemo(() => {
+    const sellerById = new Map(sellers.map(s => [s.id, s]))
+    const sellerByEmail = new Map(sellers.map(s => [s.email, s]))
+    const farmById = new Map(farms.map(f => [f.id, f]))
 
-  // Alertas
-  const hoje = new Date().toISOString().split('T')[0]
-  const d7   = new Date(Date.now()-7*86400000).toISOString().split('T')[0]
-  const expiradas   = qs.filter(q=>(q.status==='rascunho'||q.status==='enviada')&&q.valid_until&&q.valid_until<hoje)
-  const semRetorno  = qs.filter(q=>q.status==='enviada'&&q.created_at?.slice(0,10)<d7)
+    let qs = quotes.map(q => {
+      const farm = farmById.get(q.farm_id)
+      const seller = sellerById.get(q.seller_id) || sellerByEmail.get(q.seller_id)
 
-  // Lista filtrada
-  const quotesFiltered = filtroStatus==='todos' ? qs : qs.filter(q=>q.status===filtroStatus)
+      return {
+        ...q,
+        statusNorm: normalizarStatus(q.status),
+        totalNumber: getTotal(q),
+        createdDate: getCreatedDate(q),
+        farmName: farm?.name || '—',
+        farmSegment: farm?.segment || '—',
+        farmProspect: Boolean(farm?.prospect),
+        sellerName: seller?.name || seller?.email || '—',
+        diasAberta: diasDesde(q.created_at || q.createdDate),
+      }
+    })
+
+    let ant = quotesAnt.map(q => ({
+      ...q,
+      statusNorm: normalizarStatus(q.status),
+      totalNumber: getTotal(q),
+    }))
+
+    if (filtroSegmento !== 'todos') {
+      qs = qs.filter(q => String(q.farmSegment || '').toLowerCase() === filtroSegmento)
+      const ids = farms
+        .filter(f => String(f.segment || '').toLowerCase() === filtroSegmento)
+        .map(f => f.id)
+
+      ant = ant.filter(q => ids.includes(q.farm_id))
+    }
+
+    const abertas = qs.filter(q => q.statusNorm === 'rascunho' || q.statusNorm === 'enviada')
+    const abertasAnt = ant.filter(q => q.statusNorm === 'rascunho' || q.statusNorm === 'enviada')
+    const convertidas = qs.filter(q => q.statusNorm === 'convertida')
+    const convertidasAnt = ant.filter(q => q.statusNorm === 'convertida')
+    const perdidas = qs.filter(q => q.statusNorm === 'cancelada')
+    const perdidasAnt = ant.filter(q => q.statusNorm === 'cancelada')
+
+    const totalCotado = qs.reduce((a, q) => a + q.totalNumber, 0)
+    const totalCotadoAnt = ant.reduce((a, q) => a + q.totalNumber, 0)
+    const valorAberto = abertas.reduce((a, q) => a + q.totalNumber, 0)
+    const valorAbertoAnt = abertasAnt.reduce((a, q) => a + q.totalNumber, 0)
+    const valorConvertido = convertidas.reduce((a, q) => a + q.totalNumber, 0)
+
+    const taxaConversao = qs.length ? Math.round((convertidas.length / qs.length) * 100) : 0
+    const taxaConversaoAnt = ant.length ? Math.round((convertidasAnt.length / ant.length) * 100) : 0
+
+    const ticketMedio = qs.length ? totalCotado / qs.length : 0
+    const ticketMedioAnt = ant.length ? totalCotadoAnt / ant.length : 0
+
+    const hoje = new Date().toISOString().split('T')[0]
+    const d7 = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
+
+    const expiradas = qs.filter(q => (
+      (q.statusNorm === 'rascunho' || q.statusNorm === 'enviada') &&
+      q.valid_until &&
+      q.valid_until < hoje
+    ))
+
+    const semRetorno = qs.filter(q => q.statusNorm === 'enviada' && q.createdDate && q.createdDate < d7)
+    const paradas = [...new Map([...expiradas, ...semRetorno].map(q => [q.id, q])).values()]
+
+    const statusMap = {
+      rascunho: { label: 'Rascunho', value: 0, valor: 0 },
+      enviada: { label: 'Enviada', value: 0, valor: 0 },
+      convertida: { label: 'Convertida', value: 0, valor: 0 },
+      cancelada: { label: 'Cancelada', value: 0, valor: 0 },
+    }
+
+    qs.forEach(q => {
+      if (!statusMap[q.statusNorm]) {
+        statusMap[q.statusNorm] = { label: q.statusNorm, value: 0, valor: 0 }
+      }
+
+      statusMap[q.statusNorm].value += 1
+      statusMap[q.statusNorm].valor += q.totalNumber
+    })
+
+    const funil = Object.entries(statusMap).map(([key, item]) => ({
+      key,
+      ...item,
+      percent: qs.length ? Math.round((item.value / qs.length) * 100) : 0,
+    }))
+
+    const mesMap = {}
+
+    qs.forEach(q => {
+      const mes = q.created_at?.slice(0, 7)
+      if (!mes) return
+
+      if (!mesMap[mes]) {
+        mesMap[mes] = {
+          mes,
+          label: new Date(`${mes}-01T12:00:00`).toLocaleDateString('pt-BR', {
+            month: 'short',
+            year: '2-digit',
+          }),
+          Cotado: 0,
+          Convertido: 0,
+          Cotas: 0,
+        }
+      }
+
+      mesMap[mes].Cotado += q.totalNumber
+      mesMap[mes].Cotas += 1
+
+      if (q.statusNorm === 'convertida') {
+        mesMap[mes].Convertido += q.totalNumber
+      }
+    })
+
+    const evolucao = Object.values(mesMap)
+      .sort((a, b) => a.mes.localeCompare(b.mes))
+      .slice(-6)
+
+    const sellerMap = {}
+
+    qs.forEach(q => {
+      const key = q.seller_id || 'sem_vendedor'
+      const seller = sellerById.get(key) || sellerByEmail.get(key)
+
+      if (!sellerMap[key]) {
+        sellerMap[key] = {
+          id: key,
+          name: seller?.name || seller?.email || 'Desconhecido',
+          total: 0,
+          convertidas: 0,
+          abertas: 0,
+          valor: 0,
+          valorConvertido: 0,
+        }
+      }
+
+      sellerMap[key].total += 1
+      sellerMap[key].valor += q.totalNumber
+
+      if (q.statusNorm === 'convertida') {
+        sellerMap[key].convertidas += 1
+        sellerMap[key].valorConvertido += q.totalNumber
+      }
+
+      if (q.statusNorm === 'rascunho' || q.statusNorm === 'enviada') {
+        sellerMap[key].abertas += 1
+      }
+    })
+
+    const porVendedor = Object.values(sellerMap)
+      .map(v => ({
+        ...v,
+        taxa: v.total ? Math.round((v.convertidas / v.total) * 100) : 0,
+      }))
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 6)
+
+    const topAbertas = abertas
+      .sort((a, b) => b.totalNumber - a.totalNumber)
+      .slice(0, 6)
+
+    const lista = qs
+      .filter(q => filtroStatus === 'todos' ? true : q.statusNorm === filtroStatus)
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+
+    return {
+      qs,
+      ant,
+      total: qs.length,
+      totalAnt: ant.length,
+      totalCotado,
+      totalCotadoAnt,
+      valorAberto,
+      valorAbertoAnt,
+      valorConvertido,
+      convertidas: convertidas.length,
+      convertidasAnt: convertidasAnt.length,
+      perdidas: perdidas.length,
+      perdidasAnt: perdidasAnt.length,
+      abertas: abertas.length,
+      taxaConversao,
+      taxaConversaoAnt,
+      ticketMedio,
+      ticketMedioAnt,
+      paradas,
+      expiradas,
+      semRetorno,
+      funil,
+      evolucao,
+      porVendedor,
+      topAbertas,
+      lista,
+    }
+  }, [quotes, quotesAnt, sellers, farms, filtroStatus, filtroSegmento])
+
+  const funilMax = Math.max(...dados.funil.map(f => f.value), 1)
+  const vendedorMax = Math.max(...dados.porVendedor.map(v => v.valor), 1)
+  const abertasMax = Math.max(...dados.topAbertas.map(q => q.totalNumber), 1)
+
+  function exportCSV() {
+    const rows = [
+      ['Cliente', 'Vendedor', 'Criada em', 'Status', 'Validade', 'Dias aberta', 'Valor'],
+      ...dados.lista.map(q => [
+        q.farmName,
+        q.sellerName,
+        q.createdDate,
+        STATUS[q.statusNorm]?.label || q.statusNorm,
+        q.valid_until || '—',
+        q.diasAberta,
+        q.totalNumber,
+      ]),
+    ]
+
+    const csv = rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\n')
+    const a = document.createElement('a')
+
+    a.href = `data:text/csv;charset=utf-8,\uFEFF${encodeURIComponent(csv)}`
+    a.download = 'cotacoes-pipeline.csv'
+    a.click()
+  }
 
   return (
-    <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
-      <Topbar title="Análise de Cotações" subtitle="Funil comercial e evolução"/>
-      <div className="page" style={{overflowY:'auto'}}>
+    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <Topbar title="Pipeline Comercial" subtitle="Cotações, oportunidades e conversão">
+        <button className="btn btn-ghost btn-sm" onClick={exportCSV}>
+          <IconDownload size={14} />
+          Exportar CSV
+        </button>
+      </Topbar>
 
-        {/* KPIs */}
-        <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)',marginBottom:20}}>
-          {[
-            {label:'Total de cotações', value:total,              sub:`${nRascunho} rascunhos`},
-            {label:'Valor em aberto',   value:fmtK(valorAberto),  sub:'pipeline atual'},
-            {label:'Convertidas',       value:nConvertida,         sub:`de ${total} criadas`},
-            {label:'Taxa de conversão', value:txConversao+'%',     sub:'sobre total criado'},
-          ].map(k=>(
-            <div key={k.label} className="kpi">
-              <div className="label">{k.label}</div>
-              <div className="value">{k.value}</div>
-              <div className="sub">{k.sub}</div>
+      <div className="page pipeline-page" style={{ overflowY: 'auto' }}>
+        <section className="pipeline-toolbar">
+          <div className="pipeline-toolbar-left">
+            <div className="pipeline-filter-icon">
+              <IconFilter size={15} />
             </div>
-          ))}
-        </div>
 
-        {/* Alertas */}
-        {(expiradas.length>0||semRetorno.length>0) && (
-          <div style={{marginBottom:20,display:'flex',flexDirection:'column',gap:8}}>
-            {expiradas.length>0 && (
-              <div style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:8,padding:'10px 14px',display:'flex',gap:10,alignItems:'center'}}>
-                <IconAlertTriangle size={16} color="var(--red)"/>
-                <span style={{fontSize:13,color:'var(--red)'}}>
-                  <strong>{expiradas.length}</strong> cotação{expiradas.length>1?'ões':''} expirada{expiradas.length>1?'s':''} ainda em aberto
-                </span>
-              </div>
-            )}
-            {semRetorno.length>0 && (
-              <div style={{background:'var(--amber-bg)',border:'1px solid var(--amber)',borderRadius:8,padding:'10px 14px',display:'flex',gap:10,alignItems:'center'}}>
-                <IconAlertTriangle size={16} color="var(--amber)"/>
-                <span style={{fontSize:13,color:'var(--amber)'}}>
-                  <strong>{semRetorno.length}</strong> cotação{semRetorno.length>1?'ões':''} enviada{semRetorno.length>1?'s':''} há mais de 7 dias sem retorno
-                </span>
-              </div>
-            )}
+            <select value={periodo} onChange={e => setPeriodo(e.target.value)}>
+              <option value="mes">Mês atual</option>
+              <option value="trimestre">Trimestre</option>
+              <option value="semestre">Semestre</option>
+              <option value="ano">Ano</option>
+            </select>
+
+            <select value={filtroSegmento} onChange={e => setFiltroSegmento(e.target.value)}>
+              <option value="todos">Todos os segmentos</option>
+              <option value="leite">Leite</option>
+              <option value="corte">Corte</option>
+              <option value="suinos">Suínos</option>
+            </select>
+
+            <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)}>
+              <option value="todos">Todos os status</option>
+              <option value="rascunho">Rascunho</option>
+              <option value="enviada">Enviadas</option>
+              <option value="convertida">Convertidas</option>
+              <option value="cancelada">Canceladas</option>
+            </select>
           </div>
-        )}
 
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
-          {/* Funil */}
-          <div className="card">
-            <div className="section-title">Funil de Conversão</div>
-            <div style={{marginBottom:12}}>
-              {funilData.map((f,i) => (
-                <div key={f.name} style={{marginBottom:10}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-                    <span style={{fontSize:12,fontWeight:500}}>{f.name}</span>
-                    <span style={{fontSize:13,fontWeight:700,color:f.color}}>{f.value}</span>
+          <div className="pipeline-toolbar-count">
+            {fmtInt(dados.total)} cotações no período
+          </div>
+        </section>
+
+        <section className="pipeline-hero">
+          <div>
+            <span className="pipeline-eyebrow">Pipeline aberto</span>
+            <h2>{fmtK(dados.valorAberto)}</h2>
+            <VarBadge atual={dados.valorAberto} anterior={dados.valorAbertoAnt} />
+          </div>
+
+          <div className="pipeline-hero-grid">
+            <div>
+              <span>Valor cotado</span>
+              <strong>{fmtK(dados.totalCotado)}</strong>
+            </div>
+
+            <div>
+              <span>Valor convertido</span>
+              <strong>{fmtK(dados.valorConvertido)}</strong>
+            </div>
+
+            <div>
+              <span>Conversão</span>
+              <strong>{dados.taxaConversao}%</strong>
+            </div>
+          </div>
+        </section>
+
+        <section className="pipeline-kpi-grid">
+          <KpiCard
+            icon={IconTargetArrow}
+            label="Pipeline aberto"
+            value={fmtK(dados.valorAberto)}
+            atual={dados.valorAberto}
+            anterior={dados.valorAbertoAnt}
+          />
+
+          <KpiCard
+            icon={IconReceipt}
+            label="Cotações"
+            value={fmtInt(dados.total)}
+            atual={dados.total}
+            anterior={dados.totalAnt}
+          />
+
+          <KpiCard
+            icon={IconChecklist}
+            label="Convertidas"
+            value={fmtInt(dados.convertidas)}
+            atual={dados.convertidas}
+            anterior={dados.convertidasAnt}
+          />
+
+          <KpiCard
+            icon={IconChartBar}
+            label="Conversão"
+            value={`${dados.taxaConversao}%`}
+            atual={dados.taxaConversao}
+            anterior={dados.taxaConversaoAnt}
+          />
+
+          <KpiCard
+            icon={IconCalendarTime}
+            label="Ticket cotado"
+            value={fmtK(dados.ticketMedio)}
+            atual={dados.ticketMedio}
+            anterior={dados.ticketMedioAnt}
+          />
+
+          <KpiCard
+            icon={IconAlertTriangle}
+            label="Paradas"
+            value={fmtInt(dados.paradas.length)}
+            sub={`${dados.expiradas.length} expiradas · ${dados.semRetorno.length} sem retorno`}
+            tone={dados.paradas.length ? 'danger' : 'success'}
+          />
+        </section>
+
+        {loading ? (
+          <Empty>Carregando pipeline...</Empty>
+        ) : (
+          <>
+            {dados.paradas.length > 0 && (
+              <section className="pipeline-alerts">
+                {dados.expiradas.length > 0 && (
+                  <div className="pipeline-alert danger">
+                    <IconAlertTriangle size={17} />
+                    <span>
+                      <strong>{dados.expiradas.length}</strong> cotação{dados.expiradas.length > 1 ? 'ões' : ''} expirada{dados.expiradas.length > 1 ? 's' : ''} ainda em aberto.
+                    </span>
                   </div>
-                  <div style={{background:'var(--surface-2)',borderRadius:4,height:8,overflow:'hidden'}}>
-                    <div style={{width:`${total>0?Math.round(f.value/total*100):0}%`,height:'100%',background:f.color,borderRadius:4,transition:'width .3s'}}/>
+                )}
+
+                {dados.semRetorno.length > 0 && (
+                  <div className="pipeline-alert warning">
+                    <IconClock size={17} />
+                    <span>
+                      <strong>{dados.semRetorno.length}</strong> cotação{dados.semRetorno.length > 1 ? 'ões' : ''} enviada{dados.semRetorno.length > 1 ? 's' : ''} há mais de 7 dias sem retorno.
+                    </span>
                   </div>
-                  {f.perda !== undefined && f.value > 0 && (
-                    <div style={{fontSize:10,color:'var(--text-faint)',marginTop:2}}>
-                      {total>0?Math.round(f.value/total*100):0}% do total
-                      {f.perda > 0 && <span style={{color:'var(--red)',marginLeft:6}}>· {f.perda}% ainda não avançou</span>}
-                    </div>
-                  )}
-                  {!f.perda && f.value > 0 && (
-                    <div style={{fontSize:10,color:'var(--text-faint)',marginTop:2}}>
-                      {total>0?Math.round(f.value/total*100):0}% do total
-                    </div>
-                  )}
+                )}
+              </section>
+            )}
+
+            <section className="pipeline-main-grid">
+              <div className="pipeline-card pipeline-chart-card">
+                <div className="pipeline-card-head">
+                  <div>
+                    <span className="pipeline-eyebrow">Evolução</span>
+                    <h3>Valor cotado x convertido</h3>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Por vendedor */}
-          <div className="card">
-            <div className="section-title">Por Vendedor</div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Vendedor</th>
-                    <th style={{textAlign:'center'}}>Total</th>
-                    <th style={{textAlign:'center'}}>Conv.</th>
-                    <th style={{textAlign:'center'}}>Taxa</th>
-                    <th style={{textAlign:'right'}}>Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {porVendedor.length===0
-                    ? <tr><td colSpan={5} style={{textAlign:'center',color:'var(--text-faint)'}}>Sem dados</td></tr>
-                    : porVendedor.map((v,i)=>(
-                      <tr key={v.id}>
-                        <td style={{fontWeight:500}}>{v.name}</td>
-                        <td style={{textAlign:'center'}}>{v.total}</td>
-                        <td style={{textAlign:'center',color:'var(--green)',fontWeight:600}}>{v.convertidas}</td>
-                        <td style={{textAlign:'center'}}>
-                          <span style={{color: v.tx>=50?'var(--green)':v.tx>=25?'var(--amber)':'var(--red)',fontWeight:600}}>
-                            {v.tx}%
-                          </span>
+                {dados.evolucao.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={290}>
+                    <AreaChart data={dados.evolucao} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="pipelineCotado" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--orange)" stopOpacity={0.23} />
+                          <stop offset="95%" stopColor="var(--orange)" stopOpacity={0.02} />
+                        </linearGradient>
+
+                        <linearGradient id="pipelineConvertido" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#23864A" stopOpacity={0.18} />
+                          <stop offset="95%" stopColor="#23864A" stopOpacity={0.01} />
+                        </linearGradient>
+                      </defs>
+
+                      <CartesianGrid strokeDasharray="4 6" />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                      <YAxis tickLine={false} axisLine={false} tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} />
+                      <Tooltip formatter={(v, n) => [`R$ ${fmt(v)}`, n]} />
+
+                      <Area
+                        type="monotone"
+                        dataKey="Cotado"
+                        stroke="var(--orange)"
+                        strokeWidth={2.5}
+                        fill="url(#pipelineCotado)"
+                        dot={{ r: 3 }}
+                        activeDot={{ r: 5 }}
+                      />
+
+                      <Area
+                        type="monotone"
+                        dataKey="Convertido"
+                        stroke="#23864A"
+                        strokeWidth={2.3}
+                        fill="url(#pipelineConvertido)"
+                        dot={{ r: 3 }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <Empty>Sem evolução no período</Empty>
+                )}
+              </div>
+
+              <div className="pipeline-card">
+                <div className="pipeline-card-head">
+                  <div>
+                    <span className="pipeline-eyebrow">Funil</span>
+                    <h3>Status das cotações</h3>
+                  </div>
+                </div>
+
+                <div className="pipeline-funnel">
+                  {dados.funil.map(item => (
+                    <div key={item.key} className={`pipeline-funnel-row ${STATUS[item.key]?.className || ''}`}>
+                      <div>
+                        <strong>{item.label}</strong>
+                        <span>{fmtK(item.valor)}</span>
+                      </div>
+
+                      <div className="pipeline-funnel-mid">
+                        <div className="pipeline-funnel-bar">
+                          <span style={{ width: `${Math.max(4, (item.value / funilMax) * 100)}%` }} />
+                        </div>
+
+                        <small>{item.percent}% do total</small>
+                      </div>
+
+                      <strong className="pipeline-funnel-count">{fmtInt(item.value)}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="pipeline-grid-3">
+              <div className="pipeline-card">
+                <div className="pipeline-card-head">
+                  <div>
+                    <span className="pipeline-eyebrow">Equipe</span>
+                    <h3>Conversão por vendedor</h3>
+                  </div>
+                </div>
+
+                {dados.porVendedor.length > 0 ? (
+                  <div className="pipeline-ranking">
+                    {dados.porVendedor.map((v, i) => (
+                      <RankingRow
+                        key={v.id}
+                        index={i}
+                        title={v.name}
+                        subtitle={`${fmtInt(v.total)} cotações · ${fmtInt(v.convertidas)} convertidas`}
+                        value={v.valor}
+                        max={vendedorMax}
+                        extra={`${v.taxa}% conversão`}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <Empty>Sem dados por vendedor</Empty>
+                )}
+              </div>
+
+              <div className="pipeline-card">
+                <div className="pipeline-card-head">
+                  <div>
+                    <span className="pipeline-eyebrow">Oportunidades</span>
+                    <h3>Maiores abertas</h3>
+                  </div>
+                </div>
+
+                {dados.topAbertas.length > 0 ? (
+                  <div className="pipeline-ranking">
+                    {dados.topAbertas.map((q, i) => (
+                      <RankingRow
+                        key={q.id}
+                        index={i}
+                        title={q.farmName}
+                        subtitle={`${q.sellerName} · ${STATUS[q.statusNorm]?.label || q.statusNorm}`}
+                        value={q.totalNumber}
+                        max={abertasMax}
+                        extra={`${q.diasAberta} dias`}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <Empty>Sem oportunidades abertas</Empty>
+                )}
+              </div>
+
+              <div className="pipeline-card">
+                <div className="pipeline-card-head">
+                  <div>
+                    <span className="pipeline-eyebrow">Atividade</span>
+                    <h3>Cotações criadas</h3>
+                  </div>
+                </div>
+
+                {dados.evolucao.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={235}>
+                    <BarChart data={dados.evolucao} margin={{ top: 6, right: 10, left: -18, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="4 6" />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                      <YAxis tickLine={false} axisLine={false} />
+                      <Tooltip />
+                      <Bar dataKey="Cotas" name="Cotações" fill="var(--orange)" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <Empty>Sem histórico</Empty>
+                )}
+              </div>
+            </section>
+
+            <section className="pipeline-card">
+              <div className="pipeline-card-head">
+                <div>
+                  <span className="pipeline-eyebrow">Lista</span>
+                  <h3>Todas as cotações</h3>
+                </div>
+
+                <small>{fmtInt(dados.lista.length)} registros</small>
+              </div>
+
+              <div className="table-wrap pipeline-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>Vendedor</th>
+                      <th>Criada em</th>
+                      <th>Status</th>
+                      <th>Validade</th>
+                      <th>Dias</th>
+                      <th style={{ textAlign: 'right' }}>Valor</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {dados.lista.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>
+                          Nenhuma cotação encontrada
                         </td>
-                        <td style={{textAlign:'right',color:'var(--orange)',fontWeight:600}}>{fmtK(v.valor)}</td>
                       </tr>
-                    ))
-                  }
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+                    ) : (
+                      dados.lista.map(q => {
+                        const st = STATUS[q.statusNorm] || STATUS.rascunho
+                        const expirou = q.valid_until && q.valid_until < new Date().toISOString().split('T')[0]
 
-        {/* Gráficos de evolução mensal */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
-          <div className="card">
-            <div className="section-title">Cotações geradas por mês</div>
-            {evolucao.length>0 ? (
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={evolucao} margin={{top:4,right:8,left:-16,bottom:0}}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/>
-                  <XAxis dataKey="label" tick={{fontSize:11}}/>
-                  <YAxis tick={{fontSize:11}}/>
-                  <Tooltip/>
-                  <Bar dataKey="criadas" name="Criadas" fill="#6BA4D9" radius={[4,4,0,0]}/>
-                  <Bar dataKey="convertidas" name="Convertidas" fill="#2f9e44" radius={[4,4,0,0]}/>
-                  <Bar dataKey="canceladas" name="Canceladas" fill="#e03131" radius={[4,4,0,0]}/>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <div className="empty" style={{padding:40}}>Sem dados</div>}
-          </div>
-
-          <div className="card">
-            <div className="section-title">Taxa de conversão por mês (%)</div>
-            {evolucao.length>0 ? (
-              <ResponsiveContainer width="100%" height={180}>
-                <LineChart data={evolucao} margin={{top:4,right:8,left:-16,bottom:0}}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/>
-                  <XAxis dataKey="label" tick={{fontSize:11}}/>
-                  <YAxis tick={{fontSize:11}} domain={[0,100]} tickFormatter={v=>v+'%'}/>
-                  <Tooltip formatter={v=>[v+'%','Conversão']}/>
-                  <Line type="monotone" dataKey="conversao" name="Conversão" stroke="var(--orange)" strokeWidth={2} dot={{r:4}}/>
-                </LineChart>
-              </ResponsiveContainer>
-            ) : <div className="empty" style={{padding:40}}>Sem dados</div>}
-          </div>
-        </div>
-
-        {/* Lista */}
-        <div className="card">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-            <div className="section-title" style={{margin:0}}>Todas as Cotações</div>
-            <div style={{display:'flex',gap:8,alignItems:'center'}}>
-              <IconFilter size={13} color="var(--text-faint)"/>
-              <select value={filtroStatus} onChange={e=>setFiltroStatus(e.target.value)} style={{fontSize:12,padding:'4px 8px',width:'auto'}}>
-                <option value="todos">Todos</option>
-                {Object.entries(STATUS_CFG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Cliente</th>
-                  <th>Vendedor</th>
-                  <th>Criada em</th>
-                  <th>Status</th>
-                  <th>Validade</th>
-                  <th style={{textAlign:'right'}}>Valor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {quotesFiltered.length===0
-                  ? <tr><td colSpan={6} style={{textAlign:'center',color:'var(--text-faint)'}}>Nenhuma cotação</td></tr>
-                  : quotesFiltered.map(q=>{
-                    const farm    = farms.find(f=>f.id===q.farm_id)
-                    const profile = sellers.find(s=>s.id===q.seller_id)
-                    const cfg     = STATUS_CFG[q.status]||STATUS_CFG.rascunho
-                    const expirou = q.valid_until&&q.valid_until<hoje
-                    return (
-                      <tr key={q.id}>
-                        <td style={{fontWeight:500}}>
-                          {farm?.name||'—'}
-                          {farm?.prospect&&<span style={{fontSize:10,color:'var(--amber)',marginLeft:6}}>prospecto</span>}
-                        </td>
-                        <td style={{fontSize:12,color:'var(--text-dim)'}}>{profile?.name||'—'}</td>
-                        <td style={{fontSize:12,color:'var(--text-faint)'}}>
-                          {q.created_at ? new Date(q.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}) : '—'}
-                        </td>
-                        <td>
-                          <span style={{background:cfg.color+'22',color:cfg.color,borderRadius:20,padding:'2px 10px',fontSize:11,fontWeight:600}}>
-                            {cfg.label}
-                          </span>
-                        </td>
-                        <td style={{fontSize:12,color:expirou?'var(--red)':'var(--text-faint)'}}>
-                          {q.valid_until?new Date(q.valid_until+'T12:00:00').toLocaleDateString('pt-BR'):'—'}
-                          {expirou&&' ⚠️'}
-                        </td>
-                        <td style={{textAlign:'right',fontWeight:600,color:'var(--orange)'}}>{fmtK(q.total)}</td>
-                      </tr>
-                    )
-                  })
-                }
-              </tbody>
-            </table>
-          </div>
-        </div>
+                        return (
+                          <tr key={q.id}>
+                            <td>
+                              <strong>{q.farmName}</strong>
+                              {q.farmProspect && <span className="pipeline-prospect">prospecto</span>}
+                            </td>
+                            <td>{q.sellerName}</td>
+                            <td>{dataCurta(q.created_at)}</td>
+                            <td>
+                              <span className={`pipeline-status ${st.className}`}>
+                                {st.label}
+                              </span>
+                            </td>
+                            <td className={expirou ? 'pipeline-expired' : ''}>
+                              {dataBR(q.valid_until)}
+                              {expirou && ' ⚠️'}
+                            </td>
+                            <td>{fmtInt(q.diasAberta)}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              <strong className="pipeline-total">{fmtK(q.totalNumber)}</strong>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </>
+        )}
       </div>
     </div>
   )
