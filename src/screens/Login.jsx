@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/useAuth'
 import { IconMail, IconLock, IconEye, IconEyeOff } from '@tabler/icons-react'
-import logo from '../assets/logo-nutrialle.jpg'
+import logo from '../assets/logo-nutrialle.png'
 
 export default function Login() {
   const { login, error } = useAuth()
