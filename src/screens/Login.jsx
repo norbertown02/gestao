@@ -1,56 +1,127 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/useAuth'
 import { IconMail, IconLock, IconEye, IconEyeOff } from '@tabler/icons-react'
+import logo from '../assets/logo-nutrialle.jpg'
 
 export default function Login() {
   const { login, error } = useAuth()
-  const [email,   setEmail]   = useState('')
-  const [senha,   setSenha]   = useState('')
-  const [showPw,  setShowPw]  = useState(false)
+
+  const [email, setEmail] = useState('')
+  const [senha, setSenha] = useState('')
+  const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
+
     setLoading(true)
     await login(email.trim(), senha)
     setLoading(false)
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 400 }}>
-        <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--orange)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: 24, fontWeight: 700, color: '#fff' }}>N</div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Nutrialle Gestão</div>
-          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 4 }}>Painel administrativo</div>
+    <main className="login-page">
+      <section className="login-shell">
+        <div className="login-brand">
+          <div>
+            <img src={logo} alt="Nutrialle" className="login-logo" />
+
+            <h1>Gestão comercial com visão de campo.</h1>
+
+            <p>
+              Acompanhe vendas, visitas, cotações, carteira e desempenho do
+              time em um painel executivo conectado à operação da Nutrialle.
+            </p>
+          </div>
+
+          <div className="login-brand-footer">
+            <div className="login-mini">
+              <strong>360°</strong>
+              <span>Gestão</span>
+            </div>
+
+            <div className="login-mini">
+              <strong>BI</strong>
+              <span>Comercial</span>
+            </div>
+
+            <div className="login-mini">
+              <strong>Campo</strong>
+              <span>Performance</span>
+            </div>
+          </div>
         </div>
-        <div className="card">
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+        <div className="login-form-side">
+          <div className="login-form-head">
+            <h2>Acessar Gestão</h2>
+            <p>
+              Entre com seu e-mail corporativo para acessar o painel
+              administrativo da Nutrialle.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="login-form">
             <div>
               <label>E-mail</label>
-              <div style={{ position: 'relative' }}>
-                <IconMail size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-faint)' }} />
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@nutrialle.com.br" style={{ paddingLeft: 32 }} required />
+
+              <div className="login-input-wrap">
+                <IconMail size={16} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="seu@nutrialle.com.br"
+                  autoComplete="email"
+                  required
+                />
               </div>
             </div>
+
             <div>
               <label>Senha</label>
-              <div style={{ position: 'relative' }}>
-                <IconLock size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-faint)' }} />
-                <input type={showPw ? 'text' : 'password'} value={senha} onChange={e => setSenha(e.target.value)} placeholder="••••••••" style={{ paddingLeft: 32, paddingRight: 36 }} required />
-                <button type="button" onClick={() => setShowPw(p => !p)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)' }}>
-                  {showPw ? <IconEyeOff size={15} /> : <IconEye size={15} />}
+
+              <div className="login-input-wrap">
+                <IconLock size={16} />
+
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  value={senha}
+                  onChange={e => setSenha(e.target.value)}
+                  placeholder="Digite sua senha"
+                  autoComplete="current-password"
+                  required
+                  style={{ paddingRight: 44 }}
+                />
+
+                <button
+                  type="button"
+                  className="login-password-btn"
+                  onClick={() => setShowPw(v => !v)}
+                  aria-label={showPw ? 'Ocultar senha' : 'Mostrar senha'}
+                >
+                  {showPw ? <IconEyeOff size={16} /> : <IconEye size={16} />}
                 </button>
               </div>
             </div>
-            {error && <div style={{ background: 'var(--red-bg)', color: 'var(--red)', padding: '8px 12px', borderRadius: 8, fontSize: 13 }}>{error}</div>}
-            <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%', justifyContent: 'center', padding: '10px' }}>
-              {loading ? 'Entrando...' : 'Entrar'}
+
+            {error && <div className="login-error">{error}</div>}
+
+            <button
+              type="submit"
+              className="btn btn-primary login-submit"
+              disabled={loading}
+            >
+              {loading ? 'Entrando...' : 'Entrar no painel'}
             </button>
           </form>
+
+          <div className="login-note">
+            Ambiente interno Nutrialle. O acesso é restrito aos usuários
+            autorizados.
+          </div>
         </div>
-        <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-faint)', marginTop: 20 }}>Acesso restrito à equipe Nutrialle</p>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }
