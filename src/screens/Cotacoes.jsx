@@ -4,7 +4,6 @@ import Topbar from '../components/Topbar'
 import {
   IconAlertTriangle,
   IconBuildingStore,
-  IconCalendarTime,
   IconChartBar,
   IconChecklist,
   IconClock,
@@ -19,8 +18,6 @@ import {
 import {
   AreaChart,
   Area,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -600,13 +597,6 @@ export default function Cotacoes() {
             anterior={dados.taxaConversaoAnt}
           />
 
-          <KpiCard
-            icon={IconCalendarTime}
-            label="Ticket cotado"
-            value={fmtK(dados.ticketMedio)}
-            atual={dados.ticketMedio}
-            anterior={dados.ticketMedioAnt}
-          />
 
           <KpiCard
             icon={IconAlertTriangle}
@@ -728,7 +718,7 @@ export default function Cotacoes() {
               </div>
             </section>
 
-            <section className="pipeline-grid-3">
+            <section className="pipeline-grid-2">
               <div className="pipeline-card">
                 <div className="pipeline-card-head">
                   <div>
@@ -780,29 +770,6 @@ export default function Cotacoes() {
                   </div>
                 ) : (
                   <Empty>Sem oportunidades abertas</Empty>
-                )}
-              </div>
-
-              <div className="pipeline-card">
-                <div className="pipeline-card-head">
-                  <div>
-                    <span className="pipeline-eyebrow">Atividade</span>
-                    <h3>Cotações criadas</h3>
-                  </div>
-                </div>
-
-                {dados.evolucao.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={235}>
-                    <BarChart data={dados.evolucao} margin={{ top: 6, right: 10, left: -18, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="4 6" />
-                      <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                      <YAxis tickLine={false} axisLine={false} />
-                      <Tooltip />
-                      <Bar dataKey="Cotas" name="Cotações" fill="var(--orange)" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <Empty>Sem histórico</Empty>
                 )}
               </div>
             </section>
