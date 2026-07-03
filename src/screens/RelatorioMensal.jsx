@@ -201,51 +201,128 @@ function MiniBarList({ items, valueKey = 'total', labelKey = 'name', valueFormat
 function EvolutionChart({ data }) {
   const rows = data || []
   const max = Math.max(...rows.flatMap(r => [Number(r.vendas || 0), Number(r.cotacoes || 0)]), 1)
-  const width = 660
-  const height = 255
-  const pad = 34
-  const innerW = width - pad * 2
-  const innerH = height - pad * 2
+  const width = 700
+  const height = 300
+  const padL = 72
+  const padR = 28
+  const padT = 32
+  const padB = 54
+  const innerW = width - padL - padR
+  const innerH = height - padT - padB
+
+  const niceMax = Math.ceil(max / 1000) * 1000 || 1
+
+  const moneyShort = value => {
+    const v = Number(value || 0)
+    if (v >= 1000000) return `${(v / 1000000).toFixed(1)} mi`
+    if (v >= 1000) return `${(v / 1000).toFixed(0)} mil`
+    return fmtInt(v)
+  }
 
   const points = key => rows.map((r, i) => {
-    const x = pad + (i / Math.max(1, rows.length - 1)) * innerW
-    const y = pad + innerH - (Number(r[key] || 0) / max) * innerH
+    const x = padL + (i / Math.max(1, rows.length - 1)) * innerW
+    const y = padT + innerH - (Number(r[key] || 0) / niceMax) * innerH
     return { x, y, value: Number(r[key] || 0), label: r.label }
   })
 
-  const path = key => points(key).map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+  const smoothPath = pts => {
+    if (!pts.length) return ''
+    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`
+
+    let d = `M ${pts[0].x} ${pts[0].y}`
+
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i]
+      const p1 = pts[i + 1]
+      const midX = (p0.x + p1.x) / 2
+      d += ` C ${midX} ${p0.y}, ${midX} ${p1.y}, ${p1.x} ${p1.y}`
+    }
+
+    return d
+  }
+
   const vendas = points('vendas')
   const cotacoes = points('cotacoes')
+  const yTicks = [0, .25, .5, .75, 1].map(t => niceMax * t)
+
+  const areaPath = pts => {
+    if (!pts.length) return ''
+    return `${smoothPath(pts)} L ${pts[pts.length - 1].x} ${padT + innerH} L ${pts[0].x} ${padT + innerH} Z`
+  }
 
   return (
-    <div className="pdf-chart-box">
-      <svg viewBox={`0 0 ${width} ${height}`} className="pdf-line-chart">
-        {[0, 1, 2, 3].map(i => (
-          <line
-            key={i}
-            x1={pad}
-            x2={width - pad}
-            y1={pad + (innerH / 3) * i}
-            y2={pad + (innerH / 3) * i}
-          />
-        ))}
+    <div className="pdf-chart-premium">
+      <div className="pdf-chart-topline">
+        <div>
+          <span>Evolução comercial</span>
+          <strong>Vendas realizadas x valor cotado</strong>
+        </div>
 
-        <path d={path('cotacoes')} className="quote-path" />
-        <path d={path('vendas')} className="sales-path" />
+        <div className="pdf-chart-legend">
+          <span><i className="sales" /> Vendas</span>
+          <span><i className="quotes" /> Cotações</span>
+        </div>
+      </div>
 
-        {cotacoes.map((p, i) => <circle key={`q-${i}`} cx={p.x} cy={p.y} r="4" className="quote-dot" />)}
-        {vendas.map((p, i) => <circle key={`v-${i}`} cx={p.x} cy={p.y} r="4.5" className="sales-dot" />)}
+      <svg viewBox={`0 0 ${width} ${height}`} className="pdf-line-chart-premium">
+        <defs>
+          <linearGradient id="salesAreaGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#E87722" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#E87722" stopOpacity="0.02" />
+          </linearGradient>
+
+          <filter id="softShadow" x="-10%" y="-10%" width="120%" height="130%">
+            <feDropShadow dx="0" dy="5" stdDeviation="5" floodColor="#E87722" floodOpacity="0.16" />
+          </filter>
+        </defs>
+
+        <rect x={padL} y={padT} width={innerW} height={innerH} rx="18" className="plot-bg" />
+
+        {yTicks.map((tick, i) => {
+          const y = padT + innerH - (tick / niceMax) * innerH
+          return (
+            <g key={tick}>
+              <line x1={padL} x2={padL + innerW} y1={y} y2={y} className="grid-line" />
+              <text x={padL - 14} y={y + 4} textAnchor="end" className="axis-value">
+                {moneyShort(tick)}
+              </text>
+            </g>
+          )
+        })}
 
         {rows.map((r, i) => {
-          const x = pad + (i / Math.max(1, rows.length - 1)) * innerW
-          return <text key={r.mes} x={x} y={height - 10} textAnchor="middle">{r.label}</text>
+          const x = padL + (i / Math.max(1, rows.length - 1)) * innerW
+          return (
+            <g key={r.mes}>
+              <line x1={x} x2={x} y1={padT} y2={padT + innerH} className="vertical-guide" />
+              <text x={x} y={height - 18} textAnchor="middle" className="axis-label">{r.label}</text>
+            </g>
+          )
         })}
-      </svg>
 
-      <div className="pdf-chart-legend">
-        <span><i className="sales" /> Vendas realizadas</span>
-        <span><i className="quotes" /> Valor cotado</span>
-      </div>
+        <path d={areaPath(vendas)} className="sales-area" />
+
+        <path d={smoothPath(cotacoes)} className="quote-path-premium" />
+        <path d={smoothPath(vendas)} className="sales-path-premium" filter="url(#softShadow)" />
+
+        {cotacoes.map((p, i) => (
+          <g key={`q-${i}`}>
+            <circle cx={p.x} cy={p.y} r="4.5" className="quote-dot-premium" />
+          </g>
+        ))}
+
+        {vendas.map((p, i) => (
+          <g key={`v-${i}`}>
+            <circle cx={p.x} cy={p.y} r="6" className="sales-dot-premium" />
+            {i === vendas.length - 1 && (
+              <g>
+                <rect x={p.x - 42} y={p.y - 35} width="84" height="22" rx="11" className="last-value-pill" />
+                <text x={p.x} y={p.y - 20} textAnchor="middle" className="last-value-text">{moneyShort(p.value)}</text>
+              </g>
+            )}
+          </g>
+        ))}
+      </svg>
     </div>
   )
 }
