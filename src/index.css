@@ -1183,3 +1183,174 @@ label {
     padding: 30px 24px;
   }
 }
+/* =========================================================
+   REFINO PREMIUM DE TIPOGRAFIA — NUTRIALLE GESTÃO
+   Cola no final do index.css para sobrescrever pesos antigos
+========================================================= */
+
+html,
+body,
+#root {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Topbar */
+.topbar-title {
+  font-size: 17px !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.025em !important;
+}
+
+.topbar-subtitle {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: #7C746C !important;
+}
+
+/* Títulos gerais */
+.page-title {
+  font-size: 24px !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.035em !important;
+}
+
+.page-sub {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: #7C746C !important;
+}
+
+/* Títulos dentro dos cards */
+.section-title,
+.card .section-title,
+.card-sm .section-title {
+  font-size: 14px !important;
+  font-weight: 620 !important;
+  letter-spacing: -0.025em !important;
+  color: #171411 !important;
+}
+
+/* KPIs */
+.kpi .label,
+.card .label,
+.card-sm .label {
+  font-size: 10.5px !important;
+  font-weight: 620 !important;
+  letter-spacing: .075em !important;
+  color: #7D746B !important;
+}
+
+.kpi .value,
+.card .value,
+.card-sm .value {
+  font-size: 26px !important;
+  font-weight: 620 !important;
+  letter-spacing: -0.045em !important;
+  color: #12100E !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi .sub,
+.card .sub,
+.card-sm .sub {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: #9A9188 !important;
+}
+
+/* Textos gerais dentro de cards */
+.card,
+.card-sm,
+.kpi {
+  font-weight: 400 !important;
+}
+
+.card strong,
+.card b,
+.card-sm strong,
+.card-sm b {
+  font-weight: 620 !important;
+}
+
+/* Sidebar mais fina */
+.sidebar-brand-title {
+  font-size: 14px !important;
+  font-weight: 620 !important;
+  letter-spacing: -0.015em !important;
+}
+
+.sidebar-brand-sub {
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  letter-spacing: .12em !important;
+}
+
+.nav-item {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.nav-item.active {
+  font-weight: 600 !important;
+}
+
+.sidebar-section {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: .11em !important;
+}
+
+.sidebar-user-name {
+  font-weight: 560 !important;
+}
+
+.sidebar-user-email {
+  font-weight: 400 !important;
+}
+
+/* Tabelas */
+table,
+td {
+  font-weight: 400 !important;
+}
+
+th {
+  font-weight: 620 !important;
+  letter-spacing: .075em !important;
+}
+
+/* Botões e pills */
+.btn {
+  font-weight: 560 !important;
+}
+
+.pill {
+  font-weight: 560 !important;
+}
+
+/* Gráficos Recharts */
+.recharts-text {
+  font-size: 10.5px !important;
+  font-weight: 400 !important;
+  fill: #8A8178 !important;
+}
+
+.recharts-legend-item-text {
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  color: #7C746C !important;
+}
+
+.recharts-tooltip-label {
+  font-weight: 560 !important;
+}
+
+.recharts-default-tooltip {
+  font-size: 12px !important;
+}
