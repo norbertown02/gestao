@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import {
   IconCalendar,
   IconCheck,
-  IconClipboardText,
   IconDownload,
   IconFileText,
   IconLoader2,
@@ -12,7 +11,7 @@ import {
   IconTrendingUp,
 } from '@tabler/icons-react'
 import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import html2canvas from 'html2canvas'
 import logoNutrialle from '../assets/logo-nutrialle.png'
 
 function fmt(n) {
@@ -38,10 +37,8 @@ function fmtK(n) {
 function pct(atual, anterior) {
   const a = Number(atual || 0)
   const b = Number(anterior || 0)
-
   if (a === 0 && b === 0) return 0
   if (b === 0) return 100
-
   return ((a - b) / b) * 100
 }
 
@@ -52,14 +49,10 @@ function toISO(d) {
 function getMes(offset = 0) {
   const d = new Date()
   d.setMonth(d.getMonth() + offset)
-
   return {
     ano: d.getFullYear(),
     mes: d.getMonth() + 1,
-    label: d.toLocaleDateString('pt-BR', {
-      month: 'long',
-      year: 'numeric',
-    }),
+    label: d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
   }
 }
 
@@ -101,7 +94,7 @@ function getAnteriorRange(tipo, ano, mes, trim) {
   return anoRange(ano - 1)
 }
 
-function getPeriodoLabel(tipo, ano, mes, trim) {
+function periodoLabel(tipo, ano, mes, trim) {
   if (tipo === 'mensal') {
     const label = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', {
       month: 'long',
@@ -109,28 +102,21 @@ function getPeriodoLabel(tipo, ano, mes, trim) {
     })
     return label.charAt(0).toUpperCase() + label.slice(1)
   }
-
   if (tipo === 'trimestral') return `${trim}º Trimestre de ${ano}`
-
   return `Ano de ${ano}`
 }
 
-function getAnteriorLabel(tipo, ano, mes, trim) {
+function anteriorLabel(tipo, ano, mes, trim) {
   if (tipo === 'mensal') {
     const d = new Date(ano, mes - 2, 1)
-    const label = d.toLocaleDateString('pt-BR', {
-      month: 'long',
-      year: 'numeric',
-    })
+    const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
     return label.charAt(0).toUpperCase() + label.slice(1)
   }
-
   if (tipo === 'trimestral') {
     const trimAnt = trim === 1 ? 4 : trim - 1
     const anoAnt = trim === 1 ? ano - 1 : ano
     return `${trimAnt}º Trimestre de ${anoAnt}`
   }
-
   return `Ano de ${ano - 1}`
 }
 
@@ -144,7 +130,6 @@ function labelSegmento(seg) {
 
 function parseItems(items) {
   if (Array.isArray(items)) return items
-
   if (typeof items === 'string') {
     try {
       const parsed = JSON.parse(items)
@@ -153,132 +138,437 @@ function parseItems(items) {
       return []
     }
   }
-
   return []
 }
 
-function drawLineChart(doc, data, x, y, w, h, series) {
-  const values = data.flatMap(row => series.map(s => Number(row[s.key] || 0)))
-  const max = Math.max(...values, 1)
-  const min = 0
-  const padX = 8
-  const padY = 10
-  const gx = x + padX
-  const gy = y + padY
-  const gw = w - padX * 2
-  const gh = h - padY * 2
-
-  doc.setDrawColor(228, 222, 214)
-  doc.setFillColor(250, 248, 245)
-  doc.roundedRect(x, y, w, h, 4, 4, 'FD')
-
-  doc.setDrawColor(235, 231, 226)
-  doc.setLineWidth(0.2)
-  for (let i = 0; i <= 4; i++) {
-    const yy = gy + (gh / 4) * i
-    doc.line(gx, yy, gx + gw, yy)
-  }
-
-  series.forEach(s => {
-    const points = data.map((row, idx) => {
-      const px = gx + (idx / Math.max(1, data.length - 1)) * gw
-      const val = Number(row[s.key] || 0)
-      const py = gy + gh - ((val - min) / Math.max(1, max - min)) * gh
-      return [px, py, val]
-    })
-
-    doc.setDrawColor(...s.color)
-    doc.setLineWidth(1.25)
-
-    for (let i = 0; i < points.length - 1; i++) {
-      doc.line(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1])
-    }
-
-    points.forEach(([px, py]) => {
-      doc.setFillColor(...s.color)
-      doc.circle(px, py, 1.25, 'F')
-    })
-  })
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7)
-  doc.setTextColor(115, 106, 96)
-  data.forEach((row, idx) => {
-    const px = gx + (idx / Math.max(1, data.length - 1)) * gw
-    doc.text(row.label, px, y + h - 3, { align: 'center' })
-  })
-
-  let lx = x + 4
-  series.forEach(s => {
-    doc.setFillColor(...s.color)
-    doc.circle(lx, y + 5, 1.4, 'F')
-    doc.setTextColor(70, 62, 54)
-    doc.setFontSize(7)
-    doc.text(s.label, lx + 3, y + 6)
-    lx += doc.getTextWidth(s.label) + 12
-  })
+function metricTone(v) {
+  return Number(v || 0) >= 0 ? 'positive' : 'negative'
 }
 
-function drawBarComparison(doc, rows, x, y, w, h) {
-  const max = Math.max(...rows.map(r => Math.max(Number(r.atual || 0), Number(r.anterior || 0))), 1)
-
-  doc.setDrawColor(228, 222, 214)
-  doc.setFillColor(250, 248, 245)
-  doc.roundedRect(x, y, w, h, 4, 4, 'FD')
-
-  const left = x + 42
-  const top = y + 12
-  const rowH = 12
-  const barW = w - 64
-
-  rows.forEach((r, idx) => {
-    const yy = top + idx * rowH
-
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7.5)
-    doc.setTextColor(70, 62, 54)
-    doc.text(r.label, x + 4, yy + 4)
-
-    doc.setFillColor(226, 221, 216)
-    doc.roundedRect(left, yy, barW, 3.2, 1.6, 1.6, 'F')
-    doc.setFillColor(232, 119, 34)
-    doc.roundedRect(left, yy, (Number(r.atual || 0) / max) * barW, 3.2, 1.6, 1.6, 'F')
-
-    doc.setFillColor(30, 30, 30)
-    doc.roundedRect(left, yy + 4.7, (Number(r.anterior || 0) / max) * barW, 3.2, 1.6, 1.6, 'F')
-
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(232, 119, 34)
-    doc.text(r.atualLabel, left + barW + 3, yy + 3)
-  })
-
-  doc.setFillColor(232, 119, 34)
-  doc.circle(x + 5, y + h - 6, 1.3, 'F')
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7)
-  doc.setTextColor(100, 92, 84)
-  doc.text('Atual', x + 8, y + h - 4)
-
-  doc.setFillColor(30, 30, 30)
-  doc.circle(x + 25, y + h - 6, 1.3, 'F')
-  doc.text('Anterior', x + 28, y + h - 4)
-}
-
-function MetricCard({ label, value, sub, variance }) {
-  const up = Number(variance || 0) >= 0
-
+function MetricPreview({ label, value, variation }) {
+  const positive = Number(variation || 0) >= 0
   return (
-    <div className="relpdf-metric">
+    <div className="relpremium-metric">
       <span>{label}</span>
       <strong>{value}</strong>
-      <small className={up ? 'up' : 'down'}>
-        {variance !== undefined ? `${up ? '+' : ''}${variance.toFixed(1)}% vs anterior` : sub}
+      <small className={positive ? 'positive' : 'negative'}>
+        {positive ? <IconTrendingUp size={12} /> : <IconTrendingDown size={12} />}
+        {positive ? '+' : ''}
+        {variation.toFixed(1)}% vs anterior
       </small>
     </div>
   )
 }
 
+function PdfMetric({ label, value, previous, variation, dark = false }) {
+  const positive = Number(variation || 0) >= 0
+  return (
+    <div className={`pdf-metric ${dark ? 'dark' : ''}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>Anterior: {previous}</small>
+      <em className={positive ? 'positive' : 'negative'}>
+        {positive ? '▲' : '▼'} {positive ? '+' : ''}{variation.toFixed(1)}%
+      </em>
+    </div>
+  )
+}
+
+function MiniBarList({ items, valueKey = 'total', labelKey = 'name', valueFormatter = fmtK, limit = 6 }) {
+  const rows = (items || []).slice(0, limit)
+  const max = Math.max(...rows.map(r => Number(r[valueKey] || 0)), 1)
+
+  return (
+    <div className="pdf-bar-list">
+      {rows.length === 0 ? (
+        <div className="pdf-empty">Sem dados no período</div>
+      ) : rows.map((item, index) => (
+        <div className="pdf-bar-row" key={`${item[labelKey]}-${index}`}>
+          <div className="pdf-bar-label">
+            <span>{String(index + 1).padStart(2, '0')}</span>
+            <strong>{item[labelKey]}</strong>
+            <em>{valueFormatter(item[valueKey])}</em>
+          </div>
+          <div className="pdf-bar-track">
+            <i style={{ width: `${Math.max(6, (Number(item[valueKey] || 0) / max) * 100)}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function EvolutionChart({ data }) {
+  const rows = data || []
+  const max = Math.max(...rows.flatMap(r => [Number(r.vendas || 0), Number(r.cotacoes || 0)]), 1)
+  const width = 660
+  const height = 255
+  const pad = 34
+  const innerW = width - pad * 2
+  const innerH = height - pad * 2
+
+  const points = key => rows.map((r, i) => {
+    const x = pad + (i / Math.max(1, rows.length - 1)) * innerW
+    const y = pad + innerH - (Number(r[key] || 0) / max) * innerH
+    return { x, y, value: Number(r[key] || 0), label: r.label }
+  })
+
+  const path = key => points(key).map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+  const vendas = points('vendas')
+  const cotacoes = points('cotacoes')
+
+  return (
+    <div className="pdf-chart-box">
+      <svg viewBox={`0 0 ${width} ${height}`} className="pdf-line-chart">
+        {[0, 1, 2, 3].map(i => (
+          <line
+            key={i}
+            x1={pad}
+            x2={width - pad}
+            y1={pad + (innerH / 3) * i}
+            y2={pad + (innerH / 3) * i}
+          />
+        ))}
+
+        <path d={path('cotacoes')} className="quote-path" />
+        <path d={path('vendas')} className="sales-path" />
+
+        {cotacoes.map((p, i) => <circle key={`q-${i}`} cx={p.x} cy={p.y} r="4" className="quote-dot" />)}
+        {vendas.map((p, i) => <circle key={`v-${i}`} cx={p.x} cy={p.y} r="4.5" className="sales-dot" />)}
+
+        {rows.map((r, i) => {
+          const x = pad + (i / Math.max(1, rows.length - 1)) * innerW
+          return <text key={r.mes} x={x} y={height - 10} textAnchor="middle">{r.label}</text>
+        })}
+      </svg>
+
+      <div className="pdf-chart-legend">
+        <span><i className="sales" /> Vendas realizadas</span>
+        <span><i className="quotes" /> Valor cotado</span>
+      </div>
+    </div>
+  )
+}
+
+function ComparisonBars({ rows }) {
+  const max = Math.max(...rows.map(r => Math.max(Number(r.atual || 0), Number(r.anterior || 0))), 1)
+
+  return (
+    <div className="pdf-comparison-bars">
+      {rows.map(row => (
+        <div className="pdf-comparison-row" key={row.label}>
+          <div className="pdf-comparison-title">
+            <strong>{row.label}</strong>
+            <span className={metricTone(row.variacao)}>{row.variacao >= 0 ? '+' : ''}{row.variacao.toFixed(1)}%</span>
+          </div>
+
+          <div className="pdf-comparison-line">
+            <span>Atual</span>
+            <div><i className="current" style={{ width: `${Math.max(5, (Number(row.atual || 0) / max) * 100)}%` }} /></div>
+            <strong>{row.atualLabel}</strong>
+          </div>
+
+          <div className="pdf-comparison-line">
+            <span>Anterior</span>
+            <div><i className="previous" style={{ width: `${Math.max(5, (Number(row.anterior || 0) / max) * 100)}%` }} /></div>
+            <strong>{row.anteriorLabel}</strong>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PdfPage({ children, number, title }) {
+  return (
+    <section className="relpremium-pdf-page">
+      <div className="pdf-page-bg" />
+      {children}
+      <footer className="pdf-footer">
+        <span>Nutrialle · Relatório executivo confidencial</span>
+        <strong>{String(number).padStart(2, '0')}</strong>
+      </footer>
+    </section>
+  )
+}
+
+function PdfTemplate({ dados }) {
+  if (!dados) return null
+
+  return (
+    <div className="relpremium-template" aria-hidden="true">
+      <PdfPage number={1}>
+        <div className="pdf-cover">
+          <div className="pdf-cover-brand">
+            <img src={logoNutrialle} alt="Nutrialle" />
+          </div>
+
+          <div className="pdf-cover-lines">
+            <i />
+            <i />
+            <i />
+          </div>
+
+          <div className="pdf-cover-content">
+            <span>RELATÓRIO EXECUTIVO COMERCIAL</span>
+            <h1>{dados.periodoAtual}</h1>
+            <p>Resultado comercial, evolução da carteira, desempenho da equipe e prioridades para o próximo período.</p>
+          </div>
+
+          <div className="pdf-cover-highlight">
+            <span>Faturamento do período</span>
+            <strong>{fmtK(dados.fatAtual)}</strong>
+            <em className={metricTone(dados.variacoes.faturamento)}>
+              {dados.variacoes.faturamento >= 0 ? '+' : ''}{dados.variacoes.faturamento.toFixed(1)}% vs período anterior
+            </em>
+          </div>
+
+          <div className="pdf-cover-date">
+            <strong>Nutrialle Gestão</strong>
+            <span>Gerado em {new Date().toLocaleDateString('pt-BR')}</span>
+          </div>
+        </div>
+      </PdfPage>
+
+      <PdfPage number={2}>
+        <div className="pdf-page-head">
+          <span>01 · Resumo executivo</span>
+          <h2>Resultado do período</h2>
+          <p>{dados.periodoAtual} comparado com {dados.periodoAnterior}</p>
+        </div>
+
+        <div className="pdf-metric-grid">
+          <PdfMetric label="Faturamento" value={fmtK(dados.fatAtual)} previous={fmtK(dados.fatAnt)} variation={dados.variacoes.faturamento} />
+          <PdfMetric label="Pedidos" value={fmtInt(dados.pedidosAtual)} previous={fmtInt(dados.pedidosAnt)} variation={dados.variacoes.pedidos} />
+          <PdfMetric label="Ticket médio" value={fmtK(dados.ticketAtual)} previous={fmtK(dados.ticketAnt)} variation={dados.variacoes.ticket} />
+          <PdfMetric label="Visitas" value={fmtInt(dados.visitasAtual)} previous={fmtInt(dados.visitasAnt)} variation={dados.variacoes.visitas} />
+        </div>
+
+        <div className="pdf-summary-grid">
+          <div className="pdf-summary-card large">
+            <span>Destaque do período</span>
+            <h3>{dados.destaque}</h3>
+            <p>
+              O resultado do período foi impactado pelo desempenho da equipe comercial, evolução das cotações e movimentação da carteira ativa.
+            </p>
+          </div>
+
+          <div className="pdf-summary-card attention">
+            <span>Ponto de atenção</span>
+            <h3>{dados.atencao}</h3>
+            <p>Prioridade para atuação comercial e acompanhamento gerencial no próximo ciclo.</p>
+          </div>
+        </div>
+
+        <div className="pdf-kpi-strip">
+          <div>
+            <span>Carteira ativa</span>
+            <strong>{fmtInt(dados.carteiraAtiva)}</strong>
+          </div>
+          <div>
+            <span>Cotações abertas</span>
+            <strong>{fmtInt(dados.cotacoesAbertas)}</strong>
+          </div>
+          <div>
+            <span>Pipeline aberto</span>
+            <strong>{fmtK(dados.valorCotacoesAbertas)}</strong>
+          </div>
+          <div>
+            <span>Score técnico</span>
+            <strong>{dados.scoreMedia || '—'}</strong>
+          </div>
+        </div>
+      </PdfPage>
+
+      <PdfPage number={3}>
+        <div className="pdf-page-head">
+          <span>02 · Evolução e comparativo</span>
+          <h2>Tendência comercial</h2>
+          <p>Vendas realizadas, cotações e comparação com o período anterior.</p>
+        </div>
+
+        <EvolutionChart data={dados.evolucao} />
+
+        <div className="pdf-section-title">
+          <span>Atual vs anterior</span>
+          <strong>Comparativo das métricas principais</strong>
+        </div>
+
+        <ComparisonBars rows={dados.comparativo} />
+      </PdfPage>
+
+      <PdfPage number={4}>
+        <div className="pdf-page-head">
+          <span>03 · Rankings comerciais</span>
+          <h2>Equipe e clientes</h2>
+          <p>Principais vendedores e fazendas do período selecionado.</p>
+        </div>
+
+        <div className="pdf-two-columns">
+          <div className="pdf-panel">
+            <div className="pdf-panel-title">
+              <span>Equipe comercial</span>
+              <strong>Top vendedores</strong>
+            </div>
+            <MiniBarList
+              items={dados.topVendedores}
+              labelKey="nome"
+              valueKey="total"
+              valueFormatter={fmtK}
+              limit={6}
+            />
+          </div>
+
+          <div className="pdf-panel">
+            <div className="pdf-panel-title">
+              <span>Clientes</span>
+              <strong>Top fazendas</strong>
+            </div>
+            <MiniBarList
+              items={dados.topFazendas}
+              labelKey="name"
+              valueKey="total"
+              valueFormatter={fmtK}
+              limit={6}
+            />
+          </div>
+        </div>
+
+        <div className="pdf-mini-table-title">Detalhamento dos principais vendedores</div>
+        <table className="pdf-table">
+          <thead>
+            <tr>
+              <th>Vendedor</th>
+              <th>Faturamento</th>
+              <th>Pedidos</th>
+              <th>Ticket médio</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dados.topVendedores.slice(0, 6).map(v => (
+              <tr key={v.id}>
+                <td>{v.nome}</td>
+                <td>{fmtK(v.total)}</td>
+                <td>{fmtInt(v.pedidos)}</td>
+                <td>{fmtK(v.ticket)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </PdfPage>
+
+      <PdfPage number={5}>
+        <div className="pdf-page-head">
+          <span>04 · Mix comercial</span>
+          <h2>Produtos e segmentos</h2>
+          <p>Leitura do mix de vendas e concentração de receita.</p>
+        </div>
+
+        <div className="pdf-two-columns">
+          <div className="pdf-panel">
+            <div className="pdf-panel-title">
+              <span>Produtos</span>
+              <strong>Top produtos</strong>
+            </div>
+            <MiniBarList
+              items={dados.topProdutos}
+              labelKey="name"
+              valueKey="total"
+              valueFormatter={fmtK}
+              limit={8}
+            />
+          </div>
+
+          <div className="pdf-panel">
+            <div className="pdf-panel-title">
+              <span>Segmentos</span>
+              <strong>Receita por segmento</strong>
+            </div>
+            <MiniBarList
+              items={dados.porSegmento}
+              labelKey="name"
+              valueKey="total"
+              valueFormatter={fmtK}
+              limit={6}
+            />
+          </div>
+        </div>
+
+        <div className="pdf-insight-card">
+          <span>Leitura executiva</span>
+          <p>
+            O mix de produtos e segmentos ajuda a identificar onde a Nutrialle ganhou mais tração comercial e onde existe espaço para reforço de abordagem técnica ou negociação.
+          </p>
+        </div>
+      </PdfPage>
+
+      <PdfPage number={6}>
+        <div className="pdf-page-head">
+          <span>05 · Prioridades</span>
+          <h2>Pontos de atenção e plano de ação</h2>
+          <p>Clientes em queda, fazendas sem visita e recomendações para o próximo ciclo.</p>
+        </div>
+
+        <div className="pdf-two-columns">
+          <div className="pdf-panel risk">
+            <div className="pdf-panel-title">
+              <span>Atenção comercial</span>
+              <strong>Fazendas em queda</strong>
+            </div>
+            {(dados.fazendasEmQueda || []).slice(0, 8).length === 0 ? (
+              <div className="pdf-empty">Sem quedas críticas acima de 40%.</div>
+            ) : (
+              (dados.fazendasEmQueda || []).slice(0, 8).map(f => (
+                <div className="pdf-risk-row" key={f.id}>
+                  <strong>{f.name}</strong>
+                  <span>{labelSegmento(f.segment)} · {fmtK(f.anterior)} → {fmtK(f.atual)}</span>
+                  <em>-{f.queda.toFixed(1)}%</em>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="pdf-panel risk">
+            <div className="pdf-panel-title">
+              <span>Cobertura de campo</span>
+              <strong>Sem visita recente</strong>
+            </div>
+            {(dados.esquecidas || []).slice(0, 8).length === 0 ? (
+              <div className="pdf-empty">Sem fazendas esquecidas.</div>
+            ) : (
+              (dados.esquecidas || []).slice(0, 8).map(f => (
+                <div className="pdf-risk-row" key={f.id}>
+                  <strong>{f.name}</strong>
+                  <span>{labelSegmento(f.segment)} · {f.city || f.cidade || '—'}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="pdf-action-plan">
+          <span>Recomendações executivas</span>
+          {[
+            'Converter cotações abertas de maior valor antes de ampliar novas prospecções.',
+            'Priorizar visita técnica nas fazendas sem acompanhamento recente.',
+            'Criar plano de recuperação para fazendas com queda relevante de faturamento.',
+            'Replicar estratégia dos vendedores e produtos líderes nas carteiras com baixa performance.',
+            'Acompanhar semanalmente faturamento, visitas e conversão até o próximo fechamento.',
+          ].map((item, index) => (
+            <div key={item}>
+              <strong>{String(index + 1).padStart(2, '0')}</strong>
+              <p>{item}</p>
+            </div>
+          ))}
+        </div>
+      </PdfPage>
+    </div>
+  )
+}
+
 export default function RelatorioMensal() {
+  const printRef = useRef(null)
+
   const [mesSel, setMesSel] = useState(getMes(0))
   const [tipoPeriodo, setTipoPeriodo] = useState('mensal')
   const [anoSel, setAnoSel] = useState(new Date().getFullYear())
@@ -300,8 +590,8 @@ export default function RelatorioMensal() {
     try {
       const [ini, fim] = getPeriodoRange(tipoPeriodo, anoSel, mesSel.mes, trimSel)
       const [iniAnt, fimAnt] = getAnteriorRange(tipoPeriodo, anoSel, mesSel.mes, trimSel)
-      const periodoAtual = getPeriodoLabel(tipoPeriodo, anoSel, mesSel.mes, trimSel)
-      const periodoAnterior = getAnteriorLabel(tipoPeriodo, anoSel, mesSel.mes, trimSel)
+      const periodoAtual = periodoLabel(tipoPeriodo, anoSel, mesSel.mes, trimSel)
+      const periodoAnterior = anteriorLabel(tipoPeriodo, anoSel, mesSel.mes, trimSel)
 
       const d6m = new Date()
       d6m.setMonth(d6m.getMonth() - 5)
@@ -551,6 +841,12 @@ export default function RelatorioMensal() {
         ticketAnt,
         visitasAtual,
         visitasAnt,
+        variacoes: {
+          faturamento: pct(fatAtual, fatAnt),
+          pedidos: pct(pedidosAtual, pedidosAnt),
+          ticket: pct(ticketAtual, ticketAnt),
+          visitas: pct(visitasAtual, visitasAnt),
+        },
         scoreMedia,
         checklists: checklists.length,
         carteiraAtiva,
@@ -579,387 +875,76 @@ export default function RelatorioMensal() {
     }
   }
 
-  function gerarPDF() {
-    if (!dados) return
+  async function gerarPDF() {
+    if (!dados || !printRef.current) return
+
     setGerandoPDF(true)
 
     try {
-      const doc = new jsPDF('p', 'mm', 'a4')
-      const W = 210
-      const H = 297
-      const M = 16
-      let y = M
+      await document.fonts?.ready
 
-      const ORANGE = [232, 119, 34]
-      const BLACK = [18, 18, 18]
-      const TEXT = [48, 43, 38]
-      const GRAY = [120, 110, 100]
-      const LIGHT = [246, 243, 239]
-      const LINE = [226, 220, 212]
-      const GREEN = [42, 145, 75]
-      const RED = [199, 54, 54]
+      const pages = Array.from(printRef.current.querySelectorAll('.relpremium-pdf-page'))
+      const pdf = new jsPDF('p', 'mm', 'a4')
 
-      const pages = []
-
-      function addFooter() {
-        const count = doc.getNumberOfPages()
-        for (let i = 1; i <= count; i++) {
-          doc.setPage(i)
-          doc.setDrawColor(...LINE)
-          doc.line(M, H - 14, W - M, H - 14)
-          doc.setFont('helvetica', 'normal')
-          doc.setFontSize(7.5)
-          doc.setTextColor(...GRAY)
-          doc.text('Nutrialle · Relatório executivo confidencial', M, H - 8)
-          doc.text(`Página ${i} de ${count}`, W - M, H - 8, { align: 'right' })
-        }
-      }
-
-      function newPage() {
-        doc.addPage()
-        y = M + 4
-      }
-
-      function ensure(space) {
-        if (y + space > H - 22) newPage()
-      }
-
-      function section(title, subtitle = '') {
-        ensure(18)
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(13)
-        doc.setTextColor(...BLACK)
-        doc.text(title, M, y)
-        y += 5
-        if (subtitle) {
-          doc.setFont('helvetica', 'normal')
-          doc.setFontSize(8.5)
-          doc.setTextColor(...GRAY)
-          doc.text(subtitle, M, y)
-          y += 5
-        }
-        doc.setDrawColor(...LINE)
-        doc.line(M, y, W - M, y)
-        y += 7
-      }
-
-      function metricCard(x, yy, w, h, label, value, variation, suffix = 'vs período anterior') {
-        const good = Number(variation || 0) >= 0
-        doc.setFillColor(...LIGHT)
-        doc.roundedRect(x, yy, w, h, 4, 4, 'F')
-        doc.setDrawColor(...LINE)
-        doc.roundedRect(x, yy, w, h, 4, 4)
-
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(7.5)
-        doc.setTextColor(...GRAY)
-        doc.text(label, x + 4, yy + 6)
-
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(13)
-        doc.setTextColor(...BLACK)
-        doc.text(String(value), x + 4, yy + 14)
-
-        if (variation !== undefined) {
-          doc.setFontSize(7.5)
-          doc.setTextColor(...(good ? GREEN : RED))
-          doc.text(`${good ? '+' : ''}${variation.toFixed(1)}% ${suffix}`, x + 4, yy + 20)
-        }
-      }
-
-      function table(title, head, body, color = ORANGE) {
-        ensure(28)
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(10.5)
-        doc.setTextColor(...BLACK)
-        doc.text(title, M, y)
-        y += 4
-
-        autoTable(doc, {
-          startY: y,
-          theme: 'grid',
-          margin: { left: M, right: M },
-          head: [head],
-          body: body.length ? body : [['Sem dados', '', '', ''].slice(0, head.length)],
-          headStyles: {
-            fillColor: color,
-            textColor: [255, 255, 255],
-            fontStyle: 'bold',
-            lineColor: LINE,
-            lineWidth: 0.1,
-            fontSize: 8.2,
-          },
-          bodyStyles: {
-            textColor: TEXT,
-            fontSize: 8,
-            lineColor: LINE,
-            lineWidth: 0.1,
-          },
-          alternateRowStyles: {
-            fillColor: [250, 248, 245],
-          },
-          styles: {
-            cellPadding: 2.4,
-            overflow: 'linebreak',
-          },
+      for (let i = 0; i < pages.length; i++) {
+        const canvas = await html2canvas(pages[i], {
+          scale: 2.2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          windowWidth: 794,
+          windowHeight: 1123,
         })
 
-        y = doc.lastAutoTable.finalY + 8
+        const img = canvas.toDataURL('image/jpeg', 0.96)
+
+        if (i > 0) pdf.addPage()
+        pdf.addImage(img, 'JPEG', 0, 0, 210, 297)
       }
 
-      doc.setFillColor(...BLACK)
-      doc.rect(0, 0, W, H, 'F')
-
-      doc.setFillColor(...ORANGE)
-      doc.rect(0, 0, 12, H, 'F')
-
-      doc.setDrawColor(65, 65, 65)
-      doc.setLineWidth(0.2)
-      for (let i = 0; i < 12; i++) {
-        doc.circle(W - 20 - i * 8, 42 + i * 12, 28 + i * 2)
-      }
-
-      try {
-        doc.addImage(logoNutrialle, 'PNG', M + 4, 22, 48, 20)
-      } catch (e) {}
-
-      doc.setTextColor(255, 255, 255)
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(24)
-      doc.text('Relatório Executivo', M + 4, 72)
-      doc.setFontSize(24)
-      doc.setTextColor(...ORANGE)
-      doc.text('Comercial', M + 4, 84)
-
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(11)
-      doc.setTextColor(220, 220, 220)
-      doc.text(dados.periodoAtual, M + 4, 98)
-      doc.text(`Comparativo: ${dados.periodoAnterior}`, M + 4, 105)
-
-      doc.setFillColor(255, 255, 255)
-      doc.roundedRect(M + 4, 132, W - M * 2 - 8, 58, 5, 5, 'F')
-      doc.setTextColor(...GRAY)
-      doc.setFontSize(8)
-      doc.text('FATURAMENTO DO PERÍODO', M + 12, 145)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(...BLACK)
-      doc.setFontSize(25)
-      doc.text(fmtK(dados.fatAtual), M + 12, 160)
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9)
-      doc.setTextColor(...(pct(dados.fatAtual, dados.fatAnt) >= 0 ? GREEN : RED))
-      doc.text(`${pct(dados.fatAtual, dados.fatAnt) >= 0 ? '+' : ''}${pct(dados.fatAtual, dados.fatAnt).toFixed(1)}% vs período anterior`, M + 12, 171)
-
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(8.5)
-      doc.setTextColor(225, 225, 225)
-      doc.text(`Gerado em ${new Date().toLocaleDateString('pt-BR')}`, M + 4, H - 24)
-      doc.text('Nutrialle · Nutrição animal', M + 4, H - 18)
-
-      newPage()
-
-      section('Resumo executivo', 'Principais resultados, destaques e pontos de atenção do período selecionado.')
-
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9)
-      doc.setTextColor(...TEXT)
-
-      const bullets = [
-        `Faturamento de ${fmtK(dados.fatAtual)}, com variação de ${pct(dados.fatAtual, dados.fatAnt).toFixed(1)}% frente ao período anterior.`,
-        `${fmtInt(dados.pedidosAtual)} pedidos realizados, ticket médio de ${fmtK(dados.ticketAtual)} e ${fmtInt(dados.visitasAtual)} visitas registradas.`,
-        `${fmtInt(dados.cotacoesAbertas)} cotações abertas somando ${fmtK(dados.valorCotacoesAbertas)} em oportunidades comerciais.`,
-        `${fmtInt(dados.carteiraAtiva)} fazendas ativas nos últimos 90 dias, dentro de uma carteira total de ${fmtInt(dados.carteiraTotal)} fazendas.`,
-        dados.destaque,
-        dados.atencao,
-      ]
-
-      bullets.forEach(b => {
-        const lines = doc.splitTextToSize(`• ${b}`, W - M * 2)
-        doc.text(lines, M, y)
-        y += lines.length * 4.6
-      })
-
-      y += 4
-      const gap = 4
-      const cw = (W - M * 2 - gap * 3) / 4
-      metricCard(M, y, cw, 24, 'Faturamento', fmtK(dados.fatAtual), pct(dados.fatAtual, dados.fatAnt))
-      metricCard(M + (cw + gap), y, cw, 24, 'Pedidos', fmtInt(dados.pedidosAtual), pct(dados.pedidosAtual, dados.pedidosAnt))
-      metricCard(M + (cw + gap) * 2, y, cw, 24, 'Ticket médio', fmtK(dados.ticketAtual), pct(dados.ticketAtual, dados.ticketAnt))
-      metricCard(M + (cw + gap) * 3, y, cw, 24, 'Visitas', fmtInt(dados.visitasAtual), pct(dados.visitasAtual, dados.visitasAnt))
-      y += 34
-
-      section('Comparativo com período anterior', `${dados.periodoAtual} versus ${dados.periodoAnterior}.`)
-      drawBarComparison(doc, dados.comparativo, M, y, W - M * 2, 58)
-      y += 68
-
-      table(
-        'Tabela comparativa',
-        ['Métrica', 'Atual', 'Anterior', 'Variação'],
-        dados.comparativo.map(r => [
-          r.label,
-          r.atualLabel,
-          r.anteriorLabel,
-          `${r.variacao >= 0 ? '+' : ''}${r.variacao.toFixed(1)}%`,
-        ])
-      )
-
-      section('Evolução dos últimos 6 meses', 'Tendência de vendas realizadas e valor cotado.')
-      drawLineChart(
-        doc,
-        dados.evolucao,
-        M,
-        y,
-        W - M * 2,
-        64,
-        [
-          { key: 'vendas', label: 'Vendas realizadas', color: ORANGE },
-          { key: 'cotacoes', label: 'Valor cotado', color: BLACK },
-        ]
-      )
-      y += 76
-
-      newPage()
-
-      section('Rankings comerciais', 'Principais vendedores, fazendas e produtos do período.')
-
-      table(
-        'Top vendedores',
-        ['Vendedor', 'Faturamento', 'Pedidos', 'Ticket médio'],
-        dados.topVendedores.map(v => [
-          v.nome,
-          fmtK(v.total),
-          fmtInt(v.pedidos),
-          fmtK(v.ticket),
-        ]),
-        ORANGE
-      )
-
-      table(
-        'Top fazendas',
-        ['Fazenda', 'Segmento', 'Faturamento', 'Pedidos'],
-        dados.topFazendas.map(f => [
-          f.name,
-          labelSegmento(f.segment),
-          fmtK(f.total),
-          fmtInt(f.pedidos),
-        ]),
-        BLACK
-      )
-
-      table(
-        'Top produtos',
-        ['Produto', 'Faturamento'],
-        dados.topProdutos.map(p => [
-          p.name,
-          fmtK(p.total),
-        ]),
-        ORANGE
-      )
-
-      table(
-        'Receita por segmento',
-        ['Segmento', 'Faturamento'],
-        dados.porSegmento.map(s => [
-          s.name,
-          fmtK(s.total),
-        ]),
-        BLACK
-      )
-
-      newPage()
-
-      section('Pontos de atenção e prioridades', 'Clientes, carteira e oportunidades que exigem acompanhamento.')
-
-      table(
-        'Fazendas em queda',
-        ['Fazenda', 'Segmento', 'Atual', 'Anterior', 'Queda'],
-        dados.fazendasEmQueda.map(f => [
-          f.name,
-          labelSegmento(f.segment),
-          fmtK(f.atual),
-          fmtK(f.anterior),
-          `-${f.queda.toFixed(1)}%`,
-        ]),
-        RED
-      )
-
-      table(
-        'Fazendas sem visita recente',
-        ['Fazenda', 'Segmento', 'Cidade'],
-        dados.esquecidas.slice(0, 12).map(f => [
-          f.name,
-          labelSegmento(f.segment),
-          f.city || f.cidade || '—',
-        ]),
-        RED
-      )
-
-      section('Recomendações executivas')
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9)
-      doc.setTextColor(...TEXT)
-
-      const recomendacoes = [
-        'Converter cotações abertas de maior valor antes de ampliar novas prospecções.',
-        'Priorizar visita técnica nas fazendas sem acompanhamento recente.',
-        'Criar plano de recuperação para fazendas com queda relevante de faturamento.',
-        'Replicar a estratégia dos vendedores e produtos líderes nas carteiras com baixa performance.',
-        'Acompanhar semanalmente evolução de faturamento, visitas e conversão até o próximo fechamento.',
-      ]
-
-      recomendacoes.forEach(r => {
-        const lines = doc.splitTextToSize(`• ${r}`, W - M * 2)
-        doc.text(lines, M, y)
-        y += lines.length * 4.8
-      })
-
-      addFooter()
-
-      const nome = `Nutrialle_Relatorio_${dados.periodoAtual.replace(/\s+/g, '_')}.pdf`
-      doc.save(nome)
+      pdf.save(`Nutrialle_Relatorio_Executivo_${dados.periodoAtual.replace(/\s+/g, '_')}.pdf`)
     } catch (err) {
-      console.error('Erro ao gerar PDF:', err)
+      console.error('Erro ao gerar PDF premium:', err)
     } finally {
       setGerandoPDF(false)
     }
   }
 
-  const periodoAtualTexto = dados?.periodoAtual || getPeriodoLabel(tipoPeriodo, anoSel, mesSel.mes, trimSel)
+  const periodoAtualTexto = dados?.periodoAtual || periodoLabel(tipoPeriodo, anoSel, mesSel.mes, trimSel)
 
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Topbar title="Exportar Relatório Executivo" subtitle="Selecione o período e gere um PDF comercial pronto para diretoria" />
+      <Topbar title="Exportar Relatório Executivo" subtitle="Selecione o período e gere um PDF premium com identidade Nutrialle" />
 
-      <div className="page relpdf-page" style={{ overflowY: 'auto' }}>
-        <section className="relpdf-hero">
+      <div className="page relpremium-page" style={{ overflowY: 'auto' }}>
+        <section className="relpremium-hero">
           <div>
-            <span className="relpdf-eyebrow">Relatório executivo Nutrialle</span>
-            <h2>Gerador de PDF</h2>
+            <span className="relpremium-eyebrow">Relatório executivo Nutrialle</span>
+            <h2>Gerador de PDF premium</h2>
             <p>
-              Esta tela é focada em escolher o período e exportar um relatório bonito, completo e institucional.
-              A análise visual vai dentro do PDF.
+              A página serve para selecionar o período e exportar. O conteúdo visual completo é montado em um template A4 premium e renderizado no PDF.
             </p>
           </div>
 
-          <div className="relpdf-hero-card">
-            <IconFileText size={26} />
+          <div className="relpremium-period-card">
+            <IconFileText size={28} />
             <strong>{periodoAtualTexto}</strong>
             <span>Período selecionado</span>
           </div>
         </section>
 
-        <section className="relpdf-generator">
-          <div className="relpdf-panel">
-            <div className="relpdf-panel-head">
+        <section className="relpremium-generator">
+          <div className="relpremium-panel">
+            <div className="relpremium-panel-head">
               <div>
-                <span className="relpdf-eyebrow">Configuração</span>
-                <h3>Selecionar período do relatório</h3>
+                <span className="relpremium-eyebrow">Configuração</span>
+                <h3>Selecionar período</h3>
               </div>
               <IconCalendar size={20} />
             </div>
 
-            <div className="relpdf-period-tabs">
+            <div className="relpremium-tabs">
               {[
                 ['mensal', 'Mensal'],
                 ['trimestral', 'Trimestral'],
@@ -976,7 +961,7 @@ export default function RelatorioMensal() {
               ))}
             </div>
 
-            <div className="relpdf-form-grid">
+            <div className="relpremium-form-grid">
               {tipoPeriodo === 'mensal' && (
                 <label>
                   <span>Mês de referência</span>
@@ -1039,40 +1024,42 @@ export default function RelatorioMensal() {
               )}
             </div>
 
-            <button className="relpdf-download" onClick={gerarPDF} disabled={loading || gerandoPDF || !dados}>
-              {gerandoPDF ? <IconLoader2 size={17} className="relpdf-spin" /> : <IconDownload size={17} />}
-              {gerandoPDF ? 'Gerando PDF...' : 'Exportar PDF executivo'}
+            <button className="relpremium-download" onClick={gerarPDF} disabled={loading || gerandoPDF || !dados}>
+              {gerandoPDF ? <IconLoader2 size={17} className="relpremium-spin" /> : <IconDownload size={17} />}
+              {gerandoPDF ? 'Renderizando PDF premium...' : 'Exportar PDF premium'}
             </button>
           </div>
 
-          <div className="relpdf-panel relpdf-preview">
-            <div className="relpdf-panel-head">
+          <div className="relpremium-panel">
+            <div className="relpremium-panel-head">
               <div>
-                <span className="relpdf-eyebrow">Prévia dos dados</span>
-                <h3>O que será exportado</h3>
+                <span className="relpremium-eyebrow">Prévia rápida</span>
+                <h3>Dados que entrarão no PDF</h3>
               </div>
-              {loading ? <IconLoader2 size={20} className="relpdf-spin" /> : <IconCheck size={20} />}
+              {loading ? <IconLoader2 size={20} className="relpremium-spin" /> : <IconCheck size={20} />}
             </div>
 
             {loading ? (
-              <div className="relpdf-loading">Carregando dados do período...</div>
+              <div className="relpremium-loading">Carregando dados do período...</div>
             ) : dados ? (
               <>
-                <div className="relpdf-metrics">
-                  <MetricCard label="Faturamento" value={fmtK(dados.fatAtual)} variance={pct(dados.fatAtual, dados.fatAnt)} />
-                  <MetricCard label="Pedidos" value={fmtInt(dados.pedidosAtual)} variance={pct(dados.pedidosAtual, dados.pedidosAnt)} />
-                  <MetricCard label="Ticket médio" value={fmtK(dados.ticketAtual)} variance={pct(dados.ticketAtual, dados.ticketAnt)} />
-                  <MetricCard label="Visitas" value={fmtInt(dados.visitasAtual)} variance={pct(dados.visitasAtual, dados.visitasAnt)} />
+                <div className="relpremium-metrics">
+                  <MetricPreview label="Faturamento" value={fmtK(dados.fatAtual)} variation={dados.variacoes.faturamento} />
+                  <MetricPreview label="Pedidos" value={fmtInt(dados.pedidosAtual)} variation={dados.variacoes.pedidos} />
+                  <MetricPreview label="Ticket médio" value={fmtK(dados.ticketAtual)} variation={dados.variacoes.ticket} />
+                  <MetricPreview label="Visitas" value={fmtInt(dados.visitasAtual)} variation={dados.variacoes.visitas} />
                 </div>
 
-                <div className="relpdf-included">
+                <div className="relpremium-included">
                   {[
-                    'Capa institucional Nutrialle',
-                    'Resumo executivo',
+                    'Capa premium institucional',
+                    'Resumo executivo visual',
                     'Comparativo com período anterior',
-                    'Gráfico de evolução de vendas e cotações',
-                    'Top vendedores, fazendas e produtos',
-                    'Segmentos, pontos de atenção e recomendações',
+                    'Gráfico de evolução em SVG',
+                    'Rankings comerciais',
+                    'Mix de produtos e segmentos',
+                    'Pontos de atenção',
+                    'Plano de ação executivo',
                   ].map(item => (
                     <div key={item}>
                       <IconCheck size={14} />
@@ -1080,17 +1067,16 @@ export default function RelatorioMensal() {
                     </div>
                   ))}
                 </div>
-
-                <div className="relpdf-note">
-                  <strong>PDF pronto para reunião.</strong>
-                  <span>A página fica simples e o conteúdo analítico vai no arquivo exportado.</span>
-                </div>
               </>
             ) : (
-              <div className="relpdf-loading">Não foi possível carregar os dados.</div>
+              <div className="relpremium-loading">Não foi possível carregar os dados.</div>
             )}
           </div>
         </section>
+      </div>
+
+      <div ref={printRef}>
+        <PdfTemplate dados={dados} />
       </div>
     </div>
   )
