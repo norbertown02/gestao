@@ -1354,3 +1354,78 @@ th {
 .recharts-default-tooltip {
   font-size: 12px !important;
 }
+/* =========================================================
+   REFINO DOS CARDS — MAIS CLEAN E CHIQUE
+========================================================= */
+
+.card,
+.card-sm,
+.kpi {
+  background: rgba(255, 255, 255, .86) !important;
+  border: 1px solid rgba(222, 214, 205, .72) !important;
+  box-shadow: 0 10px 28px rgba(35, 25, 15, .045) !important;
+}
+
+.card:hover,
+.card-sm:hover,
+.kpi:hover {
+  transform: translateY(-2px);
+  border-color: rgba(232, 119, 34, .18) !important;
+  box-shadow: 0 16px 38px rgba(35, 25, 15, .075) !important;
+}
+
+/* Os pontos laranja dos KPIs ficaram chamativos demais */
+.kpi::before {
+  width: 7px !important;
+  height: 7px !important;
+  opacity: .20 !important;
+}
+
+/* Cards do topo com mais respiro e menos aparência grosseira */
+.kpi {
+  padding: 18px 20px !important;
+  border-radius: 23px !important;
+}
+
+/* Cards grandes */
+.card {
+  border-radius: 24px !important;
+}
+
+/* Reduz um pouco o contraste dos textos secundários */
+.empty,
+td,
+.card p,
+.card-sm p {
+  color: #7F776F;
+}
+/* =========================================================
+   REFINO VISUAL DOS GRÁFICOS
+========================================================= */
+
+.recharts-cartesian-axis-line,
+.recharts-cartesian-axis-tick-line {
+  stroke: rgba(138, 129, 120, .18) !important;
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: rgba(138, 129, 120, .14) !important;
+  stroke-dasharray: 4 6 !important;
+}
+
+.recharts-line-curve {
+  stroke-width: 2.4px !important;
+}
+
+.recharts-dot {
+  stroke-width: 2px !important;
+}
+
+.recharts-active-dot {
+  stroke-width: 2px !important;
+}
+
+.recharts-default-legend {
+  font-size: 11px !important;
+}
