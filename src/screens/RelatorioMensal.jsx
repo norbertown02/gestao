@@ -3,7 +3,7 @@ import { supabase, supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import { IconDownload, IconFileText, IconCalendar } from '@tabler/icons-react'
 import jsPDF from 'jspdf'
-import logoNutrialle from '../assets/logo-nutrialle.jpg'
+import logoNutrialle from '../assets/logo-nutrialle.png'
 import autoTable from 'jspdf-autotable'
 
 function fmt(n) { return Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
