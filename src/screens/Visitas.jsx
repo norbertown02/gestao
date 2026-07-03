@@ -1,195 +1,870 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { useEffect, useMemo, useState } from 'react'
+import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
-import { IconFilter, IconDownload, IconAlertTriangle } from '@tabler/icons-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import {
+  IconAlertTriangle,
+  IconBuildingStore,
+  IconCalendarEvent,
+  IconChartBar,
+  IconClock,
+  IconDownload,
+  IconFilter,
+  IconMapPin,
+  IconRoute,
+  IconTargetArrow,
+  IconTrendingDown,
+  IconTrendingUp,
+  IconUsers,
+} from '@tabler/icons-react'
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts'
 
-function periodoRange(p) {
-  const hoje=new Date(),ano=hoje.getFullYear(),mes=hoje.getMonth()
-  if(p==='mes') return [new Date(ano,mes,1),hoje]
-  if(p==='trimestre') return [new Date(ano,mes-2,1),hoje]
-  if(p==='semestre') return [new Date(ano,mes-5,1),hoje]
-  return [new Date(ano,0,1),hoje]
+function fmtInt(n) {
+  return Number(n || 0).toLocaleString('pt-BR', {
+    maximumFractionDigits: 0,
+  })
 }
-function toISO(d) { return d.toISOString().split('T')[0] }
 
-const OUTCOME_CFG = {
-  positiva:{label:'Positiva',color:'var(--green)',  bg:'var(--green-bg)'},
-  neutra:  {label:'Neutra',  color:'var(--text-dim)',bg:'var(--surface-2)'},
-  negativa:{label:'Negativa',color:'var(--red)',    bg:'var(--red-bg)'},
+function pct(atual, anterior) {
+  const a = Number(atual || 0)
+  const b = Number(anterior || 0)
+
+  if (a === 0 && b === 0) return 0
+  if (b === 0) return 100
+
+  return ((a - b) / b) * 100
+}
+
+function toISO(d) {
+  return d.toISOString().split('T')[0]
+}
+
+function periodoRange(periodo) {
+  const hoje = new Date()
+  const ano = hoje.getFullYear()
+  const mes = hoje.getMonth()
+
+  if (periodo === 'mes') return [new Date(ano, mes, 1), hoje]
+  if (periodo === 'trimestre') return [new Date(ano, mes - 2, 1), hoje]
+  if (periodo === 'semestre') return [new Date(ano, mes - 5, 1), hoje]
+
+  return [new Date(ano, 0, 1), hoje]
+}
+
+function periodoAnterior(periodo) {
+  const [ini, fim] = periodoRange(periodo)
+  const diff = fim.getTime() - ini.getTime()
+  const fimAnt = new Date(ini)
+  fimAnt.setDate(fimAnt.getDate() - 1)
+
+  const iniAnt = new Date(fimAnt.getTime() - diff)
+
+  return [iniAnt, fimAnt]
+}
+
+function dataBR(data) {
+  if (!data) return '—'
+
+  try {
+    return new Date(`${data}T12:00:00`).toLocaleDateString('pt-BR')
+  } catch {
+    return '—'
+  }
+}
+
+function dataCurta(data) {
+  if (!data) return '—'
+
+  try {
+    return new Date(`${data}T12:00:00`).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+    })
+  } catch {
+    return '—'
+  }
+}
+
+function diasDesde(data) {
+  if (!data) return 0
+
+  try {
+    const d = new Date(`${data}T12:00:00`)
+    const hoje = new Date()
+
+    return Math.max(0, Math.floor((hoje - d) / 86400000))
+  } catch {
+    return 0
+  }
+}
+
+function normalizarOutcome(outcome) {
+  const o = String(outcome || '').toLowerCase()
+
+  if (['positiva', 'positivo', 'boa', 'bom', 'success'].includes(o)) return 'positiva'
+  if (['negativa', 'negativo', 'ruim', 'problema'].includes(o)) return 'negativa'
+
+  return 'neutra'
+}
+
+const OUTCOME = {
+  positiva: { label: 'Positiva', className: 'positive' },
+  neutra: { label: 'Neutra', className: 'neutral' },
+  negativa: { label: 'Negativa', className: 'negative' },
+}
+
+function VarBadge({ atual, anterior, invert = false }) {
+  const diff = pct(atual, anterior)
+  const positivo = invert ? diff <= 0 : diff >= 0
+
+  return (
+    <span className={`visitas-var ${positivo ? 'up' : 'down'}`}>
+      {positivo ? <IconTrendingUp size={12} /> : <IconTrendingDown size={12} />}
+      {diff >= 0 ? '+' : ''}
+      {diff.toFixed(1)}% vs período ant.
+    </span>
+  )
+}
+
+function KpiCard({ icon: Icon, label, value, sub, atual, anterior, tone = 'neutral', invert = false }) {
+  return (
+    <article className={`visitas-kpi ${tone}`}>
+      <div className="visitas-kpi-top">
+        <div>
+          <span>{label}</span>
+          <strong>{value}</strong>
+        </div>
+
+        <div className="visitas-kpi-icon">
+          <Icon size={18} />
+        </div>
+      </div>
+
+      {anterior !== undefined ? (
+        <VarBadge atual={atual} anterior={anterior} invert={invert} />
+      ) : (
+        <small>{sub}</small>
+      )}
+    </article>
+  )
+}
+
+function RankingRow({ index, title, subtitle, value, max, extra }) {
+  const percent = max ? Math.max(5, (Number(value || 0) / max) * 100) : 0
+
+  return (
+    <div className="visitas-ranking-row">
+      <span className="visitas-rank">{index + 1}</span>
+
+      <div className="visitas-ranking-main">
+        <strong>{title}</strong>
+        <small>{subtitle}</small>
+      </div>
+
+      <div className="visitas-ranking-bar">
+        <span style={{ width: `${percent}%` }} />
+      </div>
+
+      <div className="visitas-ranking-foot">
+        <strong>{fmtInt(value)}</strong>
+        {extra && <span>{extra}</span>}
+      </div>
+    </div>
+  )
+}
+
+function Empty({ children = 'Sem dados para exibir' }) {
+  return <div className="empty">{children}</div>
 }
 
 export default function Visitas() {
-  const [periodo,  setPeriodo]  = useState('mes')
+  const [periodo, setPeriodo] = useState('mes')
   const [segmento, setSegmento] = useState('todos')
-  const [farms,    setFarms]    = useState([])
-  const [visits,   setVisits]   = useState([])
-  const [visitsAnt,setVisitsAnt]= useState([])
-  const [loading,  setLoading]  = useState(true)
+  const [resultado, setResultado] = useState('todos')
+  const [farms, setFarms] = useState([])
+  const [profiles, setProfiles] = useState([])
+  const [visits, setVisits] = useState([])
+  const [visitsAnt, setVisitsAnt] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  useEffect(()=>{ carregarBase() },[])
-  useEffect(()=>{ if(farms.length) carregarVisitas() },[periodo,segmento,farms])
+  useEffect(() => {
+    carregarBase()
+  }, [])
+
+  useEffect(() => {
+    carregarVisitas()
+  }, [periodo])
 
   async function carregarBase() {
-    const {data}=await supabase.from('farms').select('*'); setFarms(data||[])
+    const [rFarms, rProfiles] = await Promise.all([
+      supabaseAdmin.from('farms').select('*'),
+      supabaseAdmin.from('profiles').select('id,name,email').eq('active', true),
+    ])
+
+    setFarms(rFarms.data || [])
+    setProfiles(rProfiles.data || [])
   }
 
   async function carregarVisitas() {
     setLoading(true)
-    const [ini,fim]=periodoRange(periodo), diff=fim-ini
-    const [r,rAnt]=await Promise.all([
-      supabase.from('visits').select('*').gte('visit_date',toISO(ini)).lte('visit_date',toISO(fim)),
-      supabase.from('visits').select('*').gte('visit_date',toISO(new Date(ini-diff))).lte('visit_date',toISO(ini)),
-    ])
-    let vs=r.data||[],va=rAnt.data||[]
-    if(segmento!=='todos'){const ids=farms.filter(f=>f.segment===segmento).map(f=>f.id);vs=vs.filter(v=>ids.includes(v.farm_id));va=va.filter(v=>ids.includes(v.farm_id))}
-    setVisits(vs);setVisitsAnt(va);setLoading(false)
+
+    try {
+      const [ini, fim] = periodoRange(periodo)
+      const [iniAnt, fimAnt] = periodoAnterior(periodo)
+
+      const [rAtual, rAnt] = await Promise.all([
+        supabaseAdmin
+          .from('visits')
+          .select('*')
+          .gte('visit_date', toISO(ini))
+          .lte('visit_date', toISO(fim))
+          .order('visit_date', { ascending: false }),
+
+        supabaseAdmin
+          .from('visits')
+          .select('*')
+          .gte('visit_date', toISO(iniAnt))
+          .lte('visit_date', toISO(fimAnt)),
+      ])
+
+      setVisits(rAtual.data || [])
+      setVisitsAnt(rAnt.data || [])
+    } catch (err) {
+      console.error('Erro ao carregar visitas:', err)
+      setVisits([])
+      setVisitsAnt([])
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const total=visits.length,totalAnt=visitsAnt.length
-  const positivas=visits.filter(v=>v.outcome==='positiva').length
-  const neutras=visits.filter(v=>v.outcome==='neutra').length
-  const negativas=visits.filter(v=>v.outcome==='negativa').length
-  const pctPos=total?((positivas/total)*100).toFixed(0):0
+  const dados = useMemo(() => {
+    const farmById = new Map(farms.map(f => [f.id, f]))
+    const sellerById = new Map(profiles.map(p => [p.id, p]))
+    const sellerByEmail = new Map(profiles.map(p => [p.email, p]))
 
-  const fazMap={}
-  visits.forEach(v=>{
-    const f=farms.find(f=>f.id===v.farm_id)
-    const k=f?.name||'Desconhecida'
-    if(!fazMap[k]) fazMap[k]={name:k,positiva:0,neutra:0,negativa:0}
-    fazMap[k][v.outcome||'neutra']++
-  })
-  const porFazenda=Object.values(fazMap).sort((a,b)=>(b.positiva+b.neutra+b.negativa)-(a.positiva+a.neutra+a.negativa)).slice(0,8)
+    let vs = visits.map(v => {
+      const farm = farmById.get(v.farm_id)
+      const seller = sellerById.get(v.seller_id || v.user_id || v.created_by) || sellerByEmail.get(v.seller_id)
 
-  const diasSemana=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
-  const diaMap={0:0,1:0,2:0,3:0,4:0,5:0,6:0}
-  visits.forEach(v=>{ const d=new Date(v.visit_date+'T12:00:00').getDay(); diaMap[d]++ })
-  const porDia=diasSemana.map((name,i)=>({name,Visitas:diaMap[i]}))
+      return {
+        ...v,
+        farmName: farm?.name || '—',
+        farmSegment: farm?.segment || '—',
+        farmProspect: Boolean(farm?.prospect),
+        sellerName: seller?.name || seller?.email || '—',
+        outcomeNorm: normalizarOutcome(v.outcome),
+        dias: diasDesde(v.visit_date),
+      }
+    })
 
-  const problemáticas=Object.values(visits.filter(v=>v.outcome==='negativa').reduce((acc,v)=>{
-    const f=farms.find(f=>f.id===v.farm_id);const k=v.farm_id
-    if(!acc[k]) acc[k]={name:f?.name||'—',count:0};acc[k].count++;return acc
-  },{})).filter(f=>f.count>=2).sort((a,b)=>b.count-a.count)
+    let ant = visitsAnt.map(v => {
+      const farm = farmById.get(v.farm_id)
 
-  const tabela=visits.map(v=>({
-    ...v,
-    farmName:farms.find(f=>f.id===v.farm_id)?.name||'—',
-    segment:farms.find(f=>f.id===v.farm_id)?.segment||'—',
-  })).sort((a,b)=>b.visit_date.localeCompare(a.visit_date))
+      return {
+        ...v,
+        farmSegment: farm?.segment || '—',
+        outcomeNorm: normalizarOutcome(v.outcome),
+      }
+    })
 
-  function exportCSV(){
-    const rows=[['Data','Fazenda','Segmento','Resultado','Anotações','Próxima visita'],
-      ...tabela.map(v=>[v.visit_date,v.farmName,v.segment,v.outcome||'—',v.notes||'',v.next_visit_date||''])]
-    const a=document.createElement('a')
-    a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(rows.map(r=>r.join(';')).join('\n'))
-    a.download='visitas.csv';a.click()
+    if (segmento !== 'todos') {
+      vs = vs.filter(v => String(v.farmSegment || '').toLowerCase() === segmento)
+      ant = ant.filter(v => String(v.farmSegment || '').toLowerCase() === segmento)
+    }
+
+    const baseParaKpi = vs
+
+    const lista = vs
+      .filter(v => resultado === 'todos' ? true : v.outcomeNorm === resultado)
+      .sort((a, b) => String(b.visit_date).localeCompare(String(a.visit_date)))
+
+    const total = baseParaKpi.length
+    const totalAnt = ant.length
+    const positivas = baseParaKpi.filter(v => v.outcomeNorm === 'positiva').length
+    const positivasAnt = ant.filter(v => v.outcomeNorm === 'positiva').length
+    const negativas = baseParaKpi.filter(v => v.outcomeNorm === 'negativa').length
+    const negativasAnt = ant.filter(v => v.outcomeNorm === 'negativa').length
+    const neutras = baseParaKpi.filter(v => v.outcomeNorm === 'neutra').length
+
+    const farmsVisitadas = new Set(baseParaKpi.map(v => v.farm_id).filter(Boolean)).size
+    const farmsVisitadasAnt = new Set(ant.map(v => v.farm_id).filter(Boolean)).size
+    const vendedoresAtivos = new Set(baseParaKpi.map(v => v.seller_id || v.user_id || v.created_by).filter(Boolean)).size
+    const mediaPorVendedor = vendedoresAtivos ? total / vendedoresAtivos : 0
+
+    const carteiraFiltrada = segmento === 'todos'
+      ? farms
+      : farms.filter(f => String(f.segment || '').toLowerCase() === segmento)
+
+    const visitadasIds = new Set(baseParaKpi.map(v => v.farm_id))
+    const esquecidas = carteiraFiltrada
+      .map(f => {
+        const ultimas = visits
+          .filter(v => v.farm_id === f.id)
+          .map(v => v.visit_date)
+          .sort()
+        const ultima = ultimas[ultimas.length - 1]
+
+        return {
+          ...f,
+          ultima,
+          diasSemVisita: ultima ? diasDesde(ultima) : 999,
+        }
+      })
+      .filter(f => !visitadasIds.has(f.id) || f.diasSemVisita >= 30)
+      .sort((a, b) => b.diasSemVisita - a.diasSemVisita)
+      .slice(0, 8)
+
+    const futuras = visits
+      .filter(v => v.next_visit_date && v.next_visit_date >= toISO(new Date()))
+      .sort((a, b) => String(a.next_visit_date).localeCompare(String(b.next_visit_date)))
+      .slice(0, 8)
+
+    const mesMap = {}
+    baseParaKpi.forEach(v => {
+      const mes = v.visit_date?.slice(0, 7)
+      if (!mes) return
+
+      if (!mesMap[mes]) {
+        mesMap[mes] = {
+          mes,
+          label: new Date(`${mes}-01T12:00:00`).toLocaleDateString('pt-BR', {
+            month: 'short',
+            year: '2-digit',
+          }),
+          Visitas: 0,
+          Positivas: 0,
+          Negativas: 0,
+        }
+      }
+
+      mesMap[mes].Visitas += 1
+      if (v.outcomeNorm === 'positiva') mesMap[mes].Positivas += 1
+      if (v.outcomeNorm === 'negativa') mesMap[mes].Negativas += 1
+    })
+
+    const evolucao = Object.values(mesMap)
+      .sort((a, b) => a.mes.localeCompare(b.mes))
+      .slice(-6)
+
+    const vendedorMap = {}
+    baseParaKpi.forEach(v => {
+      const key = v.seller_id || v.user_id || v.created_by || 'sem_vendedor'
+
+      if (!vendedorMap[key]) {
+        vendedorMap[key] = {
+          id: key,
+          name: v.sellerName || 'Desconhecido',
+          total: 0,
+          positivas: 0,
+          negativas: 0,
+          fazendas: new Set(),
+        }
+      }
+
+      vendedorMap[key].total += 1
+      vendedorMap[key].fazendas.add(v.farm_id)
+
+      if (v.outcomeNorm === 'positiva') vendedorMap[key].positivas += 1
+      if (v.outcomeNorm === 'negativa') vendedorMap[key].negativas += 1
+    })
+
+    const porVendedor = Object.values(vendedorMap)
+      .map(v => ({
+        ...v,
+        fazendasCount: v.fazendas.size,
+        qualidade: v.total ? Math.round((v.positivas / v.total) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8)
+
+    const fazendaMap = {}
+    baseParaKpi.forEach(v => {
+      if (!fazendaMap[v.farm_id]) {
+        fazendaMap[v.farm_id] = {
+          id: v.farm_id,
+          name: v.farmName,
+          segment: v.farmSegment,
+          total: 0,
+          positivas: 0,
+          negativas: 0,
+        }
+      }
+
+      fazendaMap[v.farm_id].total += 1
+      if (v.outcomeNorm === 'positiva') fazendaMap[v.farm_id].positivas += 1
+      if (v.outcomeNorm === 'negativa') fazendaMap[v.farm_id].negativas += 1
+    })
+
+    const porFazenda = Object.values(fazendaMap)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8)
+
+    const segmentoMap = {}
+    baseParaKpi.forEach(v => {
+      const key = v.farmSegment || '—'
+      if (!segmentoMap[key]) segmentoMap[key] = { name: key, Visitas: 0 }
+      segmentoMap[key].Visitas += 1
+    })
+
+    const porSegmento = Object.values(segmentoMap).sort((a, b) => b.Visitas - a.Visitas)
+
+    const problemáticas = Object.values(fazendaMap)
+      .filter(f => f.negativas >= 2)
+      .sort((a, b) => b.negativas - a.negativas)
+
+    return {
+      total,
+      totalAnt,
+      positivas,
+      positivasAnt,
+      negativas,
+      negativasAnt,
+      neutras,
+      pctPositivas: total ? Math.round((positivas / total) * 100) : 0,
+      farmsVisitadas,
+      farmsVisitadasAnt,
+      mediaPorVendedor,
+      vendedoresAtivos,
+      esquecidas,
+      futuras,
+      evolucao,
+      porVendedor,
+      porFazenda,
+      porSegmento,
+      problemáticas,
+      lista,
+    }
+  }, [visits, visitsAnt, farms, profiles, segmento, resultado])
+
+  const vendedorMax = Math.max(...dados.porVendedor.map(v => v.total), 1)
+  const fazendaMax = Math.max(...dados.porFazenda.map(f => f.total), 1)
+
+  function exportCSV() {
+    const rows = [
+      ['Data', 'Fazenda', 'Segmento', 'Vendedor', 'Resultado', 'Anotações', 'Próxima visita'],
+      ...dados.lista.map(v => [
+        v.visit_date,
+        v.farmName,
+        v.farmSegment,
+        v.sellerName,
+        OUTCOME[v.outcomeNorm]?.label || v.outcomeNorm,
+        v.notes || '',
+        v.next_visit_date || '',
+      ]),
+    ]
+
+    const csv = rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\n')
+    const a = document.createElement('a')
+
+    a.href = `data:text/csv;charset=utf-8,\uFEFF${encodeURIComponent(csv)}`
+    a.download = 'visitas-execucao-campo.csv'
+    a.click()
   }
 
   return (
-    <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
-      <Topbar title="Visitas e Produtividade" subtitle="Atividade do time em campo">
-        <button className="btn btn-ghost btn-sm" onClick={exportCSV}><IconDownload size={14}/> Exportar CSV</button>
+    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <Topbar title="Execução de Campo" subtitle="Visitas, cobertura da carteira e acompanhamento comercial">
+        <button className="btn btn-ghost btn-sm" onClick={exportCSV}>
+          <IconDownload size={14} />
+          Exportar CSV
+        </button>
       </Topbar>
-      <div className="page" style={{overflowY:'auto'}}>
-        <div style={{display:'flex',gap:10,marginBottom:20,alignItems:'center'}}>
-          <IconFilter size={14} color="var(--text-faint)"/>
-          <select value={periodo} onChange={e=>setPeriodo(e.target.value)} style={{width:'auto',padding:'6px 10px',fontSize:12}}>
-            <option value="mes">Mês atual</option><option value="trimestre">Trimestre</option><option value="semestre">Semestre</option><option value="ano">Ano</option>
-          </select>
-          <select value={segmento} onChange={e=>setSegmento(e.target.value)} style={{width:'auto',padding:'6px 10px',fontSize:12}}>
-            <option value="todos">Todos</option><option value="leite">Leite</option><option value="corte">Corte</option><option value="suinos">Suínos</option>
-          </select>
-          <span style={{fontSize:12,color:'var(--text-faint)',marginLeft:'auto'}}>{total} visitas</span>
-        </div>
 
-        <div className="kpi-grid" style={{gridTemplateColumns:'repeat(5,1fr)'}}>
-          {[
-            {label:'Total de visitas',  value:total,                       sub:`vs ${totalAnt} período ant.`},
-            {label:'Positivas',         value:`${positivas} (${pctPos}%)`, style:{color:'var(--green)'}},
-            {label:'Neutras',           value:neutras,                     style:{color:'var(--text-dim)'}},
-            {label:'Negativas',         value:negativas,                   style:{color:'var(--red)'}},
-            {label:'Fazendas cobertas', value:new Set(visits.map(v=>v.farm_id)).size, sub:`de ${farms.length} na carteira`},
-          ].map(k=>(
-            <div key={k.label} className="kpi">
-              <div className="label">{k.label}</div>
-              <div className="value" style={{fontSize:20,...(k.style||{})}}>{k.value}</div>
-              {k.sub&&<div className="sub">{k.sub}</div>}
+      <div className="page visitas-page" style={{ overflowY: 'auto' }}>
+        <section className="visitas-toolbar">
+          <div className="visitas-toolbar-left">
+            <div className="visitas-filter-icon">
+              <IconFilter size={15} />
             </div>
-          ))}
-        </div>
 
-        {loading?<div className="empty">Carregando...</div>:(
+            <select value={periodo} onChange={e => setPeriodo(e.target.value)}>
+              <option value="mes">Mês atual</option>
+              <option value="trimestre">Trimestre</option>
+              <option value="semestre">Semestre</option>
+              <option value="ano">Ano</option>
+            </select>
+
+            <select value={segmento} onChange={e => setSegmento(e.target.value)}>
+              <option value="todos">Todos os segmentos</option>
+              <option value="leite">Leite</option>
+              <option value="corte">Corte</option>
+              <option value="suinos">Suínos</option>
+            </select>
+
+            <select value={resultado} onChange={e => setResultado(e.target.value)}>
+              <option value="todos">Todos os resultados</option>
+              <option value="positiva">Positivas</option>
+              <option value="neutra">Neutras</option>
+              <option value="negativa">Negativas</option>
+            </select>
+          </div>
+
+          <div className="visitas-toolbar-count">
+            {fmtInt(dados.total)} visitas no período
+          </div>
+        </section>
+
+        <section className="visitas-hero">
+          <div>
+            <span className="visitas-eyebrow">Visitas realizadas</span>
+            <h2>{fmtInt(dados.total)}</h2>
+            <VarBadge atual={dados.total} anterior={dados.totalAnt} />
+          </div>
+
+          <div className="visitas-hero-grid">
+            <div>
+              <span>Fazendas visitadas</span>
+              <strong>{fmtInt(dados.farmsVisitadas)}</strong>
+            </div>
+
+            <div>
+              <span>Resultado positivo</span>
+              <strong>{dados.pctPositivas}%</strong>
+            </div>
+
+            <div>
+              <span>Fazendas esquecidas</span>
+              <strong>{fmtInt(dados.esquecidas.length)}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section className="visitas-kpi-grid">
+          <KpiCard
+            icon={IconRoute}
+            label="Visitas"
+            value={fmtInt(dados.total)}
+            atual={dados.total}
+            anterior={dados.totalAnt}
+          />
+
+          <KpiCard
+            icon={IconBuildingStore}
+            label="Fazendas visitadas"
+            value={fmtInt(dados.farmsVisitadas)}
+            atual={dados.farmsVisitadas}
+            anterior={dados.farmsVisitadasAnt}
+          />
+
+          <KpiCard
+            icon={IconTargetArrow}
+            label="Positivas"
+            value={`${fmtInt(dados.positivas)} (${dados.pctPositivas}%)`}
+            atual={dados.positivas}
+            anterior={dados.positivasAnt}
+            tone="success"
+          />
+
+          <KpiCard
+            icon={IconUsers}
+            label="Média por vendedor"
+            value={dados.mediaPorVendedor.toFixed(1)}
+            sub={`${fmtInt(dados.vendedoresAtivos)} vendedores ativos`}
+          />
+
+          <KpiCard
+            icon={IconAlertTriangle}
+            label="Negativas"
+            value={fmtInt(dados.negativas)}
+            atual={dados.negativas}
+            anterior={dados.negativasAnt}
+            invert
+            tone={dados.negativas ? 'danger' : 'success'}
+          />
+
+          <KpiCard
+            icon={IconClock}
+            label="Sem visita"
+            value={fmtInt(dados.esquecidas.length)}
+            sub="clientes que precisam de atenção"
+            tone={dados.esquecidas.length ? 'danger' : 'success'}
+          />
+        </section>
+
+        {loading ? (
+          <Empty>Carregando visitas...</Empty>
+        ) : (
           <>
-            <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:20}}>
-              <div className="card">
-                <div className="section-title">Visitas por fazenda</div>
-                {porFazenda.length>0?(
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={porFazenda} margin={{top:4,right:8,left:8,bottom:0}}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/>
-                      <XAxis dataKey="name" tick={{fontSize:10}}/><YAxis tick={{fontSize:11}}/>
-                      <Tooltip/><Legend wrapperStyle={{fontSize:11}}/>
-                      <Bar dataKey="positiva" name="Positiva" stackId="a" fill="var(--green)"/>
-                      <Bar dataKey="neutra"   name="Neutra"   stackId="a" fill="var(--text-faint)"/>
-                      <Bar dataKey="negativa" name="Negativa" stackId="a" fill="var(--red)" radius={[4,4,0,0]}/>
-                    </BarChart>
-                  </ResponsiveContainer>
-                ):<div className="empty" style={{padding:40}}>Sem visitas no período</div>}
-              </div>
-              <div className="card">
-                <div className="section-title">Por dia da semana</div>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={porDia} margin={{top:4,right:8,left:-16,bottom:0}}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/>
-                    <XAxis dataKey="name" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/>
-                    <Tooltip/><Bar dataKey="Visitas" fill="var(--orange)" radius={[4,4,0,0]}/>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+            {(dados.esquecidas.length > 0 || dados.problemáticas.length > 0) && (
+              <section className="visitas-alerts">
+                {dados.esquecidas.length > 0 && (
+                  <div className="visitas-alert warning">
+                    <IconClock size={17} />
+                    <span>
+                      <strong>{dados.esquecidas.length}</strong> fazenda{dados.esquecidas.length > 1 ? 's' : ''} sem visita recente no filtro atual.
+                    </span>
+                  </div>
+                )}
 
-            {problemáticas.length>0&&(
-              <div className="card" style={{marginBottom:20,borderColor:'rgba(224,49,49,0.3)',background:'var(--red-bg)'}}>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
-                  <IconAlertTriangle size={16} color="var(--red)"/>
-                  <div className="section-title" style={{margin:0,color:'var(--red)'}}>Fazendas com visitas negativas recorrentes</div>
-                </div>
-                <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                  {problemáticas.map(f=>(
-                    <div key={f.name} style={{background:'var(--surface)',borderRadius:8,padding:'8px 12px',fontSize:12}}>
-                      <div style={{fontWeight:600}}>{f.name}</div>
-                      <div style={{color:'var(--red)'}}>{f.count} visitas negativas</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                {dados.problemáticas.length > 0 && (
+                  <div className="visitas-alert danger">
+                    <IconAlertTriangle size={17} />
+                    <span>
+                      <strong>{dados.problemáticas.length}</strong> fazenda{dados.problemáticas.length > 1 ? 's' : ''} com visitas negativas recorrentes.
+                    </span>
+                  </div>
+                )}
+              </section>
             )}
 
-            <div className="card">
-              <div className="section-title">Histórico de visitas</div>
-              <div className="table-wrap">
+            <section className="visitas-main-grid">
+              <div className="visitas-card visitas-chart-card">
+                <div className="visitas-card-head">
+                  <div>
+                    <span className="visitas-eyebrow">Evolução</span>
+                    <h3>Visitas e qualidade do atendimento</h3>
+                  </div>
+                </div>
+
+                {dados.evolucao.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={290}>
+                    <AreaChart data={dados.evolucao} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="visitasTotal" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--orange)" stopOpacity={0.23} />
+                          <stop offset="95%" stopColor="var(--orange)" stopOpacity={0.02} />
+                        </linearGradient>
+
+                        <linearGradient id="visitasPositivas" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#23864A" stopOpacity={0.18} />
+                          <stop offset="95%" stopColor="#23864A" stopOpacity={0.01} />
+                        </linearGradient>
+                      </defs>
+
+                      <CartesianGrid strokeDasharray="4 6" />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                      <YAxis tickLine={false} axisLine={false} />
+                      <Tooltip />
+
+                      <Area
+                        type="monotone"
+                        dataKey="Visitas"
+                        stroke="var(--orange)"
+                        strokeWidth={2.5}
+                        fill="url(#visitasTotal)"
+                        dot={{ r: 3 }}
+                        activeDot={{ r: 5 }}
+                      />
+
+                      <Area
+                        type="monotone"
+                        dataKey="Positivas"
+                        stroke="#23864A"
+                        strokeWidth={2.3}
+                        fill="url(#visitasPositivas)"
+                        dot={{ r: 3 }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <Empty>Sem evolução no período</Empty>
+                )}
+              </div>
+
+              <div className="visitas-card">
+                <div className="visitas-card-head">
+                  <div>
+                    <span className="visitas-eyebrow">Segmentos</span>
+                    <h3>Distribuição das visitas</h3>
+                  </div>
+                </div>
+
+                {dados.porSegmento.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={290}>
+                    <BarChart data={dados.porSegmento} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="4 6" />
+                      <XAxis dataKey="name" tickLine={false} axisLine={false} />
+                      <YAxis tickLine={false} axisLine={false} />
+                      <Tooltip />
+                      <Bar dataKey="Visitas" fill="var(--orange)" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <Empty>Sem dados por segmento</Empty>
+                )}
+              </div>
+            </section>
+
+            <section className="visitas-grid-2">
+              <div className="visitas-card">
+                <div className="visitas-card-head">
+                  <div>
+                    <span className="visitas-eyebrow">Equipe</span>
+                    <h3>Ranking por vendedor</h3>
+                  </div>
+                </div>
+
+                {dados.porVendedor.length > 0 ? (
+                  <div className="visitas-ranking">
+                    {dados.porVendedor.map((v, i) => (
+                      <RankingRow
+                        key={v.id}
+                        index={i}
+                        title={v.name}
+                        subtitle={`${fmtInt(v.fazendasCount)} fazendas · ${fmtInt(v.positivas)} positivas`}
+                        value={v.total}
+                        max={vendedorMax}
+                        extra={`${v.qualidade}% positivas`}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <Empty>Sem dados por vendedor</Empty>
+                )}
+              </div>
+
+              <div className="visitas-card">
+                <div className="visitas-card-head">
+                  <div>
+                    <span className="visitas-eyebrow">Carteira</span>
+                    <h3>Fazendas mais visitadas</h3>
+                  </div>
+                </div>
+
+                {dados.porFazenda.length > 0 ? (
+                  <div className="visitas-ranking">
+                    {dados.porFazenda.map((f, i) => (
+                      <RankingRow
+                        key={f.id || f.name}
+                        index={i}
+                        title={f.name}
+                        subtitle={`${f.segment} · ${fmtInt(f.positivas)} positivas · ${fmtInt(f.negativas)} negativas`}
+                        value={f.total}
+                        max={fazendaMax}
+                        extra="visitas"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <Empty>Sem fazendas visitadas</Empty>
+                )}
+              </div>
+            </section>
+
+            <section className="visitas-grid-2">
+              <div className="visitas-card">
+                <div className="visitas-card-head">
+                  <div>
+                    <span className="visitas-eyebrow">Atenção</span>
+                    <h3>Fazendas esquecidas</h3>
+                  </div>
+                </div>
+
+                {dados.esquecidas.length > 0 ? (
+                  <div className="visitas-list">
+                    {dados.esquecidas.map(f => (
+                      <div key={f.id} className="visitas-list-row">
+                        <div>
+                          <strong>{f.name}</strong>
+                          <span>{f.segment || '—'} · última visita: {f.ultima ? dataBR(f.ultima) : 'sem registro no período'}</span>
+                        </div>
+
+                        <em>{f.diasSemVisita >= 999 ? 'sem visita' : `${fmtInt(f.diasSemVisita)} dias`}</em>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Empty>Nenhuma fazenda esquecida</Empty>
+                )}
+              </div>
+
+              <div className="visitas-card">
+                <div className="visitas-card-head">
+                  <div>
+                    <span className="visitas-eyebrow">Agenda</span>
+                    <h3>Próximas visitas</h3>
+                  </div>
+                </div>
+
+                {dados.futuras.length > 0 ? (
+                  <div className="visitas-list">
+                    {dados.futuras.map(v => (
+                      <div key={v.id} className="visitas-list-row">
+                        <div>
+                          <strong>{v.farmName}</strong>
+                          <span>{v.sellerName} · visita em {dataBR(v.next_visit_date)}</span>
+                        </div>
+
+                        <em>{dataCurta(v.next_visit_date)}</em>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Empty>Sem próximas visitas agendadas</Empty>
+                )}
+              </div>
+            </section>
+
+            <section className="visitas-card">
+              <div className="visitas-card-head">
+                <div>
+                  <span className="visitas-eyebrow">Histórico</span>
+                  <h3>Lista completa de visitas</h3>
+                </div>
+
+                <small>{fmtInt(dados.lista.length)} registros</small>
+              </div>
+
+              <div className="table-wrap visitas-table-wrap">
                 <table>
-                  <thead><tr><th>Data</th><th>Fazenda</th><th>Segmento</th><th>Resultado</th><th>Anotações</th><th>Próxima visita</th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Fazenda</th>
+                      <th>Segmento</th>
+                      <th>Vendedor</th>
+                      <th>Resultado</th>
+                      <th>Anotações</th>
+                      <th>Próxima visita</th>
+                    </tr>
+                  </thead>
+
                   <tbody>
-                    {tabela.length===0?(<tr><td colSpan={6} style={{textAlign:'center',color:'var(--text-faint)'}}>Nenhuma visita no período</td></tr>)
-                      :tabela.map(v=>{
-                        const cfg=OUTCOME_CFG[v.outcome||'neutra']
-                        return(
+                    {dados.lista.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>
+                          Nenhuma visita encontrada
+                        </td>
+                      </tr>
+                    ) : (
+                      dados.lista.map(v => {
+                        const outcome = OUTCOME[v.outcomeNorm] || OUTCOME.neutra
+
+                        return (
                           <tr key={v.id}>
-                            <td>{new Date(v.visit_date+'T12:00:00').toLocaleDateString('pt-BR')}</td>
-                            <td style={{fontWeight:500}}>{v.farmName}</td>
-                            <td><span className="pill pill-gray" style={{textTransform:'capitalize'}}>{v.segment}</span></td>
-                            <td><span className="pill" style={{background:cfg.bg,color:cfg.color}}>{cfg.label}</span></td>
-                            <td style={{fontSize:12,color:'var(--text-dim)',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{v.notes||'—'}</td>
-                            <td style={{fontSize:12}}>{v.next_visit_date?new Date(v.next_visit_date+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</td>
+                            <td>{dataBR(v.visit_date)}</td>
+                            <td>
+                              <strong>{v.farmName}</strong>
+                            </td>
+                            <td>
+                              <span className="visitas-pill segment">{v.farmSegment}</span>
+                            </td>
+                            <td>{v.sellerName}</td>
+                            <td>
+                              <span className={`visitas-pill ${outcome.className}`}>
+                                {outcome.label}
+                              </span>
+                            </td>
+                            <td className="visitas-notes">{v.notes || '—'}</td>
+                            <td>{dataBR(v.next_visit_date)}</td>
                           </tr>
                         )
                       })
-                    }
+                    )}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </section>
           </>
         )}
       </div>
