@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import logo from '../assets/logo-nutrialle.jpg'
+import logo from '../assets/logo-nutrialle.png'
 import {
   IconLayoutDashboard,
   IconReceipt,
