@@ -61,10 +61,7 @@ export default function Sidebar() {
       <div className="sidebar-logo">
         <img src={logo} alt="Nutrialle" className="sidebar-logo-mark" />
 
-        <div>
-          <div className="sidebar-brand-title">Nutrialle</div>
-          <div className="sidebar-brand-sub">Gestão</div>
-        </div>
+      
       </div>
 
       <nav className="sidebar-nav">
