@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/useAuth'
 import Sidebar from './components/Sidebar'
+import SplashScreen from './components/SplashScreen'
 import Login from './screens/Login'
 import Dashboard from './screens/Dashboard'
 import Vendas from './screens/Vendas'
@@ -17,8 +18,8 @@ import Cotacoes from './screens/Cotacoes'
 import DashboardTime from './screens/DashboardTime'
 
 function AppContent() {
-  const { user, loading } = useAuth()
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--text-dim)' }}>Carregando...</div>
+  const { user, loading, showSplash } = useAuth()
+  if (loading || showSplash) return <SplashScreen />
   if (!user)   return <Login />
   return (
     <div className="layout">

@@ -8145,3 +8145,60 @@ td,
   font-size: 11px;
   font-weight: 850;
 }
+
+/* =========================================================
+   SPLASH / LOADING NUTRIALLE — IGUAL AO PAINEL COMERCIAL
+   Cole no final do src/index.css do Gestão
+========================================================= */
+
+.official-logo {
+  display: block;
+  object-fit: contain;
+  mix-blend-mode: normal;
+}
+
+.loading-official-logo {
+  width: 220px;
+  height: auto;
+  margin: 0 auto 30px;
+  filter: drop-shadow(0 12px 28px rgba(0,0,0,.28));
+}
+
+.nutrialle-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background:
+    radial-gradient(circle at 70% 45%, rgba(232,119,34,.16), transparent 360px),
+    #050505;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nutrialle-loading-card {
+  text-align: center;
+}
+
+.loading-line {
+  width: 180px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.1);
+  overflow: hidden;
+  margin: 0 auto;
+}
+
+.loading-line span {
+  display: block;
+  height: 100%;
+  width: 46%;
+  background: #E87722;
+  border-radius: 999px;
+  animation: loading 1.15s ease-in-out infinite;
+}
+
+@keyframes loading {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(230%); }
+}
