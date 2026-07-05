@@ -64,7 +64,7 @@ export default function Metas() {
   const dadosVendedores=sellers.map(s=>{
     const goal=goals.find(g=>g.seller_id===s.id)
     const meta=Number(goal?.meta_fat||0)
-    const realizado=sales.reduce((a,v)=>a+Number(v.total||0),0)/sellers.length
+    const realizado=sales.filter(v=>v.seller_id===s.id).reduce((a,v)=>a+Number(v.total||0),0)
     const pct=meta>0?Math.min((realizado/meta)*100,150):0
     const projecao=diasP?((realizado/diasP)*diasT):0
     const status=pct>=100?'atingida':pct>=70?'caminho':pct>=40?'atencao':'risco'
