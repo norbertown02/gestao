@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/useAuth'
-import { IconMail, IconLock, IconEye, IconEyeOff } from '@tabler/icons-react'
+import { IconMail, IconLock, IconEye, IconEyeOff, IconArrowRight, IconChartPie, IconChartBar, IconMapPin } from '@tabler/icons-react'
 import logo from '../assets/logo-nutrialle.png'
 
 export default function Login() {
@@ -23,6 +23,8 @@ export default function Login() {
     <main className="login-page">
       <section className="login-shell">
         <div className="login-brand">
+          <div className="login-ring-2" />
+
           <div>
             <img src={logo} alt="Nutrialle" className="login-logo" />
 
@@ -36,16 +38,19 @@ export default function Login() {
 
           <div className="login-brand-footer">
             <div className="login-mini">
+              <IconChartPie size={18} />
               <strong>360°</strong>
               <span>Gestão</span>
             </div>
 
             <div className="login-mini">
+              <IconChartBar size={18} />
               <strong>BI</strong>
               <span>Comercial</span>
             </div>
 
             <div className="login-mini">
+              <IconMapPin size={18} />
               <strong>Campo</strong>
               <span>Performance</span>
             </div>
@@ -53,72 +58,80 @@ export default function Login() {
         </div>
 
         <div className="login-form-side">
-          <div className="login-form-head">
-            <h2>Acessar Gestão</h2>
-            <p>
-              Entre com seu e-mail corporativo para acessar o painel
-              administrativo da Nutrialle.
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="login-form">
-            <div>
-              <label>E-mail</label>
-
-              <div className="login-input-wrap">
-                <IconMail size={16} />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="seu@nutrialle.com.br"
-                  autoComplete="email"
-                  required
-                />
-              </div>
+          <div className="login-form-inner">
+            <div className="login-form-head">
+              <div className="login-kicker">Bem-vindo de volta</div>
+              <h2>Acessar Gestão</h2>
+              <p>
+                Entre com seu e-mail corporativo para acessar o painel
+                administrativo da Nutrialle.
+              </p>
             </div>
 
-            <div>
-              <label>Senha</label>
+            <form onSubmit={handleSubmit} className="login-form">
+              <div>
+                <label>E-mail</label>
 
-              <div className="login-input-wrap">
-                <IconLock size={16} />
-
-                <input
-                  type={showPw ? 'text' : 'password'}
-                  value={senha}
-                  onChange={e => setSenha(e.target.value)}
-                  placeholder="Digite sua senha"
-                  autoComplete="current-password"
-                  required
-                  style={{ paddingRight: 44 }}
-                />
-
-                <button
-                  type="button"
-                  className="login-password-btn"
-                  onClick={() => setShowPw(v => !v)}
-                  aria-label={showPw ? 'Ocultar senha' : 'Mostrar senha'}
-                >
-                  {showPw ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-                </button>
+                <div className="login-input-wrap">
+                  <IconMail size={16} />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="seu@nutrialle.com.br"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
               </div>
+
+              <div>
+                <label>Senha</label>
+
+                <div className="login-input-wrap">
+                  <IconLock size={16} />
+
+                  <input
+                    type={showPw ? 'text' : 'password'}
+                    value={senha}
+                    onChange={e => setSenha(e.target.value)}
+                    placeholder="Digite sua senha"
+                    autoComplete="current-password"
+                    required
+                    style={{ paddingRight: 44 }}
+                  />
+
+                  <button
+                    type="button"
+                    className="login-password-btn"
+                    onClick={() => setShowPw(v => !v)}
+                    aria-label={showPw ? 'Ocultar senha' : 'Mostrar senha'}
+                  >
+                    {showPw ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {error && <div className="login-error">{error}</div>}
+
+              <button
+                type="submit"
+                className="btn btn-primary login-submit"
+                disabled={loading}
+              >
+                {loading ? 'Entrando...' : (
+                  <>
+                    Entrar no painel
+                    <IconArrowRight size={16} />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="login-note">
+              Ambiente interno Nutrialle. O acesso é restrito aos usuários
+              autorizados.
             </div>
-
-            {error && <div className="login-error">{error}</div>}
-
-            <button
-              type="submit"
-              className="btn btn-primary login-submit"
-              disabled={loading}
-            >
-              {loading ? 'Entrando...' : 'Entrar no painel'}
-            </button>
-          </form>
-
-          <div className="login-note">
-            Ambiente interno Nutrialle. O acesso é restrito aos usuários
-            autorizados.
           </div>
         </div>
       </section>
