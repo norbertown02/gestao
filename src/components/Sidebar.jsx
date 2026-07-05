@@ -14,6 +14,7 @@ import {
   IconMapPin,
   IconBuildingStore,
   IconChartPie,
+  IconTarget,
 } from '@tabler/icons-react'
 import { useAuth } from '../lib/useAuth'
 
@@ -28,6 +29,7 @@ const NAV = [
   { to: '/relatorio', label: 'Relatório de Vendas', Icon: IconFileText },
 
   { section: 'Performance' },
+  { to: '/metas', label: 'Metas', Icon: IconTarget },
   { to: '/vendedores', label: 'Vendedores', Icon: IconUsers },
   { to: '/time', label: 'Dashboard do Time', Icon: IconChartBar },
   { to: '/regioes', label: 'Regiões', Icon: IconMapPin },

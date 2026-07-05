@@ -16,6 +16,7 @@ import Pipeline from './screens/Pipeline'
 import RelatorioMensal from './screens/RelatorioMensal'
 import Cotacoes from './screens/Cotacoes'
 import DashboardTime from './screens/DashboardTime'
+import Metas from './screens/Metas'
 
 function AppContent() {
   const { user, loading, showSplash } = useAuth()
@@ -36,6 +37,7 @@ function AppContent() {
           <Route path="/regioes"    element={<Regioes />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/time" element={<DashboardTime />} />
+          <Route path="/metas" element={<Metas />} />
           <Route path="/relatorio" element={<RelatorioMensal />} />
           <Route path="/cotacoes" element={<Cotacoes />} />
           <Route path="/config"     element={<Config />} />

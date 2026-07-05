@@ -16,6 +16,7 @@ import {
   IconBuildingStore,
   IconFileText,
   IconCircleCheck,
+  IconMoneybag,
 } from '@tabler/icons-react'
 import {
   AreaChart,
@@ -214,6 +215,10 @@ export default function Dashboard() {
 
       const fatMes = sm.reduce((a, s) => a + Number(s.total || 0), 0)
       const fatAnt = sa.reduce((a, s) => a + Number(s.total || 0), 0)
+
+      const comissaoMes = sm.reduce((a, s) => a + Number(s.total || 0) * (Number(s.comissao_pct || 0) / 100), 0)
+      const comissaoAnt = sa.reduce((a, s) => a + Number(s.total || 0) * (Number(s.comissao_pct || 0) / 100), 0)
+      const comissaoPctFat = fatMes > 0 ? (comissaoMes / fatMes) * 100 : 0
 
       const pedMes = sm.length
       const pedAnt = sa.length
@@ -427,6 +432,9 @@ export default function Dashboard() {
       setDados({
         fatMes,
         fatAnt,
+        comissaoMes,
+        comissaoAnt,
+        comissaoPctFat,
         pedMes,
         pedAnt,
         metaTotal,
@@ -582,6 +590,13 @@ export default function Dashboard() {
                 <span>Visitas positivas</span>
                 <strong>{d.eficienciaVisita}%</strong>
                 <small>{d.visitasPositivas} de {d.visitasMes} visitas</small>
+              </div>
+
+              <div className="dash-kpi-card">
+                <IconMoneybag size={18} />
+                <span>Comissões do mês</span>
+                <strong>{fmtK(d.comissaoMes)}</strong>
+                <small>{d.comissaoPctFat.toFixed(1)}% do faturamento</small>
               </div>
             </div>
 

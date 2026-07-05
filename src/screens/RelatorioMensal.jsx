@@ -160,13 +160,13 @@ function MetricPreview({ label, value, variation }) {
   )
 }
 
-function PdfMetric({ label, value, previous, variation, dark = false }) {
+function PdfMetric({ label, value, previous, variation, dark = false, subLabel }) {
   const positive = Number(variation || 0) >= 0
   return (
     <div className={`pdf-metric ${dark ? 'dark' : ''}`}>
       <span>{label}</span>
       <strong>{value}</strong>
-      <small>Anterior: {previous}</small>
+      <small>{subLabel || `Anterior: ${previous}`}</small>
       <em className={positive ? 'positive' : 'negative'}>
         {positive ? '▲' : '▼'} {positive ? '+' : ''}{variation.toFixed(1)}%
       </em>
@@ -419,6 +419,7 @@ function PdfTemplate({ dados }) {
           <PdfMetric label="Pedidos" value={fmtInt(dados.pedidosAtual)} previous={fmtInt(dados.pedidosAnt)} variation={dados.variacoes.pedidos} />
           <PdfMetric label="Ticket médio" value={fmtK(dados.ticketAtual)} previous={fmtK(dados.ticketAnt)} variation={dados.variacoes.ticket} />
           <PdfMetric label="Visitas" value={fmtInt(dados.visitasAtual)} previous={fmtInt(dados.visitasAnt)} variation={dados.variacoes.visitas} />
+          <PdfMetric label="Comissões pagas" value={fmtK(dados.comissaoAtual)} subLabel={`${dados.comissaoPctFat.toFixed(1)}% do faturamento`} variation={dados.variacoes.comissao} />
         </div>
 
         <div className="pdf-summary-grid">
@@ -724,6 +725,9 @@ export default function RelatorioMensal() {
 
       const fatAtual = salesAtual.reduce((a, s) => a + Number(s.total || 0), 0)
       const fatAnt = salesAnt.reduce((a, s) => a + Number(s.total || 0), 0)
+      const comissaoAtual = salesAtual.reduce((a, s) => a + Number(s.total || 0) * (Number(s.comissao_pct || 0) / 100), 0)
+      const comissaoAnt = salesAnt.reduce((a, s) => a + Number(s.total || 0) * (Number(s.comissao_pct || 0) / 100), 0)
+      const comissaoPctFat = fatAtual > 0 ? (comissaoAtual / fatAtual) * 100 : 0
       const pedidosAtual = salesAtual.length
       const pedidosAnt = salesAnt.length
       const ticketAtual = pedidosAtual ? fatAtual / pedidosAtual : 0
@@ -923,7 +927,11 @@ export default function RelatorioMensal() {
           pedidos: pct(pedidosAtual, pedidosAnt),
           ticket: pct(ticketAtual, ticketAnt),
           visitas: pct(visitasAtual, visitasAnt),
+          comissao: pct(comissaoAtual, comissaoAnt),
         },
+        comissaoAtual,
+        comissaoAnt,
+        comissaoPctFat,
         scoreMedia,
         checklists: checklists.length,
         carteiraAtiva,
@@ -1125,6 +1133,7 @@ export default function RelatorioMensal() {
                   <MetricPreview label="Pedidos" value={fmtInt(dados.pedidosAtual)} variation={dados.variacoes.pedidos} />
                   <MetricPreview label="Ticket médio" value={fmtK(dados.ticketAtual)} variation={dados.variacoes.ticket} />
                   <MetricPreview label="Visitas" value={fmtInt(dados.visitasAtual)} variation={dados.variacoes.visitas} />
+                  <MetricPreview label="Comissões" value={`${fmtK(dados.comissaoAtual)} · ${dados.comissaoPctFat.toFixed(1)}%`} variation={dados.variacoes.comissao} />
                 </div>
 
                 <div className="relpremium-included">
