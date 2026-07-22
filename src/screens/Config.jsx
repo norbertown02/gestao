@@ -274,12 +274,16 @@ export default function Config() {
 
         {aba==='produtos' && (
           <TableSection title="Produtos" data={produtos.data} loading={produtos.loading}
-            onAdd={r=>{ const {id:_,...row}=r; const price_kg=row.price&&row.bag_kg?(parseFloat(row.price)/parseFloat(row.bag_kg)).toFixed(4):0; produtos.add({...row,active:true,price_kg}) }} onUpdate={produtos.update} onDelete={produtos.remove}
-            newRowTemplate={{name:'',segment:'leite',price:'',bag_kg:'25',unit:'saco'}}
+            // A precificação é sempre feita em R$/kg (igual no app de campo).
+            // O preço do saco (coluna `price`) é derivado por um trigger no
+            // banco (sync_product_price: price = price_kg * bag_kg) — não
+            // recalculamos nada aqui, só mandamos o que foi digitado.
+            onAdd={r=>{ const {id:_,...row}=r; produtos.add({...row,active:true}) }} onUpdate={produtos.update} onDelete={produtos.remove}
+            newRowTemplate={{name:'',segment:'leite',price_kg:'',bag_kg:'25',unit:'saco'}}
             columns={[
               {key:'name',label:'Nome'},
               {key:'segment',label:'Segmento',type:'select',options:SEGS},
-              {key:'price',label:'Preço (R$)'},
+              {key:'price_kg',label:'R$/Kg'},
               {key:'bag_kg',label:'Kg/Saco'},
               {key:'unit',label:'Unidade'},
               {key:'active',label:'Ativo',render:v=><span className={`pill ${v?'pill-green':'pill-gray'}`}>{v?'Sim':'Não'}</span>},
