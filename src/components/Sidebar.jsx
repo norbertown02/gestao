@@ -15,8 +15,27 @@ import {
   IconBuildingStore,
   IconChartPie,
   IconTarget,
+  IconArrowLeft,
 } from '@tabler/icons-react'
 import { useAuth } from '../lib/useAuth'
+import { supabase } from '../lib/supabase'
+
+// Mesmo dominio de verdade do Painel (painel.nutrialle.com.br) -- quando o
+// Gestao ja esta rodando atras do proxy (/gestao) a volta e so um caminho
+// relativo (mesma origem, mesma sessao); fora daqui (acesso direto) levamos
+// a sessao junto no hash pra nao pedir login de novo.
+const APP_PAINEL_URL = 'https://painel.nutrialle.com.br'
+
+async function voltarAoPainel() {
+  const sobGestao = window.location.pathname.indexOf('/gestao') === 0
+  const destino = sobGestao ? '/' : APP_PAINEL_URL
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session) {
+    window.location.href = destino + '#sso_at=' + encodeURIComponent(session.access_token) + '&sso_rt=' + encodeURIComponent(session.refresh_token)
+  } else {
+    window.location.href = destino
+  }
+}
 
 const NAV = [
   { section: 'Geral' },
@@ -63,8 +82,18 @@ export default function Sidebar() {
       <div className="sidebar-logo">
         <img src={logo} alt="Nutrialle" className="sidebar-logo-mark" />
 
-      
+
       </div>
+
+      <button
+        type="button"
+        onClick={voltarAoPainel}
+        className="nav-item"
+        style={{ marginBottom: 6 }}
+      >
+        <IconArrowLeft size={18} />
+        <span>Voltar ao Painel</span>
+      </button>
 
       <nav className="sidebar-nav">
         {NAV.map((item, i) =>

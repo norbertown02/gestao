@@ -1,0 +1,24 @@
+{
+  "rewrites": [
+    { "source": "/gestao/assets/:path*", "destination": "/assets/:path*" },
+    { "source": "/gestao/favicon-16.png", "destination": "/favicon-16.png" },
+    { "source": "/gestao/favicon-32.png", "destination": "/favicon-32.png" },
+    { "source": "/gestao/favicon-48.png", "destination": "/favicon-48.png" },
+    { "source": "/gestao/favicon-180.png", "destination": "/favicon-180.png" },
+    { "source": "/gestao/favicon.ico", "destination": "/favicon.ico" },
+    { "source": "/gestao/brazil.json", "destination": "/brazil.json" },
+    { "source": "/gestao", "destination": "/index.html" },
+    { "source": "/gestao/:path*", "destination": "/index.html" },
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/:path*", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
+    }
+  ]
+}

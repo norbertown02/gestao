@@ -210,7 +210,9 @@ export default function Regioes() {
   const [estadoSel, setEstadoSel] = useState(null)
 
   useEffect(() => {
-    fetch('/brazil.json')
+    // BASE_URL acompanha o "base" do vite.config.js (/gestao/ no build) --
+    // assim o fetch acerta tanto rodando direto quanto atras do proxy do Painel.
+    fetch(import.meta.env.BASE_URL + 'brazil.json')
       .then(r => r.json())
       .then(setGeo)
       .catch(err => {

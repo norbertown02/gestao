@@ -47,10 +47,15 @@ function AppContent() {
   )
 }
 
+// Roda tanto direto (gestao-three-virid.vercel.app, sem prefixo) quanto
+// atras do proxy do Painel (painel.nutrialle.com.br/gestao) -- o basename
+// do router precisa acompanhar por qual caminho a pagina foi carregada.
+const basename = window.location.pathname.indexOf('/gestao') === 0 ? '/gestao' : '/'
+
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={basename}>
         <AppContent />
       </BrowserRouter>
     </AuthProvider>
