@@ -1,11 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
-export const supabase = createClient(
-  'https://kruldbtjyhfiswmwmoyz.supabase.co',
-  'sb_publishable_VcS5TqxQ6FFXN9kwkdnuoA_wSHQ5j2d'
-)
 
-export const supabaseAdmin = createClient(
-  'https://kruldbtjyhfiswmwmoyz.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtydWxkYnRqeWhmaXN3bXdtb3l6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTY4MzYwNCwiZXhwIjoyMDk1MjU5NjA0fQ.HqA_RMrlnfzm4XewYt9ZC_HJZR4dkQfBdac5Jsqpfcw',
-  { auth: { autoRefreshToken: false, persistSession: false, storageKey: 'nutrialle-admin' } }
-)
+const SUPABASE_URL = 'https://kruldbtjyhfiswmwmoyz.supabase.co'
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_VcS5TqxQ6FFXN9kwkdnuoA_wSHQ5j2d'
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
+
+// Compatibilidade com as telas existentes. Este cliente usa a sessão do
+// usuário e respeita RLS; chaves administrativas nunca devem ir ao navegador.
+export const supabaseAdmin = supabase
