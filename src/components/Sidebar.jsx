@@ -42,7 +42,7 @@ const NAV = [
   { to: '/', label: 'Dashboard', Icon: IconLayoutDashboard },
 
   { section: 'Comercial' },
-  { to: '/vendas', label: 'Vendas', Icon: IconReceipt },
+  { to: '/vendas', label: 'Gestão Comercial', Icon: IconReceipt },
   { to: '/cotacoes', label: 'Cotações', Icon: IconChartPie },
   { to: '/pipeline', label: 'Pipeline', Icon: IconTargetArrow },
   { to: '/relatorio', label: 'Relatório de Vendas', Icon: IconFileText },
