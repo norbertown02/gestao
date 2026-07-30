@@ -8499,6 +8499,26 @@ td,
 .macro-metric > span { overflow: hidden; color: var(--text-faint); font-size: 10px; font-weight: 800; letter-spacing: .05em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .macro-metric > strong { font: 750 clamp(17px, 1.5vw, 22px) 'IBM Plex Mono', monospace; letter-spacing: -.045em; white-space: nowrap; }
 .macro-metric > small:not(.macro-up):not(.macro-down) { overflow: hidden; color: var(--text-faint); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.macro-section-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 6px 2px -5px; }
+.macro-section-title > div { display: grid; gap: 3px; }
+.macro-section-title span { color: #c55e19; font-size: 10px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+.macro-section-title h3 { margin: 0; color: var(--text-h); font-size: 17px; letter-spacing: -.025em; }
+.macro-section-title small { color: var(--text-faint); font-size: 11px; }
+.macro-section-title-compact { margin-top: 2px; }
+.macro-metrics-primary { grid-template-columns: repeat(4, minmax(210px, 1fr)); overflow: visible; }
+.macro-metrics-primary .macro-metric { position: relative; min-height: 118px; padding: 20px; align-content: center; border-radius: 14px; }
+.macro-metrics-primary .macro-metric::before { content: ''; position: absolute; top: 0; left: 20px; width: 42px; height: 3px; background: #E87722; border-radius: 0 0 99px 99px; }
+.macro-metrics-primary .macro-metric > svg { width: 38px; height: 38px; }
+.macro-metrics-primary .macro-metric > strong { font-size: clamp(21px, 2vw, 28px); }
+.macro-metrics-primary .macro-metric.goal::before { background: #292623; }
+.macro-metrics-primary .macro-metric.goal > svg { color: #393532; background: #efebe7; }
+.macro-metrics-primary .macro-metric.attention::before { background: #B77935; }
+.macro-metrics-primary .macro-metric.attention > svg { color: #9b621f; background: #fff5e8; }
+.macro-metrics-primary .macro-metric.portfolio::before { background: #A79C92; }
+.macro-metrics-primary .macro-metric.portfolio > svg { color: #675f58; background: #f1eeeb; }
+.macro-metrics-operational { grid-template-columns: repeat(6, minmax(165px, 1fr)); overflow-x: auto; }
+.macro-metrics-operational .macro-metric { min-height: 92px; padding: 15px; }
+.macro-metrics-operational .macro-metric > strong { font-size: clamp(16px, 1.3vw, 20px); }
 .macro-chart, .macro-ranking, .macro-reading { min-width: 0; padding: 20px; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
 .macro-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .macro-card-head span { color: #81776f; }
@@ -8524,8 +8544,9 @@ td,
 .commerce-metrics { grid-template-columns: repeat(5, minmax(190px, 1fr)); overflow-x: auto; }
 .produtos-kpi-grid, .vendedores-kpi-grid, .regioes-kpi-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
 
-@media (max-width: 1100px) { .macro-metrics { grid-template-columns: repeat(3, minmax(190px, 1fr)); } .macro-hero { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .macro-toolbar { align-items: stretch; flex-direction: column; } .macro-toolbar > div { flex-wrap: wrap; } .macro-toolbar select { flex: 1; } .macro-bottom { grid-template-columns: 1fr; } .macro-metrics { grid-template-columns: 1fr 1fr; } .macro-hero > div { padding: 22px; } }
+@media (max-width: 1180px) { .macro-metrics-primary { grid-template-columns: repeat(2, minmax(220px, 1fr)); } .macro-metrics-operational { grid-template-columns: repeat(3, minmax(190px, 1fr)); } }
+@media (max-width: 1100px) { .macro-hero { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .macro-toolbar { align-items: stretch; flex-direction: column; } .macro-toolbar > div { flex-wrap: wrap; } .macro-toolbar select { flex: 1; } .macro-bottom { grid-template-columns: 1fr; } .macro-metrics-primary, .macro-metrics-operational { grid-template-columns: 1fr 1fr; } .macro-hero > div { padding: 22px; } .macro-section-title { align-items: flex-start; flex-direction: column; gap: 5px; } }
 @media (max-width: 480px) { .macro-metrics { grid-template-columns: 1fr; } }
 @media (max-width: 640px) {
   .dash-year-strip, .goals-kpis, .goals-year-stats { grid-template-columns: 1fr; }
