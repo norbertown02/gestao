@@ -16,6 +16,7 @@ import {
   IconTarget,
   IconArrowLeft,
   IconBox,
+  IconScale,
 } from '@tabler/icons-react'
 import { useAuth } from '../lib/useAuth'
 import { supabase } from '../lib/supabase'
@@ -53,6 +54,7 @@ const NAV = [
   { to: '/regioes', label: 'Regiões', Icon: IconMapPin },
   { to: '/produtos', label: 'Produtos', Icon: IconBuildingStore },
   { to: '/estoque', label: 'Estoque', Icon: IconBox },
+  { to: '/margens', label: 'Custos e Margens', Icon: IconScale },
   { to: '/relatorio', label: 'Relatório Executivo', Icon: IconFileText },
 
   { section: 'Execução em campo' },
