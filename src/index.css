@@ -8883,6 +8883,26 @@ table td {
 .commerce-order-items p { margin: 0; color: var(--text-faint); font-size: 12px; }
 .stock-metrics-expanded .stock-metric { min-width: 0; }
 .stock-metrics-expanded .stock-metric strong { overflow: visible !important; font-size: clamp(14px, 1.15vw, 18px); line-height: 1.15; text-overflow: clip !important; white-space: nowrap; }
+.goals-back { display: inline-flex; align-items: center; gap: 6px; padding: 8px 11px; color: #fff; background: #292623; border: 0; border-radius: 8px; font: 700 11px Archivo, sans-serif; cursor: pointer; white-space: nowrap; }
+.goals-back:hover { background: #3b3531; }
+.vendedores-table-wrap { overflow-x: visible; }
+.vendedores-table-wrap > table { width: 100%; min-width: 0; table-layout: fixed; }
+.vendedores-table-wrap th:nth-child(1) { width: 4%; }
+.vendedores-table-wrap th:nth-child(2) { width: 20%; }
+.vendedores-table-wrap th:nth-child(3) { width: 7%; }
+.vendedores-table-wrap th:nth-child(4) { width: 14%; }
+.vendedores-table-wrap th:nth-child(5) { width: 7%; }
+.vendedores-table-wrap th:nth-child(6) { width: 12%; }
+.vendedores-table-wrap th:nth-child(7) { width: 8%; }
+.vendedores-table-wrap th:nth-child(8) { width: 8%; }
+.vendedores-table-wrap th:nth-child(9) { width: 7%; }
+.vendedores-table-wrap th:nth-child(10) { width: 10%; }
+.vendedores-table-wrap th:nth-child(11) { width: 3%; }
+.vendedores-table-wrap :is(th, td) { padding-left: 7px; padding-right: 7px; }
+.vendedores-table-wrap :is(.vendedores-money, td:nth-child(6)) { display: block; overflow: visible; font-size: clamp(10px, .92vw, 12px); text-overflow: clip; white-space: nowrap; }
+.vendedores-table-wrap .vendedores-person { min-width: 0; }
+.vendedores-table-wrap .vendedores-person > div:last-child { min-width: 0; }
+.vendedores-table-wrap .vendedores-person strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recharts-wrapper { font-family: Archivo, sans-serif; }
 .recharts-cartesian-axis-tick-value { fill: #817970; font-size: 11px; font-weight: 550; }
 .recharts-default-tooltip {
