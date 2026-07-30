@@ -8398,6 +8398,7 @@ td,
 .goals-tabs { padding: 3px; background: #eef2ef; border-radius: 9px; }
 .goals-tabs button { padding: 7px 12px; color: #647169; background: transparent; border: 0; border-radius: 7px; font: 700 11px Archivo, sans-serif; cursor: pointer; }
 .goals-tabs button.active { color: #fff; background: #263a30; box-shadow: 0 3px 8px rgba(24, 46, 35, .18); }
+.goals-source { align-self: center; padding: 7px 10px; color: #486b5a; background: #edf5f0; border: 1px solid #d5e6dc; border-radius: 99px; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
 .goals-year-card { padding: 26px 28px 20px; color: #fff; background: linear-gradient(120deg, #1f3027 0%, #304b3c 72%, #3f5a4b 100%); border-radius: 16px; }
 .goals-eyebrow { color: #8e9e95; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .goals-year-card .goals-eyebrow { color: #b9c8bf; }
@@ -8437,6 +8438,42 @@ td,
   .goals-toolbar { align-items: stretch; flex-direction: column; }
   .goals-toolbar > div { flex-wrap: wrap; }
 }
+
+/* ESTOQUE · MAPA DE CAPACIDADE */
+.stock-page { display: grid; gap: 16px; }
+.stock-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.stock-toolbar select { width: auto; min-width: 210px; }
+.stock-toolbar span { color: var(--text-faint); font-size: 11px; }
+.stock-hero { display: grid; grid-template-columns: 1.25fr .75fr; overflow: hidden; color: #fff; background: #203229; border-radius: 16px; }
+.stock-hero > div { display: grid; align-content: center; min-height: 155px; padding: 27px 30px; }
+.stock-hero > div + div { background: #314d3e; }
+.stock-hero span { color: #b8c7be; font-size: 10px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+.stock-hero h2 { margin: 8px 0 3px; color: #fff; font: 750 clamp(32px, 4vw, 49px) 'IBM Plex Mono', monospace; letter-spacing: -.07em; }
+.stock-hero strong { margin: 8px 0 3px; color: #f4a05c; font: 750 clamp(25px, 3vw, 36px) 'IBM Plex Mono', monospace; letter-spacing: -.06em; }
+.stock-hero small { color: #aebdb4; }
+.stock-metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.stock-metric { display: grid; grid-template-columns: 32px 1fr; gap: 2px 10px; align-items: center; padding: 15px; background: #fff; border: 1px solid var(--line); border-radius: 11px; }
+.stock-metric svg { grid-row: 1 / 4; padding: 7px; width: 32px; height: 32px; color: #486b5a; background: #edf5f0; border-radius: 8px; }
+.stock-metric span { color: var(--text-faint); font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.stock-metric strong { font: 750 18px 'IBM Plex Mono', monospace; }
+.stock-metric small { color: var(--text-faint); font-size: 10px; }
+.stock-metric.danger svg { color: #a54235; background: #fbeae7; }
+.stock-metric.warning svg { color: #9a671c; background: #fff4de; }
+.stock-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(310px, .65fr); gap: 14px; }
+.stock-card { overflow: hidden; padding: 18px; background: #fff; border: 1px solid var(--line); border-radius: 13px; }
+.stock-card-head { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+.stock-card-head span { color: #78857d; font-size: 9px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+.stock-card-head h3 { margin: 4px 0 0; font-size: 16px; }
+.stock-card-head small { color: var(--text-faint); font-size: 11px; }
+.stock-alert-list > div:not(.stock-card-head) { display: grid; grid-template-columns: 28px 1fr auto; gap: 9px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.stock-alert-list > div:not(.stock-card-head) > svg { color: #a54235; }
+.stock-alert-list > div:not(.stock-card-head) > span { display: grid; gap: 2px; letter-spacing: 0; text-transform: none; }
+.stock-alert-list strong { font-size: 12px; }
+.stock-alert-list small { color: var(--text-faint); font-size: 10px; }
+.stock-alert-list b, .stock-negative { color: #a54235; }
+.stock-card table { min-width: 1050px; }
+@media (max-width: 1100px) { .stock-metrics { grid-template-columns: repeat(3, 1fr); } .stock-grid { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .stock-toolbar, .stock-hero { grid-template-columns: 1fr; flex-direction: column; align-items: stretch; } .stock-toolbar select { width: 100%; } .stock-metrics { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) {
   .dash-year-strip, .goals-kpis, .goals-year-stats { grid-template-columns: 1fr; }
   .goals-toolbar select, .goals-toolbar select:last-child { width: 100%; }

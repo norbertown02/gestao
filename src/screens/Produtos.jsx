@@ -225,9 +225,16 @@ export default function Produtos() {
   }, [periodo])
 
   async function carregarBase() {
-    const prodRes = await supabaseAdmin.from('products').select('*').eq('active', true).order('name')
+    const prodRes = await supabaseAdmin.from('erp_products').select('id,codproduto,codproduto_clas,name,class_name,unit,price,minimum_price,stock,raw,updated_at').is('inactive_date', null).order('name')
 
-    setProdutos(prodRes.data || [])
+    setProdutos((prodRes.data || []).map(product => ({
+      ...product,
+      active: true,
+      ultra_codproduto: product.codproduto,
+      ultra_codproduto_clas: product.codproduto_clas,
+      ultra_raw: product.raw,
+      ultra_last_sync_at: product.updated_at,
+    })))
   }
 
   async function carregarVendas() {
@@ -290,6 +297,7 @@ export default function Produtos() {
               name,
               categoria: cat,
               receita: 0,
+              custo: 0,
               qty: 0,
               pedidos: 0,
               fazendasSet: new Set(),
@@ -299,8 +307,10 @@ export default function Produtos() {
 
           const subtotal = productSubtotal(item)
           const qty = productQty(item)
+          const unitCost = Number(produto?.ultra_raw?.CUSTO || 0)
 
           itemMap[name].receita += subtotal
+          itemMap[name].custo += qty * unitCost
           itemMap[name].qty += qty
           itemMap[name].pedidos += 1
 
@@ -315,6 +325,8 @@ export default function Produtos() {
         ...p,
         fazendas: p.fazendasSet.size,
         ticket: p.pedidos ? p.receita / p.pedidos : 0,
+        margem: p.receita - p.custo,
+        margemPct: p.receita ? ((p.receita - p.custo) / p.receita) * 100 : 0,
       }))
     }
 
@@ -323,6 +335,9 @@ export default function Produtos() {
     const antMap = new Map(porProdutoAnt.map(p => [p.name, p]))
     const totalReceita = porProduto.reduce((a, p) => a + p.receita, 0)
     const totalReceitaAnt = porProdutoAnt.reduce((a, p) => a + p.receita, 0)
+    const totalCusto = porProduto.reduce((a, p) => a + p.custo, 0)
+    const totalMargem = totalReceita - totalCusto
+    const margemPct = totalReceita ? (totalMargem / totalReceita) * 100 : 0
 
     const porProdutoComparado = porProduto.map(p => ({
       ...p,
@@ -412,6 +427,9 @@ export default function Produtos() {
       porProduto: porProdutoComparado,
       totalReceita,
       totalReceitaAnt,
+      totalCusto,
+      totalMargem,
+      margemPct,
       totalQtd,
       totalQtdAnt,
       ticketMedio,
@@ -518,6 +536,8 @@ export default function Produtos() {
 
         <section className="produtos-kpi-grid">
           <KpiCard icon={IconWallet} label="Receita total" value={fmtK(dados.totalReceita)} atual={dados.totalReceita} anterior={dados.totalReceitaAnt} />
+          <KpiCard icon={IconTrendingUp} label="Margem bruta estimada" value={fmtK(dados.totalMargem)} sub={`${dados.margemPct.toFixed(1)}% da receita · custo atual Ultra`} tone="success" />
+          <KpiCard icon={IconReceipt} label="Custo dos produtos" value={fmtK(dados.totalCusto)} sub="quantidade faturada × custo atual" />
           <KpiCard icon={IconPackage} label="Produtos vendidos" value={fmtInt(dados.porProduto.length)} sub={`${fmtInt(produtos.length)} produtos ativos`} />
           <KpiCard icon={IconBox} label="Volume vendido" value={fmtInt(dados.totalQtd)} atual={dados.totalQtd} anterior={dados.totalQtdAnt} />
           <KpiCard icon={IconReceipt} label="Ticket médio" value={fmtK(dados.ticketMedio)} sub="valor médio por item vendido" />
@@ -611,8 +631,8 @@ export default function Produtos() {
               <div className="produtos-card-head"><div><span className="produtos-eyebrow">Catálogo</span><h3>Tabela detalhada de produtos</h3></div><small>{fmtInt(dados.porProduto.length)} produtos</small></div>
               <div className="table-wrap produtos-table-wrap">
                 <table>
-                  <thead><tr><th>#</th><th>Produto</th><th>Categoria</th><th style={{ textAlign: 'right' }}>Receita</th><th style={{ textAlign: 'right' }}>Qtd vendida</th><th style={{ textAlign: 'right' }}>Ticket</th><th style={{ textAlign: 'center' }}>Clientes</th><th style={{ textAlign: 'right' }}>% do mix</th><th style={{ textAlign: 'right' }}>Variação</th></tr></thead>
-                  <tbody>{dados.porProduto.length === 0 ? <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>Nenhuma venda no período</td></tr> : dados.porProduto.map((p, i) => <tr key={p.name}><td><strong className="produtos-position">{i + 1}</strong></td><td><strong>{p.name}</strong></td><td><span className="produtos-pill category">{p.categoria}</span></td><td style={{ textAlign: 'right' }}><strong className="produtos-money">{fmtK(p.receita)}</strong></td><td style={{ textAlign: 'right' }}>{fmtInt(p.qty)}</td><td style={{ textAlign: 'right' }}>{fmtK(p.ticket)}</td><td style={{ textAlign: 'center' }}>{fmtInt(p.fazendas)}</td><td style={{ textAlign: 'right' }}><div className="produtos-mix-cell"><div className="produtos-mini-bar"><span style={{ width: `${Math.min(100, p.participacao)}%` }} /></div><strong>{p.participacao.toFixed(1)}%</strong></div></td><td style={{ textAlign: 'right' }}><span className={`produtos-pill ${p.variacao >= 0 ? 'positive' : 'negative'}`}>{p.variacao >= 0 ? '+' : ''}{p.variacao.toFixed(1)}%</span></td></tr>)}</tbody>
+                  <thead><tr><th>#</th><th>Produto</th><th>Categoria</th><th style={{ textAlign: 'right' }}>Receita</th><th style={{ textAlign: 'right' }}>Custo</th><th style={{ textAlign: 'right' }}>Margem</th><th style={{ textAlign: 'right' }}>Qtd vendida</th><th style={{ textAlign: 'right' }}>Ticket</th><th style={{ textAlign: 'center' }}>Clientes</th><th style={{ textAlign: 'right' }}>% do mix</th><th style={{ textAlign: 'right' }}>Variação</th></tr></thead>
+                  <tbody>{dados.porProduto.length === 0 ? <tr><td colSpan={11} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>Nenhuma venda no período</td></tr> : dados.porProduto.map((p, i) => <tr key={p.name}><td><strong className="produtos-position">{i + 1}</strong></td><td><strong>{p.name}</strong></td><td><span className="produtos-pill category">{p.categoria}</span></td><td style={{ textAlign: 'right' }}><strong className="produtos-money">{fmtK(p.receita)}</strong></td><td style={{ textAlign: 'right' }}>{fmtK(p.custo)}</td><td style={{ textAlign: 'right' }}><span className={`produtos-pill ${p.margemPct >= 25 ? 'positive' : 'negative'}`}>{p.margemPct.toFixed(1)}%</span></td><td style={{ textAlign: 'right' }}>{fmtInt(p.qty)}</td><td style={{ textAlign: 'right' }}>{fmtK(p.ticket)}</td><td style={{ textAlign: 'center' }}>{fmtInt(p.fazendas)}</td><td style={{ textAlign: 'right' }}><div className="produtos-mix-cell"><div className="produtos-mini-bar"><span style={{ width: `${Math.min(100, p.participacao)}%` }} /></div><strong>{p.participacao.toFixed(1)}%</strong></div></td><td style={{ textAlign: 'right' }}><span className={`produtos-pill ${p.variacao >= 0 ? 'positive' : 'negative'}`}>{p.variacao >= 0 ? '+' : ''}{p.variacao.toFixed(1)}%</span></td></tr>)}</tbody>
                 </table>
               </div>
             </section>
