@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
+import { fiscalDocumentValue, hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import {
   IconAlertTriangle,
   IconBuildingStore,
@@ -96,21 +97,6 @@ function diasDesde(data) {
   }
 }
 
-function parseItems(items) {
-  if (Array.isArray(items)) return items
-
-  if (typeof items === 'string') {
-    try {
-      const parsed = JSON.parse(items)
-      return Array.isArray(parsed) ? parsed : []
-    } catch {
-      return []
-    }
-  }
-
-  return []
-}
-
 function productName(item) {
   return item?.productName || item?.product_name || item?.name || item?.product || 'Produto'
 }
@@ -198,7 +184,9 @@ export default function Regioes() {
   const [farms, setFarms] = useState([])
   const [sales, setSales] = useState([])
   const [salesAnt, setSalesAnt] = useState([])
-  const [salesHistorico, setSalesHistorico] = useState([])
+  const [documents, setDocuments] = useState([])
+  const [documentsAnt, setDocumentsAnt] = useState([])
+  const [documentsHistorico, setDocumentsHistorico] = useState([])
   const [visits, setVisits] = useState([])
   const [quotes, setQuotes] = useState([])
   const [geo, setGeo] = useState(null)
@@ -242,24 +230,31 @@ export default function Regioes() {
       histIni.setMonth(histIni.getMonth() - 5)
       histIni.setDate(1)
 
-      const [rSales, rSalesAnt, rHist, rVisits, rQuotes] = await Promise.all([
-        supabaseAdmin.from('sales').select('*').gte('sale_date', toISO(ini)).lte('sale_date', toISO(fim)),
-        supabaseAdmin.from('sales').select('*').gte('sale_date', toISO(iniAnt)).lte('sale_date', toISO(fimAnt)),
-        supabaseAdmin.from('sales').select('*').gte('sale_date', toISO(histIni)).lte('sale_date', toISO(new Date())),
+      const fiscalSelect = 'issue_date,document_total,movement_type,partner_id,fiscal_document_items(product_name,product_total)'
+      const [rSales, rSalesAnt, rDocs, rDocsAnt, rDocsHist, rVisits, rQuotes] = await Promise.all([
+        supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(ini)).lte('sale_date', toISO(fim)),
+        supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(iniAnt)).lte('sale_date', toISO(fimAnt)),
+        supabaseAdmin.from('fiscal_documents').select(fiscalSelect).gte('issue_date', toISO(ini)).lte('issue_date', toISO(fim)),
+        supabaseAdmin.from('fiscal_documents').select(fiscalSelect).gte('issue_date', toISO(iniAnt)).lte('issue_date', toISO(fimAnt)),
+        supabaseAdmin.from('fiscal_documents').select(fiscalSelect).gte('issue_date', toISO(histIni)).lte('issue_date', toISO(new Date())),
         supabaseAdmin.from('visits').select('*').gte('visit_date', toISO(ini)).lte('visit_date', toISO(fim)),
         supabaseAdmin.from('quotes').select('*').gte('created_at', `${toISO(ini)}T00:00:00`).lte('created_at', `${toISO(fim)}T23:59:59`),
       ])
 
       setSales(rSales.data || [])
       setSalesAnt(rSalesAnt.data || [])
-      setSalesHistorico(rHist.data || [])
+      setDocuments(rDocs.data || [])
+      setDocumentsAnt(rDocsAnt.data || [])
+      setDocumentsHistorico(rDocsHist.data || [])
       setVisits(rVisits.data || [])
       setQuotes(rQuotes.data || [])
     } catch (err) {
       console.error('Erro ao carregar regiões:', err)
       setSales([])
       setSalesAnt([])
-      setSalesHistorico([])
+      setDocuments([])
+      setDocumentsAnt([])
+      setDocumentsHistorico([])
       setVisits([])
       setQuotes([])
     } finally {
@@ -269,6 +264,7 @@ export default function Regioes() {
 
   const dados = useMemo(() => {
     const farmById = new Map(farms.map(f => [f.id, f]))
+    const farmByPartnerId = new Map(farms.filter(f => f.ultra_partner_id).map(f => [Number(f.ultra_partner_id), f]))
 
     const farmsFiltradas = farms.filter(f => {
       if (segmento === 'todos') return true
@@ -282,8 +278,10 @@ export default function Regioes() {
       return farmIdsFiltro.has(row.farm_id)
     }
 
-    const vendas = sales.filter(filtrarPorSegmento)
-    const vendasAnt = salesAnt.filter(filtrarPorSegmento)
+    const pedidos = sales.filter(filtrarPorSegmento).filter(hasNetOrderValue)
+    const pedidosAnt = salesAnt.filter(filtrarPorSegmento).filter(hasNetOrderValue)
+    const faturamento = documents.filter(row => segmento === 'todos' || farmIdsFiltro.has(farmByPartnerId.get(Number(row.partner_id))?.id))
+    const faturamentoAnt = documentsAnt.filter(row => segmento === 'todos' || farmIdsFiltro.has(farmByPartnerId.get(Number(row.partner_id))?.id))
     const visitas = visits.filter(filtrarPorSegmento)
     const cotacoes = quotes.filter(filtrarPorSegmento)
 
@@ -302,6 +300,8 @@ export default function Regioes() {
           visitas: 0,
           vendas: 0,
           vendasAnt: 0,
+          valorPedidos: 0,
+          valorPedidosAnt: 0,
           pedidos: 0,
           pedidosAnt: 0,
           cotacoesAbertas: 0,
@@ -316,30 +316,45 @@ export default function Regioes() {
       porEstado[state].farmIds.add(f.id)
     })
 
-    vendas.forEach(s => {
+    pedidos.forEach(s => {
       const farm = farmById.get(s.farm_id)
       const state = getState(farm)
       if (!state || !porEstado[state]) return
 
-      const total = Number(s.total || 0)
-      porEstado[state].vendas += total
+      porEstado[state].valorPedidos += netOrderValue(s)
       porEstado[state].pedidos += 1
       if (s.farm_id) porEstado[state].fazendasComVenda.add(s.farm_id)
+    })
 
-      parseItems(s.items).forEach(item => {
+    pedidosAnt.forEach(s => {
+      const farm = farmById.get(s.farm_id)
+      const state = getState(farm)
+      if (!state || !porEstado[state]) return
+
+      porEstado[state].valorPedidosAnt += netOrderValue(s)
+      porEstado[state].pedidosAnt += 1
+    })
+
+    faturamento.forEach(doc => {
+      const farm = farmByPartnerId.get(Number(doc.partner_id))
+      const state = getState(farm)
+      if (!state || !porEstado[state]) return
+
+      const multiplier = Math.sign(fiscalDocumentValue(doc))
+      porEstado[state].vendas += fiscalDocumentValue(doc)
+      if (!multiplier) return
+      ;(doc.fiscal_document_items || []).forEach(item => {
         const name = productName(item)
-        const subtotal = Number(item?.subtotal || item?.total || item?.value || 0)
+        const subtotal = Math.abs(Number(item?.product_total || 0)) * multiplier
         porEstado[state].produtos[name] = (porEstado[state].produtos[name] || 0) + subtotal
       })
     })
 
-    vendasAnt.forEach(s => {
-      const farm = farmById.get(s.farm_id)
+    faturamentoAnt.forEach(doc => {
+      const farm = farmByPartnerId.get(Number(doc.partner_id))
       const state = getState(farm)
       if (!state || !porEstado[state]) return
-
-      porEstado[state].vendasAnt += Number(s.total || 0)
-      porEstado[state].pedidosAnt += 1
+      porEstado[state].vendasAnt += fiscalDocumentValue(doc)
     })
 
     visitas.forEach(v => {
@@ -373,7 +388,7 @@ export default function Regioes() {
         return {
           ...e,
           fazendasComVendaCount: e.fazendasComVenda.size,
-          ticket: e.pedidos ? e.vendas / e.pedidos : 0,
+          ticket: e.pedidos ? e.valorPedidos / e.pedidos : 0,
           coberturaVenda: e.fazendas ? Math.round((e.fazendasComVenda.size / e.fazendas) * 100) : 0,
           crescimento: pct(e.vendas, e.vendasAnt),
           topProduto: topProduto?.[0] || '—',
@@ -416,12 +431,13 @@ export default function Regioes() {
       .slice(0, 8)
 
     const mesMap = {}
-    salesHistorico.filter(filtrarPorSegmento).forEach(s => {
-      const farm = farmById.get(s.farm_id)
+    documentsHistorico.forEach(s => {
+      const farm = farmByPartnerId.get(Number(s.partner_id))
+      if (segmento !== 'todos' && !farmIdsFiltro.has(farm?.id)) return
       const state = getState(farm)
       if (!state) return
 
-      const mes = s.sale_date?.slice(0, 7)
+      const mes = s.issue_date?.slice(0, 7)
       if (!mes) return
 
       if (!mesMap[mes]) {
@@ -436,8 +452,8 @@ export default function Regioes() {
         }
       }
 
-      mesMap[mes].Receita += Number(s.total || 0)
-      if (s.farm_id) mesMap[mes].Clientes.add(s.farm_id)
+      mesMap[mes].Receita += fiscalDocumentValue(s)
+      if (farm?.id) mesMap[mes].Clientes.add(farm.id)
     })
 
     const evolucao = Object.values(mesMap)
@@ -467,7 +483,7 @@ export default function Regioes() {
       poucaVisita,
       evolucao,
     }
-  }, [farms, sales, salesAnt, salesHistorico, visits, quotes, segmento])
+  }, [farms, sales, salesAnt, documents, documentsAnt, documentsHistorico, visits, quotes, segmento])
 
   useEffect(() => {
     if (!geo || loading) return
@@ -590,7 +606,7 @@ export default function Regioes() {
 
   function exportCSV() {
     const rows = [
-      ['Estado', 'Receita', 'Receita ant.', 'Crescimento %', 'Pedidos', 'Ticket', 'Clientes', 'Clientes com venda', 'Cobertura venda %', 'Visitas', 'Cotações abertas', 'Valor cotado aberto', 'Produto líder'],
+      ['Estado', 'Faturamento líquido', 'Faturamento líquido ant.', 'Crescimento %', 'Pedidos', 'Ticket', 'Clientes', 'Clientes com pedido', 'Cobertura venda %', 'Visitas', 'Cotações abertas', 'Valor cotado aberto', 'Produto líder'],
       ...dados.estados.map(e => [
         e.state,
         e.vendas,
@@ -661,7 +677,7 @@ export default function Regioes() {
 
           <div className="regioes-hero-grid">
             <div>
-              <span>Receita total</span>
+              <span>Faturamento líquido</span>
               <strong>{fmtK(dados.totalReceita)}</strong>
             </div>
 
@@ -680,7 +696,7 @@ export default function Regioes() {
         <section className="regioes-kpi-grid">
           <KpiCard
             icon={IconWallet}
-            label="Receita"
+            label="Faturamento líquido"
             value={fmtK(dados.totalReceita)}
             atual={dados.totalReceita}
             anterior={dados.totalReceitaAnt}
@@ -725,7 +741,7 @@ export default function Regioes() {
                 <div className="regioes-card-head">
                   <div>
                     <span className="regioes-eyebrow">Mapa comercial</span>
-                    <h3>Faturamento por estado</h3>
+                    <h3>Faturamento líquido por estado</h3>
                   </div>
 
                   <small>{estadoSel ? `Selecionado: ${estadoSel}` : 'Clique em um estado'}</small>
@@ -817,7 +833,7 @@ export default function Regioes() {
                 <div className="regioes-card-head">
                   <div>
                     <span className="regioes-eyebrow">Evolução</span>
-                    <h3>Receita regional</h3>
+                    <h3>Faturamento líquido regional</h3>
                   </div>
                 </div>
 
@@ -971,7 +987,7 @@ export default function Regioes() {
                   <thead>
                     <tr>
                       <th>Estado</th>
-                      <th style={{ textAlign: 'right' }}>Receita</th>
+                      <th style={{ textAlign: 'right' }}>Faturamento líquido</th>
                       <th style={{ textAlign: 'right' }}>Pedidos</th>
                       <th style={{ textAlign: 'right' }}>Ticket</th>
                       <th style={{ textAlign: 'center' }}>Clientes</th>

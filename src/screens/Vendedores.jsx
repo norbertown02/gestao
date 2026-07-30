@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
+import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import Topbar from '../components/Topbar'
 import {
   IconAlertTriangle,
@@ -109,9 +110,7 @@ function normalizarStatus(status) {
   return 'rascunho'
 }
 
-const isValidOrder = row => !['cancelado', 'cancelado_apos_faturamento', 'estornado'].includes(row.order_stage)
-  && Math.abs(Number(row.fiscal_returned_value || 0)) === 0
-const normalizeOrder = row => ({ ...row, total: row.order_value })
+const normalizeOrder = row => ({ ...row, total: netOrderValue(row) })
 
 function VarBadge({ atual, anterior, invert = false }) {
   const diff = pct(atual, anterior)
@@ -248,8 +247,8 @@ export default function Vendedores() {
         supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type,seller_id,ultra_salesman_id,salesman_name').gte('issue_date', toISO(histIni)),
       ])
 
-      setSales((salesAtual.data || []).filter(isValidOrder).map(normalizeOrder))
-      setSalesAnt((salesAnterior.data || []).filter(isValidOrder).map(normalizeOrder))
+      setSales((salesAtual.data || []).filter(hasNetOrderValue).map(normalizeOrder))
+      setSalesAnt((salesAnterior.data || []).filter(hasNetOrderValue).map(normalizeOrder))
       setVisits(visitsAtual.data || [])
       setVisitsAnt(visitsAnterior.data || [])
       setQuotes(quotesAtual.data || [])
