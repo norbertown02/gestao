@@ -188,6 +188,8 @@ export default function Dashboard() {
         appointments,
         allSales,
         allVisits,
+        fiscalYear,
+        goalsYear,
       ] = await Promise.all([
         supabaseAdmin.from('sales').select('*').gte('sale_date', `${mes}-01`),
         supabaseAdmin.from('sales').select('*').gte('sale_date', `${mesA}-01`).lt('sale_date', `${mes}-01`),
@@ -200,6 +202,8 @@ export default function Dashboard() {
         supabaseAdmin.from('appointments').select('*').gte('appointment_date', hoje).lte('appointment_date', d7).order('appointment_date'),
         supabaseAdmin.from('sales').select('farm_id,seller_id,sale_date,total,status,needs_approval'),
         supabaseAdmin.from('visits').select('farm_id,seller_id,visit_date,outcome').order('visit_date', { ascending: false }),
+        supabaseAdmin.from('fiscal_documents').select('document_total,fiscal_document_items(quantity)').gte('issue_date', `${atual.ano}-01-01`).lte('issue_date', hoje),
+        supabaseAdmin.from('goals').select('meta_fat,mes').eq('ano', atual.ano).lte('mes', atual.mes),
       ])
 
       const sm = dataOf(salesMes)
@@ -212,6 +216,15 @@ export default function Dashboard() {
       const agenda = dataOf(appointments)
       const vendasTodas = dataOf(allSales)
       const visitasTodas = dataOf(allVisits)
+      const documentosAno = dataOf(fiscalYear)
+      const metasAno = dataOf(goalsYear)
+
+      const fatAno = documentosAno.reduce((sum, doc) => sum + Number(doc.document_total || 0), 0)
+      const qtdAno = documentosAno.reduce((sum, doc) => (
+        sum + (doc.fiscal_document_items || []).reduce((itemSum, item) => itemSum + Number(item.quantity || 0), 0)
+      ), 0)
+      const metaAno = metasAno.reduce((sum, goal) => sum + Number(goal.meta_fat || 0), 0)
+      const pctMetaAno = metaAno ? (fatAno / metaAno) * 100 : 0
 
       const fatMes = sm.reduce((a, s) => a + Number(s.total || 0), 0)
       const fatAnt = sa.reduce((a, s) => a + Number(s.total || 0), 0)
@@ -430,6 +443,10 @@ export default function Dashboard() {
       }
 
       setDados({
+        fatAno,
+        qtdAno,
+        metaAno,
+        pctMetaAno,
         fatMes,
         fatAnt,
         comissaoMes,
@@ -485,6 +502,27 @@ export default function Dashboard() {
           <div className="empty">Não foi possível carregar os dados do dashboard.</div>
         ) : (
           <>
+            <section className="dash-year-strip">
+              <div className="dash-year-heading">
+                <span className="dash-eyebrow">Ano até agora</span>
+                <strong>{new Date().getFullYear()}</strong>
+              </div>
+              <div>
+                <span>Faturamento líquido</span>
+                <strong>{fmtK(d.fatAno)}</strong>
+                <small>notas menos devoluções</small>
+              </div>
+              <div>
+                <span>Volume faturado</span>
+                <strong>{fmtInt(d.qtdAno)}</strong>
+                <small>quantidade líquida no ano</small>
+              </div>
+              <div>
+                <span>Meta acumulada</span>
+                <strong>{d.metaAno ? fmtK(d.metaAno) : '—'}</strong>
+                <small>{d.metaAno ? `${d.pctMetaAno.toFixed(1)}% realizado` : 'metas ainda não definidas'}</small>
+              </div>
+            </section>
             <div className="dash-hero-grid">
               <section className="dash-hero">
                 <div className="dash-hero-top">

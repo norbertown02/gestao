@@ -180,6 +180,7 @@ export default function Vendedores() {
   const [farms, setFarms] = useState([])
   const [sales, setSales] = useState([])
   const [salesAnt, setSalesAnt] = useState([])
+  const [salesHistory, setSalesHistory] = useState([])
   const [visits, setVisits] = useState([])
   const [visitsAnt, setVisitsAnt] = useState([])
   const [quotes, setQuotes] = useState([])
@@ -215,6 +216,7 @@ export default function Vendedores() {
     try {
       const [ini, fim] = periodoRange(periodo)
       const [iniAnt, fimAnt] = periodoAnterior(periodo)
+      const histIni = new Date(new Date().getFullYear() - 1, new Date().getMonth() + 1, 1)
 
       const [
         salesAtual,
@@ -224,6 +226,7 @@ export default function Vendedores() {
         quotesAtual,
         quotesAnterior,
         checksAtual,
+        salesHistoryResult,
       ] = await Promise.all([
         supabaseAdmin.from('sales').select('*').gte('sale_date', toISO(ini)).lte('sale_date', toISO(fim)),
         supabaseAdmin.from('sales').select('*').gte('sale_date', toISO(iniAnt)).lte('sale_date', toISO(fimAnt)),
@@ -232,6 +235,7 @@ export default function Vendedores() {
         supabaseAdmin.from('quotes').select('*').gte('created_at', `${toISO(ini)}T00:00:00`).lte('created_at', `${toISO(fim)}T23:59:59`),
         supabaseAdmin.from('quotes').select('*').gte('created_at', `${toISO(iniAnt)}T00:00:00`).lte('created_at', `${toISO(fimAnt)}T23:59:59`),
         supabaseAdmin.from('checklists').select('*').gte('applied_at', toISO(ini)).lte('applied_at', toISO(fim)),
+        supabaseAdmin.from('sales').select('sale_date,total,seller_id,ultra_salesman_id,ultra_salesman_name').gte('sale_date', toISO(histIni)),
       ])
 
       setSales(salesAtual.data || [])
@@ -241,6 +245,7 @@ export default function Vendedores() {
       setQuotes(quotesAtual.data || [])
       setQuotesAnt(quotesAnterior.data || [])
       setChecklists(checksAtual.data || [])
+      setSalesHistory(salesHistoryResult.data || [])
     } catch (err) {
       console.error('Erro ao carregar vendedores:', err)
       setSales([])
@@ -250,6 +255,7 @@ export default function Vendedores() {
       setQuotes([])
       setQuotesAnt([])
       setChecklists([])
+      setSalesHistory([])
     } finally {
       setLoading(false)
     }
@@ -350,6 +356,19 @@ export default function Vendedores() {
         Math.min(20, visitasSeller.length * 2)
       )
 
+      const evolucao = Array.from({ length: 12 }, (_, index) => {
+        const date = new Date()
+        date.setMonth(date.getMonth() - (11 - index))
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+        const total = salesHistory
+          .filter(sale => saleSellerKey(sale) === id && sale.sale_date?.startsWith(key))
+          .reduce((sum, sale) => sum + Number(sale.total || 0), 0)
+        return {
+          mes: date.toLocaleDateString('pt-BR', { month: 'short' }),
+          Faturamento: total,
+        }
+      })
+
       return {
         ...seller,
         fat,
@@ -371,6 +390,7 @@ export default function Vendedores() {
         fazVisitadas,
         clientesRisco,
         performance: Math.round(performance),
+        evolucao,
       }
     })
 
@@ -437,7 +457,7 @@ export default function Vendedores() {
       barData,
       totalCarteira: carteiraFiltrada.length,
     }
-  }, [sellers, farms, sales, salesAnt, visits, visitsAnt, quotes, quotesAnt, checklists, segmento])
+  }, [sellers, farms, sales, salesAnt, salesHistory, visits, visitsAnt, quotes, quotesAnt, checklists, segmento])
 
   const topFatMax = Math.max(...dados.topFaturamento.map(v => v.fat), 1)
   const topConvMax = Math.max(...dados.topConversao.map(v => v.txConversao), 1)
@@ -895,6 +915,30 @@ export default function Vendedores() {
                                     <strong>{s.coberturaVendas}%</strong>
                                     <small>{fmtInt(s.fazComVenda)} clientes com venda</small>
                                   </div>
+                                </div>
+                                <div className="vendedores-detail-chart">
+                                  <div className="vendedores-card-head">
+                                    <div>
+                                      <span className="vendedores-eyebrow">12 meses</span>
+                                      <h3>Evolução de vendas de {s.name}</h3>
+                                    </div>
+                                    <small>pedidos gerados por mês</small>
+                                  </div>
+                                  <ResponsiveContainer width="100%" height={230}>
+                                    <AreaChart data={s.evolucao} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+                                      <defs>
+                                        <linearGradient id={`sellerEvolution-${String(s.id).replace(/[^a-zA-Z0-9]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+                                          <stop offset="5%" stopColor="var(--orange)" stopOpacity={0.28} />
+                                          <stop offset="95%" stopColor="var(--orange)" stopOpacity={0.02} />
+                                        </linearGradient>
+                                      </defs>
+                                      <CartesianGrid strokeDasharray="4 6" vertical={false} />
+                                      <XAxis dataKey="mes" tickLine={false} axisLine={false} />
+                                      <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${Math.round(value / 1000)}k`} />
+                                      <Tooltip formatter={value => [fmtK(value), 'Vendas']} />
+                                      <Area type="monotone" dataKey="Faturamento" stroke="var(--orange)" strokeWidth={2.5} fill={`url(#sellerEvolution-${String(s.id).replace(/[^a-zA-Z0-9]/g, '')})`} />
+                                    </AreaChart>
+                                  </ResponsiveContainer>
                                 </div>
                               </td>
                             </tr>
