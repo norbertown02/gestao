@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import {
@@ -278,7 +278,7 @@ function EvolutionChart({ data }) {
 
         <rect x={padL} y={padT} width={innerW} height={innerH} rx="18" className="plot-bg" />
 
-        {yTicks.map((tick, i) => {
+        {yTicks.map(tick => {
           const y = padT + innerH - (tick / niceMax) * innerH
           return (
             <g key={tick}>
@@ -356,7 +356,7 @@ function ComparisonBars({ rows }) {
   )
 }
 
-function PdfPage({ children, number, title }) {
+function PdfPage({ children, number }) {
   return (
     <section className="relpremium-pdf-page">
       <div className="pdf-page-bg" />
@@ -659,7 +659,9 @@ export default function RelatorioMensal() {
   const anosOpcoes = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
     carregar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mesSel, tipoPeriodo, anoSel, trimSel])
 
   async function carregar() {
@@ -759,8 +761,13 @@ export default function RelatorioMensal() {
 
       const vendedorMap = {}
       salesAtual.forEach(s => {
-        const key = s.seller_id || 'geral'
-        if (!vendedorMap[key]) vendedorMap[key] = { id: key, nome: 'Vendedor', total: 0, pedidos: 0 }
+        const key = s.seller_id || (s.ultra_salesman_id ? `ultra:${s.ultra_salesman_id}` : 'geral')
+        if (!vendedorMap[key]) vendedorMap[key] = {
+          id: key,
+          nome: s.ultra_salesman_name || 'Vendedor não vinculado',
+          total: 0,
+          pedidos: 0,
+        }
         vendedorMap[key].total += Number(s.total || 0)
         vendedorMap[key].pedidos += 1
       })
@@ -770,7 +777,7 @@ export default function RelatorioMensal() {
           const profile = sellerById.get(v.id)
           return {
             ...v,
-            nome: profile?.name || profile?.full_name || profile?.display_name || profile?.email || 'Vendedor',
+            nome: profile?.name || profile?.full_name || profile?.display_name || profile?.email || v.nome,
             ticket: v.pedidos ? v.total / v.pedidos : 0,
           }
         })
