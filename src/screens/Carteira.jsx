@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
+import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import Topbar from '../components/Topbar'
 import {
   IconAlertTriangle,
@@ -89,8 +90,6 @@ function dataBR(data) {
   }
 }
 
-const isValidOrder = row => !['cancelado', 'cancelado_apos_faturamento', 'estornado'].includes(row.order_stage)
-  && Math.abs(Number(row.fiscal_returned_value || 0)) === 0
 
 const GRUPOS = {
   A: {
@@ -242,7 +241,7 @@ export default function Carteira() {
       ])
 
       setFarms(fs.data || [])
-      setAllSales((sl.data || []).filter(isValidOrder).map(row => ({ ...row, total: row.order_value })))
+      setAllSales((sl.data || []).filter(hasNetOrderValue).map(row => ({ ...row, total: netOrderValue(row) })))
       setAllVisits(vs.data || [])
       setAllQuotes(qt.data || [])
       setAllChecks(ck.data || [])

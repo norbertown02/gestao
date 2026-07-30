@@ -15,6 +15,7 @@ import {
 } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 import Topbar from '../components/Topbar'
+import { fiscalDocumentValue, hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 const money = value => Number(value || 0).toLocaleString('pt-BR', {
@@ -29,8 +30,6 @@ const dateBR = value => value
   : '—'
 
 const sellerKey = row => row.seller_id || (row.ultra_salesman_id ? `ultra:${row.ultra_salesman_id}` : null)
-const isValidOrder = row => !['cancelado', 'cancelado_apos_faturamento', 'estornado'].includes(row.order_stage)
-  && Math.abs(Number(row.fiscal_returned_value || 0)) === 0
 
 const currentMonth = () => {
   const now = new Date()
@@ -165,8 +164,8 @@ export default function Vendas() {
   }, [orders, documents, portfolio])
 
   const summary = useMemo(() => {
-    const validOrders = orders.filter(isValidOrder)
-    const generated = validOrders.reduce((sum, row) => sum + Number(row.order_value || 0), 0)
+    const validOrders = orders.filter(hasNetOrderValue)
+    const generated = validOrders.reduce((sum, row) => sum + netOrderValue(row), 0)
     const reversedOrders = orders.filter(row => row.order_stage === 'estornado')
     const valid = generated
     const salesDocs = documents.filter(row => row.movement_type === 'venda')
@@ -197,8 +196,8 @@ export default function Vendas() {
       const suffix = `-${String(day).padStart(2, '0')}`
       return {
         dia: String(day).padStart(2, '0'),
-        Pedidos: orders.filter(row => row.sale_date?.endsWith(suffix) && isValidOrder(row)).reduce((sum, row) => sum + Number(row.order_value || 0), 0),
-        Faturamento: documents.filter(row => row.issue_date?.endsWith(suffix)).reduce((sum, row) => sum + Number(row.document_total || 0), 0),
+        Pedidos: orders.filter(row => row.sale_date?.endsWith(suffix) && hasNetOrderValue(row)).reduce((sum, row) => sum + netOrderValue(row), 0),
+        Faturamento: documents.filter(row => row.issue_date?.endsWith(suffix)).reduce((sum, row) => sum + fiscalDocumentValue(row), 0),
       }
     })
   }, [month, orders, documents])
