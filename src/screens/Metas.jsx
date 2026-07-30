@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconCheck, IconTargetArrow, IconTrendingUp, IconUser } from '@tabler/icons-react'
+import { IconArrowLeft, IconCheck, IconTargetArrow, IconTrendingUp, IconUser } from '@tabler/icons-react'
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
@@ -100,6 +100,7 @@ export default function Metas() {
       <div className="page goals-page" style={{ overflowY: 'auto' }}>
         <section className="goals-toolbar">
           <div>
+            {selectedSeller !== 'todos' && <button className="goals-back" onClick={() => setSelectedSeller('todos')}><IconArrowLeft size={16} />Voltar ao time</button>}
             <select value={year} onChange={event => setYear(Number(event.target.value))}>{years.map(value => <option key={value}>{value}</option>)}</select>
             <select value={month} onChange={event => setMonth(Number(event.target.value))}>{Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={index + 1}>{monthName(index + 1)}</option>)}</select>
             <select value={selectedSeller} onChange={event => setSelectedSeller(event.target.value)}>

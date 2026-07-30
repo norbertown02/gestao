@@ -376,9 +376,9 @@ export default function Vendedores() {
         Math.min(20, visitasSeller.length * 2)
       )
 
-      const evolucao = Array.from({ length: 12 }, (_, index) => {
-        const date = new Date()
-        date.setMonth(date.getMonth() - (11 - index))
+      const evolucao = Array.from({ length: 6 }, (_, index) => {
+        const today = new Date()
+        const date = new Date(today.getFullYear(), today.getMonth() - (5 - index), 1)
         const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
         const total = documentsHistory
           .filter(doc => saleSellerKey(doc) === id && doc.issue_date?.startsWith(key))
@@ -837,7 +837,6 @@ export default function Vendedores() {
                       <th style={{ textAlign: 'center' }}>Conversão</th>
                       <th style={{ textAlign: 'center' }}>Visitas</th>
                       <th style={{ textAlign: 'center' }}>Cob. visitas</th>
-                      <th style={{ textAlign: 'center' }}>Risco</th>
                       <th />
                     </tr>
                   </thead>
@@ -845,7 +844,7 @@ export default function Vendedores() {
                   <tbody>
                     {dados.vendedores.length === 0 ? (
                       <tr>
-                        <td colSpan={12} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>
+                        <td colSpan={11} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>
                           Nenhum vendedor com dados no período
                         </td>
                       </tr>
@@ -886,11 +885,6 @@ export default function Vendedores() {
                             </td>
                             <td style={{ textAlign: 'center' }}>{fmtInt(s.visitas)}</td>
                             <td style={{ textAlign: 'center' }}>{s.coberturaVisitas}%</td>
-                            <td style={{ textAlign: 'center' }}>
-                              <span className={`vendedores-pill ${s.clientesRisco ? 'negative' : 'positive'}`}>
-                                {fmtInt(s.clientesRisco)}
-                              </span>
-                            </td>
                             <td>
                               {detalheId === s.id ? <IconChevronUp size={15} /> : <IconChevronDown size={15} />}
                             </td>
@@ -898,7 +892,7 @@ export default function Vendedores() {
 
                           {detalheId === s.id && (
                             <tr key={`${s.id}_detalhe`}>
-                              <td colSpan={12} className="vendedores-detail-cell">
+                              <td colSpan={11} className="vendedores-detail-cell">
                                 <div className="vendedores-detail-grid">
                                   <div className="vendedores-detail-box">
                                     <span>Faturamento</span>
@@ -939,10 +933,10 @@ export default function Vendedores() {
                                 <div className="vendedores-detail-chart">
                                   <div className="vendedores-card-head">
                                     <div>
-                                      <span className="vendedores-eyebrow">12 meses</span>
-                                      <h3>Evolução de vendas de {s.name}</h3>
+                                      <span className="vendedores-eyebrow">Últimos 6 meses</span>
+                                      <h3>Evolução de faturamento de {s.name}</h3>
                                     </div>
-                                    <small>pedidos gerados por mês</small>
+                                    <small>notas líquidas por mês</small>
                                   </div>
                                   <ResponsiveContainer width="100%" height={230}>
                                     <AreaChart data={s.evolucao} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>

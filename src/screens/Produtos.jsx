@@ -16,6 +16,8 @@ import {
 import {
   AreaChart,
   Area,
+  ComposedChart,
+  Line,
   BarChart,
   Bar,
   XAxis,
@@ -386,6 +388,10 @@ export default function Produtos() {
     })
 
     const porCategoria = Object.values(categoriaMap).sort((a, b) => b.Receita - a.Receita)
+    const pareto = porProdutoComparado.slice(0, 10).reduce((rows, product) => [
+      ...rows,
+      { ...product, Acumulado: (rows.at(-1)?.Acumulado || 0) + product.participacao },
+    ], [])
 
     const top3 = porProduto.slice(0, 3).map(p => p.name)
     const mesesMap = {}
@@ -438,6 +444,7 @@ export default function Produtos() {
       crescimento,
       queda,
       porCategoria,
+      pareto,
       evolucaoTop,
       top3,
       categoriasDisponiveis,
@@ -561,18 +568,21 @@ export default function Produtos() {
             <section className="produtos-main-grid">
               <div className="produtos-card produtos-chart-card">
                 <div className="produtos-card-head">
-                  <div><span className="produtos-eyebrow">Receita</span><h3>Top produtos por faturamento</h3></div>
+                  <div><span className="produtos-eyebrow">Concentração do mix</span><h3>Quanto os principais produtos representam</h3></div>
+                  <small>barras: faturamento · linha: participação acumulada</small>
                 </div>
 
                 {dados.porProduto.length > 0 ? (
                   <ResponsiveContainer width="100%" height={340}>
-                    <BarChart data={dados.porProduto.slice(0, 10)} layout="vertical" margin={{ top: 0, right: 42, left: 8, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="4 6" />
-                      <XAxis type="number" tickLine={false} axisLine={false} tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} />
-                      <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} width={158} />
-                      <Tooltip formatter={v => [`R$ ${fmt(v)}`, 'Receita']} />
-                      <Bar dataKey="receita" fill="var(--orange)" radius={[0, 8, 8, 0]} />
-                    </BarChart>
+                    <ComposedChart data={dados.pareto} margin={{ top: 10, right: 16, left: 2, bottom: 54 }}>
+                      <CartesianGrid strokeDasharray="3 7" vertical={false} />
+                      <XAxis dataKey="name" tickLine={false} axisLine={false} angle={-28} textAnchor="end" interval={0} height={70} tick={{ fontSize: 10 }} />
+                      <YAxis yAxisId="money" tickLine={false} axisLine={false} tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} />
+                      <YAxis yAxisId="share" orientation="right" domain={[0, 100]} tickLine={false} axisLine={false} tickFormatter={v => `${v}%`} />
+                      <Tooltip formatter={(value, name) => name === 'Acumulado' ? [`${Number(value).toFixed(1)}%`, 'Participação acumulada'] : [`R$ ${fmt(value)}`, 'Faturamento']} />
+                      <Bar yAxisId="money" dataKey="receita" name="Faturamento" fill="var(--orange)" radius={[7, 7, 0, 0]} maxBarSize={34} />
+                      <Line yAxisId="share" type="monotone" dataKey="Acumulado" stroke="#292623" strokeWidth={2.5} dot={{ r: 3, fill: '#292623' }} />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 ) : <Empty>Sem vendas no período</Empty>}
               </div>
