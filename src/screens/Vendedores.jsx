@@ -109,6 +109,10 @@ function normalizarStatus(status) {
   return 'rascunho'
 }
 
+const isValidOrder = row => !['cancelado', 'cancelado_apos_faturamento', 'estornado'].includes(row.order_stage)
+  && Math.abs(Number(row.fiscal_returned_value || 0)) === 0
+const normalizeOrder = row => ({ ...row, total: row.order_value })
+
 function VarBadge({ atual, anterior, invert = false }) {
   const diff = pct(atual, anterior)
   const positivo = invert ? diff <= 0 : diff >= 0
@@ -174,13 +178,15 @@ function Empty({ children = 'Sem dados para exibir' }) {
 }
 
 export default function Vendedores() {
-  const [periodo, setPeriodo] = useState('mes')
+  const [periodo, setPeriodo] = useState('ano')
   const [segmento, setSegmento] = useState('todos')
   const [sellers, setSellers] = useState([])
   const [farms, setFarms] = useState([])
   const [sales, setSales] = useState([])
   const [salesAnt, setSalesAnt] = useState([])
-  const [salesHistory, setSalesHistory] = useState([])
+  const [documents, setDocuments] = useState([])
+  const [documentsAnt, setDocumentsAnt] = useState([])
+  const [documentsHistory, setDocumentsHistory] = useState([])
   const [visits, setVisits] = useState([])
   const [visitsAnt, setVisitsAnt] = useState([])
   const [quotes, setQuotes] = useState([])
@@ -226,26 +232,32 @@ export default function Vendedores() {
         quotesAtual,
         quotesAnterior,
         checksAtual,
-        salesHistoryResult,
+        documentsAtual,
+        documentsAnterior,
+        documentsHistoryResult,
       ] = await Promise.all([
-        supabaseAdmin.from('sales').select('*').gte('sale_date', toISO(ini)).lte('sale_date', toISO(fim)),
-        supabaseAdmin.from('sales').select('*').gte('sale_date', toISO(iniAnt)).lte('sale_date', toISO(fimAnt)),
+        supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(ini)).lte('sale_date', toISO(fim)),
+        supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(iniAnt)).lte('sale_date', toISO(fimAnt)),
         supabaseAdmin.from('visits').select('*').gte('visit_date', toISO(ini)).lte('visit_date', toISO(fim)),
         supabaseAdmin.from('visits').select('*').gte('visit_date', toISO(iniAnt)).lte('visit_date', toISO(fimAnt)),
         supabaseAdmin.from('quotes').select('*').gte('created_at', `${toISO(ini)}T00:00:00`).lte('created_at', `${toISO(fim)}T23:59:59`),
         supabaseAdmin.from('quotes').select('*').gte('created_at', `${toISO(iniAnt)}T00:00:00`).lte('created_at', `${toISO(fimAnt)}T23:59:59`),
         supabaseAdmin.from('checklists').select('*').gte('applied_at', toISO(ini)).lte('applied_at', toISO(fim)),
-        supabaseAdmin.from('sales').select('sale_date,total,seller_id,ultra_salesman_id,ultra_salesman_name').gte('sale_date', toISO(histIni)),
+        supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type,seller_id,ultra_salesman_id,salesman_name').gte('issue_date', toISO(ini)).lte('issue_date', toISO(fim)),
+        supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type,seller_id,ultra_salesman_id,salesman_name').gte('issue_date', toISO(iniAnt)).lte('issue_date', toISO(fimAnt)),
+        supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type,seller_id,ultra_salesman_id,salesman_name').gte('issue_date', toISO(histIni)),
       ])
 
-      setSales(salesAtual.data || [])
-      setSalesAnt(salesAnterior.data || [])
+      setSales((salesAtual.data || []).filter(isValidOrder).map(normalizeOrder))
+      setSalesAnt((salesAnterior.data || []).filter(isValidOrder).map(normalizeOrder))
       setVisits(visitsAtual.data || [])
       setVisitsAnt(visitsAnterior.data || [])
       setQuotes(quotesAtual.data || [])
       setQuotesAnt(quotesAnterior.data || [])
       setChecklists(checksAtual.data || [])
-      setSalesHistory(salesHistoryResult.data || [])
+      setDocuments(documentsAtual.data || [])
+      setDocumentsAnt(documentsAnterior.data || [])
+      setDocumentsHistory(documentsHistoryResult.data || [])
     } catch (err) {
       console.error('Erro ao carregar vendedores:', err)
       setSales([])
@@ -255,7 +267,9 @@ export default function Vendedores() {
       setQuotes([])
       setQuotesAnt([])
       setChecklists([])
-      setSalesHistory([])
+      setDocuments([])
+      setDocumentsAnt([])
+      setDocumentsHistory([])
     } finally {
       setLoading(false)
     }
@@ -264,6 +278,7 @@ export default function Vendedores() {
   const dados = useMemo(() => {
     const sellerById = new Map(sellers.map(s => [s.id, s]))
     const saleSellerKey = sale => sale.seller_id || (sale.ultra_salesman_id ? `ultra:${sale.ultra_salesman_id}` : null)
+    const fiscalValue = doc => doc.movement_type === 'devolucao' ? -Math.abs(Number(doc.document_total || 0)) : Number(doc.document_total || 0)
     const sellersAtivos = sellers.filter(s => s.id)
     const farmById = new Map(farms.map(f => [f.id, f]))
 
@@ -284,8 +299,10 @@ export default function Vendedores() {
       ? farms
       : farms.filter(f => String(f.segment || '').toLowerCase() === segmento)
 
-    const totalFat = vendas.reduce((a, s) => a + Number(s.total || 0), 0)
-    const totalFatAnt = vendasAnt.reduce((a, s) => a + Number(s.total || 0), 0)
+    const docs = segmento === 'todos' ? documents : []
+    const docsAnt = segmento === 'todos' ? documentsAnt : []
+    const totalFat = segmento === 'todos' ? docs.reduce((sum, doc) => sum + fiscalValue(doc), 0) : vendas.reduce((a, s) => a + Number(s.total || 0), 0)
+    const totalFatAnt = segmento === 'todos' ? docsAnt.reduce((sum, doc) => sum + fiscalValue(doc), 0) : vendasAnt.reduce((a, s) => a + Number(s.total || 0), 0)
     const totalVisitas = visitas.length
     const totalVisitasAnt = visitasAnt.length
     const totalCotacoes = cotacoes.length
@@ -298,30 +315,33 @@ export default function Vendedores() {
     const sellerIdsAtivos = new Set([
       ...sellersAtivos.map(s => s.id),
       ...vendas.map(saleSellerKey),
+      ...docs.map(saleSellerKey),
       ...visitas.map(v => v.seller_id || v.user_id || v.created_by),
       ...cotacoes.map(q => q.seller_id),
       ...carteiraFiltrada.map(f => f.seller_id),
     ].filter(Boolean))
 
     const rows = [...sellerIdsAtivos].map(id => {
-      const ultraSale = vendas.find(s => saleSellerKey(s) === id) || vendasAnt.find(s => saleSellerKey(s) === id)
+      const ultraSale = vendas.find(s => saleSellerKey(s) === id) || vendasAnt.find(s => saleSellerKey(s) === id) || docs.find(s => saleSellerKey(s) === id)
       const seller = sellerById.get(id) || {
         id,
-        name: ultraSale?.ultra_salesman_name || 'Vendedor não vinculado',
+        name: ultraSale?.ultra_salesman_name || ultraSale?.salesman_name || 'Vendedor não vinculado',
         email: '',
         ultra_salesman_id: ultraSale?.ultra_salesman_id || null,
       }
       const fazendas = carteiraFiltrada.filter(f => f.seller_id === id)
       const vendasSeller = vendas.filter(s => saleSellerKey(s) === id)
       const vendasSellerAnt = vendasAnt.filter(s => saleSellerKey(s) === id)
+      const docsSeller = docs.filter(doc => saleSellerKey(doc) === id)
+      const docsSellerAnt = docsAnt.filter(doc => saleSellerKey(doc) === id)
       const visitasSeller = visitas.filter(v => (v.seller_id || v.user_id || v.created_by) === id)
       const visitasSellerAnt = visitasAnt.filter(v => (v.seller_id || v.user_id || v.created_by) === id)
       const cotacoesSeller = cotacoes.filter(q => q.seller_id === id)
       const cotacoesSellerAnt = cotacoesAnt.filter(q => q.seller_id === id)
       const convertidasSeller = cotacoesSeller.filter(q => normalizarStatus(q.status) === 'convertida').length
       const convertidasSellerAnt = cotacoesSellerAnt.filter(q => normalizarStatus(q.status) === 'convertida').length
-      const fat = vendasSeller.reduce((a, s) => a + Number(s.total || 0), 0)
-      const fatAnt = vendasSellerAnt.reduce((a, s) => a + Number(s.total || 0), 0)
+      const fat = segmento === 'todos' ? docsSeller.reduce((sum, doc) => sum + fiscalValue(doc), 0) : vendasSeller.reduce((a, s) => a + Number(s.total || 0), 0)
+      const fatAnt = segmento === 'todos' ? docsSellerAnt.reduce((sum, doc) => sum + fiscalValue(doc), 0) : vendasSellerAnt.reduce((a, s) => a + Number(s.total || 0), 0)
       const pedidos = vendasSeller.length
       const ticket = pedidos ? fat / pedidos : 0
       const fazComVenda = new Set(vendasSeller.map(s => s.farm_id).filter(Boolean)).size
@@ -360,9 +380,9 @@ export default function Vendedores() {
         const date = new Date()
         date.setMonth(date.getMonth() - (11 - index))
         const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-        const total = salesHistory
-          .filter(sale => saleSellerKey(sale) === id && sale.sale_date?.startsWith(key))
-          .reduce((sum, sale) => sum + Number(sale.total || 0), 0)
+        const total = documentsHistory
+          .filter(doc => saleSellerKey(doc) === id && doc.issue_date?.startsWith(key))
+          .reduce((sum, doc) => sum + fiscalValue(doc), 0)
         return {
           mes: date.toLocaleDateString('pt-BR', { month: 'short' }),
           Faturamento: total,
@@ -408,8 +428,8 @@ export default function Vendedores() {
     const risco = [...vendedores].filter(v => v.clientesRisco > 0).sort((a, b) => b.clientesRisco - a.clientesRisco).slice(0, 8)
 
     const mesMap = {}
-    vendas.forEach(s => {
-      const mes = s.sale_date?.slice(0, 7)
+    documents.forEach(s => {
+      const mes = s.issue_date?.slice(0, 7)
       if (!mes) return
 
       if (!mesMap[mes]) {
@@ -424,8 +444,8 @@ export default function Vendedores() {
         }
       }
 
-      mesMap[mes].Faturamento += Number(s.total || 0)
-      mesMap[mes].Pedidos += 1
+      mesMap[mes].Faturamento += fiscalValue(s)
+      if (s.movement_type === 'venda') mesMap[mes].Pedidos += 1
     })
 
     const evolucao = Object.values(mesMap)
@@ -457,7 +477,7 @@ export default function Vendedores() {
       barData,
       totalCarteira: carteiraFiltrada.length,
     }
-  }, [sellers, farms, sales, salesAnt, salesHistory, visits, visitsAnt, quotes, quotesAnt, checklists, segmento])
+  }, [sellers, farms, sales, salesAnt, documents, documentsAnt, documentsHistory, visits, visitsAnt, quotes, quotesAnt, checklists, segmento])
 
   const topFatMax = Math.max(...dados.topFaturamento.map(v => v.fat), 1)
   const topConvMax = Math.max(...dados.topConversao.map(v => v.txConversao), 1)

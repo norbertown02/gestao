@@ -142,7 +142,7 @@ export default function Metas() {
           </section>
 
           {selectedSeller === 'todos' && <section className="goals-team-grid">{data.team.map(seller => <button key={seller.id} onClick={() => setSelectedSeller(seller.id)}>
-            <div className="goals-avatar"><IconUser size={17} /></div><div><strong>{seller.name}</strong><span>{moneyShort(seller.realized)} de {seller.goal ? moneyShort(seller.goal) : 'meta não definida'}</span></div><b>{seller.goal ? `${seller.percent.toFixed(0)}%` : '—'}</b>
+            <div className="goals-avatar"><IconUser size={17} /></div><div><strong>{seller.name}</strong><span>{moneyShort(seller.realized)} de {seller.goal ? moneyShort(seller.goal) : 'meta não definida'}</span><i className="goals-seller-progress"><em style={{ width: `${Math.min(100, seller.percent)}%` }} /></i></div><b>{seller.goal ? `${seller.percent.toFixed(0)}%` : '—'}</b>
           </button>)}</section>}
         </> : <section className="goals-editor">
           <div className="goals-card-head"><div><span className="goals-eyebrow">Planejamento interno</span><h3>Metas de {monthName(month)} de {year}</h3></div><small>cadastro centralizado no Gestão</small></div>

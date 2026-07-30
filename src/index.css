@@ -8869,6 +8869,20 @@ table td {
 .chart-legend .billing { background: #E87722; }
 .chart-legend .orders { background: #292623; }
 .chart-legend .goal { height: 2px; background: repeating-linear-gradient(90deg, #A79C92 0 5px, transparent 5px 8px); }
+.goals-seller-progress { display: block; overflow: hidden; width: 100%; height: 5px; margin-top: 5px; background: #eee9e4; border-radius: 99px; }
+.goals-seller-progress em { display: block; height: 100%; background: linear-gradient(90deg, #c85f18, #ef9653); border-radius: inherit; }
+.commerce-order-row { cursor: pointer; }
+.commerce-order-row:hover td { background: #fcf8f4; }
+.commerce-order-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 0; color: var(--text-h); background: transparent; border: 0; cursor: pointer; }
+.commerce-order-items > td { padding: 0 !important; background: #faf7f3; }
+.commerce-order-items > td > div { padding: 14px 18px 18px 54px; border-top: 1px solid #eadfd5; border-bottom: 1px solid #eadfd5; }
+.commerce-order-items > td > div > span { display: block; margin-bottom: 9px; color: #c35d19; font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.commerce-order-items table { width: 100%; background: #fff; border: 1px solid #e8e0d8; border-radius: 9px; border-collapse: separate; border-spacing: 0; }
+.commerce-order-items th, .commerce-order-items td { padding: 8px 10px; }
+.commerce-order-items td small { display: block; margin-top: 2px; color: var(--text-faint); }
+.commerce-order-items p { margin: 0; color: var(--text-faint); font-size: 12px; }
+.stock-metrics-expanded .stock-metric { min-width: 0; }
+.stock-metrics-expanded .stock-metric strong { overflow: visible !important; font-size: clamp(14px, 1.15vw, 18px); line-height: 1.15; text-overflow: clip !important; white-space: nowrap; }
 .recharts-wrapper { font-family: Archivo, sans-serif; }
 .recharts-cartesian-axis-tick-value { fill: #817970; font-size: 11px; font-weight: 550; }
 .recharts-default-tooltip {
