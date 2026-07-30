@@ -18,7 +18,6 @@ import Cotacoes from './screens/Cotacoes'
 import DashboardTime from './screens/DashboardTime'
 import Metas from './screens/Metas'
 import Estoque from './screens/Estoque'
-import Margens from './screens/Margens'
 
 function AppContent() {
   const { user, loading, showSplash } = useAuth()
@@ -37,7 +36,6 @@ function AppContent() {
           <Route path="/vendedores" element={<Vendedores />} />
           <Route path="/produtos"   element={<Produtos />} />
           <Route path="/estoque"    element={<Estoque />} />
-          <Route path="/margens"    element={<Margens />} />
           <Route path="/regioes"    element={<Regioes />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/time" element={<DashboardTime />} />

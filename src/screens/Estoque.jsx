@@ -56,7 +56,6 @@ export default function Estoque() {
       const sold = sold90.get(String(product.ultra_codproduto)) || 0
       const daily = Math.max(0, sold / 90)
       const days = daily > 0 ? Math.max(0, stock) / daily : null
-      const turnover90 = stock > 0 ? sold / stock : null
       return {
         ...product,
         category: raw.DSCGRUPO || raw.DSCGRUPO_NIVEL1 || 'Outros',
@@ -65,7 +64,7 @@ export default function Estoque() {
         billingCapacity: Math.max(0, stock) * price,
         potentialMargin: Math.max(0, stock) * Math.max(0, price - cost),
         marginPct: price > 0 ? ((price - cost) / price) * 100 : 0,
-        days, turnover90,
+        days,
       }
     })
     const filtered = category === 'todas' ? rows : rows.filter(row => row.category === category)
@@ -98,14 +97,13 @@ export default function Estoque() {
           <Metric icon={IconTrendingUp} label="Capacidade de venda" value={moneyShort(data.billingCapacity)} note="saldo multiplicado pelo preço" />
           <Metric icon={IconAlertTriangle} label="Sem estoque" value={data.withoutStock} note="produtos zerados ou negativos" tone="danger" />
           <Metric icon={IconChartBar} label="Baixo giro" value={data.slow} note="mais de 90 dias ou sem saída" tone="warning" />
-          <Metric icon={IconTrendingUp} label="Saídas em 90 dias" value={number(data.sold90)} note="quantidade faturada no período" />
           <Metric icon={IconChartBar} label="Giro anualizado" value={`${data.annualizedTurnover.toFixed(2)}x`} note="saídas de 90 dias sobre saldo atual" />
         </section>
         <section className="stock-grid">
           <div className="stock-card"><div className="stock-card-head"><div><span>Capital imobilizado</span><h3>Produtos com maior valor em estoque</h3></div></div><ResponsiveContainer width="100%" height={330}><BarChart data={data.topValue} layout="vertical" margin={{ left: 18, right: 26 }}><defs><linearGradient id="stockBar" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#C85F18" /><stop offset="100%" stopColor="#F39A55" /></linearGradient></defs><CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" horizontal={false} /><XAxis type="number" tickFormatter={value => `R$ ${Math.round(value / 1000)}k`} /><YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11 }} /><Tooltip formatter={value => money(value)} /><Bar dataKey="costValue" name="Valor pelo custo" fill="url(#stockBar)" radius={[0, 7, 7, 0]} /></BarChart></ResponsiveContainer></div>
           <div className="stock-card stock-alert-list"><div className="stock-card-head"><div><span>Reposição</span><h3>Rupturas e saldos negativos</h3></div></div>{data.rows.filter(row => row.stock <= 0).slice(0, 12).map(row => <div key={row.id}><IconBox size={15} /><span><strong>{row.name}</strong><small>{row.category}</small></span><b>{number(row.stock)} {row.unit}</b></div>)}</div>
         </section>
-        <section className="stock-card"><div className="stock-card-head"><div><span>Inventário gerencial</span><h3>Estoque, giro e capacidade por produto</h3></div><small>{data.rows.length} produtos · giro calculado sobre 90 dias</small></div><div className="table-wrap"><table><thead><tr><th>Produto</th><th>Categoria</th><th style={{textAlign:'right'}}>Saldo</th><th style={{textAlign:'right'}}>Saídas 90d</th><th style={{textAlign:'right'}}>Giro 90d</th><th style={{textAlign:'right'}}>Custo unit.</th><th style={{textAlign:'right'}}>Valor custo</th><th style={{textAlign:'right'}}>Preço</th><th style={{textAlign:'right'}}>Margem</th><th style={{textAlign:'right'}}>Capacidade</th><th style={{textAlign:'right'}}>Cobertura</th></tr></thead><tbody>{data.rows.map(row => <tr key={row.id}><td><strong>{row.name}</strong></td><td>{row.category}</td><td style={{textAlign:'right'}} className={row.stock <= 0 ? 'stock-negative' : ''}>{number(row.stock)} {row.unit}</td><td style={{textAlign:'right'}}>{number(row.sold)}</td><td style={{textAlign:'right'}}>{row.turnover90 === null ? '—' : `${row.turnover90.toFixed(2)}x`}</td><td style={{textAlign:'right'}}>{money(row.cost)}</td><td style={{textAlign:'right'}}>{moneyShort(row.costValue)}</td><td style={{textAlign:'right'}}>{money(row.price)}</td><td style={{textAlign:'right'}}>{row.marginPct.toFixed(1)}%</td><td style={{textAlign:'right'}}>{moneyShort(row.billingCapacity)}</td><td style={{textAlign:'right'}}>{row.days === null ? 'Sem giro' : `${Math.round(row.days)} dias`}</td></tr>)}</tbody></table></div></section>
+        <section className="stock-card"><div className="stock-card-head"><div><span>Inventário gerencial</span><h3>Estoque, giro e capacidade por produto</h3></div><small>{data.rows.length} produtos</small></div><div className="table-wrap"><table><thead><tr><th>Produto</th><th>Categoria</th><th style={{textAlign:'right'}}>Saldo</th><th style={{textAlign:'right'}}>Custo unit.</th><th style={{textAlign:'right'}}>Valor custo</th><th style={{textAlign:'right'}}>Preço</th><th style={{textAlign:'right'}}>Margem</th><th style={{textAlign:'right'}}>Capacidade</th><th style={{textAlign:'right'}}>Cobertura</th></tr></thead><tbody>{data.rows.map(row => <tr key={row.id}><td><strong>{row.name}</strong></td><td>{row.category}</td><td style={{textAlign:'right'}} className={row.stock <= 0 ? 'stock-negative' : ''}>{number(row.stock)} {row.unit}</td><td style={{textAlign:'right'}}>{money(row.cost)}</td><td style={{textAlign:'right'}}>{moneyShort(row.costValue)}</td><td style={{textAlign:'right'}}>{money(row.price)}</td><td style={{textAlign:'right'}}>{row.marginPct.toFixed(1)}%</td><td style={{textAlign:'right'}}>{moneyShort(row.billingCapacity)}</td><td style={{textAlign:'right'}}>{row.days === null ? 'Sem giro' : `${Math.round(row.days)} dias`}</td></tr>)}</tbody></table></div></section>
       </>}
     </div>
   </div>
