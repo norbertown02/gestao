@@ -4,12 +4,9 @@ import Topbar from '../components/Topbar'
 import {
   IconAlertTriangle,
   IconBuildingStore,
-  IconChartBar,
-  IconClock,
   IconDownload,
   IconFilter,
   IconMap,
-  IconMapPin,
   IconReceipt,
   IconTargetArrow,
   IconTrendingDown,
@@ -696,13 +693,6 @@ export default function Regioes() {
             label="Ticket médio"
             value={fmtK(dados.ticketMedio)}
             sub="por pedido regional"
-          />
-
-          <KpiCard
-            icon={IconMapPin}
-            label="Visitas"
-            value={fmtInt(dados.totalVisitas)}
-            sub="no período selecionado"
           />
 
           <KpiCard

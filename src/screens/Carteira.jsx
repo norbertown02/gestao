@@ -4,13 +4,11 @@ import Topbar from '../components/Topbar'
 import {
   IconAlertTriangle,
   IconBuildingStore,
-  IconChartBar,
   IconChevronDown,
   IconChevronUp,
   IconClock,
   IconDownload,
   IconFilter,
-  IconMapPin,
   IconTargetArrow,
   IconTrendingDown,
   IconTrendingUp,
@@ -90,6 +88,9 @@ function dataBR(data) {
     return 'Nunca'
   }
 }
+
+const isValidOrder = row => !['cancelado', 'cancelado_apos_faturamento', 'estornado'].includes(row.order_stage)
+  && Math.abs(Number(row.fiscal_returned_value || 0)) === 0
 
 const GRUPOS = {
   A: {
@@ -234,14 +235,14 @@ export default function Carteira() {
     try {
       const [fs, sl, vs, qt, ck] = await Promise.all([
         supabaseAdmin.from('farms').select('*').eq('status', 'ativo'),
-        supabaseAdmin.from('sales').select('*').order('sale_date', { ascending: false }),
+        supabaseAdmin.from('management_order_overview').select('*').order('sale_date', { ascending: false }),
         supabaseAdmin.from('visits').select('*').order('visit_date', { ascending: false }),
         supabaseAdmin.from('quotes').select('*').order('created_at', { ascending: false }),
         supabaseAdmin.from('checklists').select('farm_id,overall_score,applied_at').order('applied_at', { ascending: false }),
       ])
 
       setFarms(fs.data || [])
-      setAllSales(sl.data || [])
+      setAllSales((sl.data || []).filter(isValidOrder).map(row => ({ ...row, total: row.order_value })))
       setAllVisits(vs.data || [])
       setAllQuotes(qt.data || [])
       setAllChecks(ck.data || [])
@@ -260,7 +261,6 @@ export default function Carteira() {
   const dados = useMemo(() => {
     const d12m = diasAtras(365)
     const d30 = diasAtras(30)
-    const d60 = diasAtras(60)
     const totalGeral = allSales.reduce((a, s) => a + Number(s.total || 0), 0)
     const ticketMedioGeral = allSales.length ? totalGeral / allSales.length : 0
 
