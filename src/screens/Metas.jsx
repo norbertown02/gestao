@@ -136,7 +136,7 @@ export default function Metas() {
                 <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${Math.round(value / 1000)}k`} />
                 <Tooltip formatter={(value, name) => [money(value), name]} />
                 <Bar dataKey="Realizado" fill="var(--orange)" radius={[6, 6, 0, 0]} maxBarSize={34} />
-                <Line type="monotone" dataKey="Meta" stroke="#486b5a" strokeWidth={3} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="Meta" stroke="#393532" strokeWidth={2.5} strokeDasharray="5 6" dot={false} activeDot={{ r: 5, fill: '#393532', stroke: '#fff', strokeWidth: 3 }} />
               </ComposedChart>
             </ResponsiveContainer>
           </section>

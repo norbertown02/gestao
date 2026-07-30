@@ -13,7 +13,7 @@ import {
 } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 import Topbar from '../components/Topbar'
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 const money = value => Number(value || 0).toLocaleString('pt-BR', {
   style: 'currency',
@@ -251,24 +251,24 @@ export default function Vendas() {
 
         <section className="commerce-metrics">
           <Metric icon={IconShoppingCart} label="Pedidos válidos" value={money(summary.valid)} note="Exclui cancelados e estornados" tone="blue" />
-          <Metric icon={IconFileInvoice} label="Faturamento bruto" value={money(summary.grossBilling)} note="Notas emitidas no mês" tone="green" />
+          <Metric icon={IconFileInvoice} label="Faturamento bruto" value={money(summary.grossBilling)} note="Notas emitidas no mês" tone="orange" />
           <Metric icon={IconRotateClockwise} label="Devoluções" value={money(summary.returns)} note={`${summary.reversedCount} pedido(s) totalmente estornado(s)`} tone="red" />
           <Metric icon={IconCash} label="Faturamento líquido" value={money(summary.netBilling)} note="Vendas menos devoluções" tone="ink" />
           <Metric icon={IconPackage} label="Carteira em aberto" value={money(summary.openValue)} note={`${portfolio.length} pedido(s) com saldo`} tone="amber" />
         </section>
 
         <section className="commerce-panel commerce-daily-chart">
-          <div className="commerce-panel-head"><div><span>Ritmo da competência</span><h3>Pedidos e faturamento por dia</h3></div><small>valores diários, incluindo devoluções</small></div>
+          <div className="commerce-panel-head"><div><span>Ritmo da competência</span><h3>Pedidos e faturamento por dia</h3></div><div className="chart-meta"><small>valores diários, incluindo devoluções</small><div className="chart-legend"><i className="billing" />Faturamento<i className="orders" />Pedidos</div></div></div>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={dailySeries} margin={{ top: 18, right: 24, left: 8, bottom: 2 }}>
-              <CartesianGrid strokeDasharray="4 7" vertical={false} />
+            <ComposedChart data={dailySeries} margin={{ top: 20, right: 24, left: 8, bottom: 2 }}>
+              <defs><linearGradient id="dailyBillingArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E87722" stopOpacity={0.2} /><stop offset="90%" stopColor="#E87722" stopOpacity={0.01} /></linearGradient></defs>
+              <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
               <XAxis dataKey="dia" tickLine={false} axisLine={false} />
-              <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${Math.round(value / 1000)}k`} />
-              <Tooltip formatter={(value, name) => [money(value), name]} />
-              <Legend />
-              <Line type="monotone" dataKey="Pedidos" stroke="#d96d21" strokeWidth={2.7} dot={false} activeDot={{ r: 5 }} />
-              <Line type="monotone" dataKey="Faturamento" stroke="#355f4b" strokeWidth={2.7} dot={false} activeDot={{ r: 5 }} />
-            </LineChart>
+              <YAxis tickLine={false} axisLine={false} tickFormatter={value => `R$ ${Math.round(value / 1000)}k`} width={68} />
+              <Tooltip cursor={{ stroke: '#D8D0C8', strokeDasharray: '3 5' }} formatter={(value, name) => [money(value), name]} />
+              <Area type="monotone" dataKey="Faturamento" stroke="#E87722" fill="url(#dailyBillingArea)" strokeWidth={3.2} dot={false} activeDot={{ r: 5, fill: '#E87722', stroke: '#fff', strokeWidth: 3 }} />
+              <Line type="monotone" dataKey="Pedidos" stroke="#292623" strokeWidth={2.7} dot={false} activeDot={{ r: 5, fill: '#292623', stroke: '#fff', strokeWidth: 3 }} />
+            </ComposedChart>
           </ResponsiveContainer>
         </section>
 
