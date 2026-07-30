@@ -15,6 +15,7 @@ import {
   IconChartPie,
   IconTarget,
   IconArrowLeft,
+  IconBox,
 } from '@tabler/icons-react'
 import { useAuth } from '../lib/useAuth'
 import { supabase } from '../lib/supabase'
@@ -51,6 +52,7 @@ const NAV = [
   { section: 'Análises' },
   { to: '/regioes', label: 'Regiões', Icon: IconMapPin },
   { to: '/produtos', label: 'Produtos', Icon: IconBuildingStore },
+  { to: '/estoque', label: 'Estoque', Icon: IconBox },
   { to: '/relatorio', label: 'Relatório Executivo', Icon: IconFileText },
 
   { section: 'Execução em campo' },

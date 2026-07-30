@@ -17,6 +17,7 @@ import RelatorioMensal from './screens/RelatorioMensal'
 import Cotacoes from './screens/Cotacoes'
 import DashboardTime from './screens/DashboardTime'
 import Metas from './screens/Metas'
+import Estoque from './screens/Estoque'
 
 function AppContent() {
   const { user, loading, showSplash } = useAuth()
@@ -34,6 +35,7 @@ function AppContent() {
           <Route path="/carteira"   element={<Carteira />} />
           <Route path="/vendedores" element={<Vendedores />} />
           <Route path="/produtos"   element={<Produtos />} />
+          <Route path="/estoque"    element={<Estoque />} />
           <Route path="/regioes"    element={<Regioes />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/time" element={<DashboardTime />} />
