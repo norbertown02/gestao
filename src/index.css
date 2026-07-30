@@ -8367,6 +8367,84 @@ td,
   .commerce-portfolio-value { text-align: left; }
 }
 
+/* PERFORMANCE COMERCIAL · LEITURA ANUAL E METAS */
+.dash-year-strip {
+  display: grid;
+  grid-template-columns: minmax(150px, .7fr) repeat(3, 1fr);
+  gap: 1px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  color: #f6f8f6;
+  background: #344a3f;
+  border: 1px solid #344a3f;
+  border-radius: 16px;
+}
+.dash-year-strip > div { display: grid; align-content: center; min-height: 112px; padding: 20px 24px; background: #24352c; }
+.dash-year-strip > div:not(.dash-year-heading) { background: #fff; color: var(--text); }
+.dash-year-strip span { color: #7c8b83; font-size: 11px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.dash-year-strip strong { margin-top: 7px; font-family: 'IBM Plex Mono', monospace; font-size: clamp(21px, 2.3vw, 31px); letter-spacing: -.055em; }
+.dash-year-strip small { margin-top: 4px; color: var(--text-faint); font-size: 11px; }
+.dash-year-strip .dash-year-heading span { color: #a9b8af; }
+.dash-year-strip .dash-year-heading strong { color: #f2a45f; font-size: 35px; }
+
+.vendedores-detail-chart { margin-top: 16px; padding: 16px 18px 8px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.vendedores-detail-chart .vendedores-card-head { padding: 0 0 12px; border: 0; }
+
+.goals-page { display: grid; gap: 16px; }
+.goals-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.goals-toolbar > div { display: flex; gap: 8px; }
+.goals-toolbar select { width: auto; min-width: 108px; padding: 8px 32px 8px 11px; font-size: 12px; }
+.goals-toolbar select:last-child { min-width: 190px; }
+.goals-tabs { padding: 3px; background: #eef2ef; border-radius: 9px; }
+.goals-tabs button { padding: 7px 12px; color: #647169; background: transparent; border: 0; border-radius: 7px; font: 700 11px Archivo, sans-serif; cursor: pointer; }
+.goals-tabs button.active { color: #fff; background: #263a30; box-shadow: 0 3px 8px rgba(24, 46, 35, .18); }
+.goals-year-card { padding: 26px 28px 20px; color: #fff; background: linear-gradient(120deg, #1f3027 0%, #304b3c 72%, #3f5a4b 100%); border-radius: 16px; }
+.goals-eyebrow { color: #8e9e95; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.goals-year-card .goals-eyebrow { color: #b9c8bf; }
+.goals-year-card h2 { margin: 8px 0 3px; color: #fff; font-family: 'IBM Plex Mono', monospace; font-size: clamp(30px, 4vw, 48px); letter-spacing: -.07em; }
+.goals-year-card small { color: #b9c8bf; }
+.goals-year-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-top: 24px; background: rgba(255,255,255,.13); }
+.goals-year-stats div { display: grid; gap: 5px; padding: 13px 16px; background: rgba(17, 32, 24, .58); }
+.goals-year-stats span { color: #aebdb4; font-size: 10px; text-transform: uppercase; }
+.goals-year-stats strong { font: 700 17px 'IBM Plex Mono', monospace; }
+.goals-progress { height: 5px; margin-top: 18px; overflow: hidden; background: rgba(255,255,255,.14); border-radius: 99px; }
+.goals-progress span { display: block; height: 100%; background: #f08b36; border-radius: inherit; }
+.goals-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.goals-kpis article { display: grid; grid-template-columns: 34px 1fr; gap: 2px 12px; align-items: center; padding: 16px 18px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.goals-kpis svg { grid-row: 1 / 3; padding: 8px; width: 34px; height: 34px; color: #ce681c; background: #fff0e4; border-radius: 9px; }
+.goals-kpis span { color: var(--text-faint); font-size: 10px; font-weight: 750; text-transform: uppercase; }
+.goals-kpis strong { font: 700 19px 'IBM Plex Mono', monospace; }
+.goals-chart-card, .goals-editor { padding: 20px; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
+.goals-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.goals-card-head h3 { margin: 4px 0 0; font-size: 17px; }
+.goals-card-head small { color: var(--text-faint); font-size: 11px; }
+.goals-team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+.goals-team-grid button { display: grid; grid-template-columns: 36px 1fr auto; gap: 11px; align-items: center; padding: 13px; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 11px; cursor: pointer; }
+.goals-team-grid button:hover { border-color: #d87832; transform: translateY(-1px); }
+.goals-team-grid button div:nth-child(2) { display: grid; gap: 3px; min-width: 0; }
+.goals-team-grid button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.goals-team-grid button span { color: var(--text-faint); font-size: 11px; }
+.goals-team-grid button b { color: #486b5a; font: 750 16px 'IBM Plex Mono', monospace; }
+.goals-avatar { display: grid; place-items: center; width: 36px; height: 36px; color: #d16b20; background: #fff0e4; border-radius: 9px; font-weight: 800; }
+.goals-editor-row { display: grid; grid-template-columns: 38px 1fr auto auto; gap: 12px; align-items: center; padding: 13px 0; border-top: 1px solid var(--line); }
+.goals-editor-row > div:nth-child(2) { display: grid; gap: 3px; }
+.goals-editor-row span { color: var(--text-faint); font-size: 11px; }
+.goals-editor-row label { display: flex; align-items: center; gap: 7px; color: var(--text-faint); font-size: 12px; }
+.goals-editor-row input { width: 140px; text-align: right; }
+
+@media (max-width: 900px) {
+  .dash-year-strip { grid-template-columns: 1fr 1fr; }
+  .goals-toolbar { align-items: stretch; flex-direction: column; }
+  .goals-toolbar > div { flex-wrap: wrap; }
+}
+@media (max-width: 640px) {
+  .dash-year-strip, .goals-kpis, .goals-year-stats { grid-template-columns: 1fr; }
+  .goals-toolbar select, .goals-toolbar select:last-child { width: 100%; }
+  .goals-editor-row { grid-template-columns: 38px 1fr; }
+  .goals-editor-row label, .goals-editor-row button { grid-column: 1 / -1; }
+  .goals-editor-row input { width: 100%; }
+}
+
 /* =========================================================
    SISTEMA VISUAL 2026 — GESTÃO NUTRIALLE
    Base mineral, densidade executiva e proporções consistentes.
