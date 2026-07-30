@@ -13,6 +13,7 @@ import {
 } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 import Topbar from '../components/Topbar'
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 const money = value => Number(value || 0).toLocaleString('pt-BR', {
   style: 'currency',
@@ -167,6 +168,20 @@ export default function Vendas() {
     }
   }, [orders, documents, portfolio])
 
+  const dailySeries = useMemo(() => {
+    const [, end] = monthRange(month)
+    const days = Number(end.slice(-2))
+    return Array.from({ length: days }, (_, index) => {
+      const day = index + 1
+      const suffix = `-${String(day).padStart(2, '0')}`
+      return {
+        dia: String(day).padStart(2, '0'),
+        Pedidos: orders.filter(row => row.sale_date?.endsWith(suffix)).reduce((sum, row) => sum + Number(row.order_value || 0), 0),
+        Faturamento: documents.filter(row => row.issue_date?.endsWith(suffix)).reduce((sum, row) => sum + Number(row.document_total || 0), 0),
+      }
+    })
+  }, [month, orders, documents])
+
   function exportCSV() {
     const rows = [
       ['Pedido', 'Data', 'Cliente', 'Vendedor', 'Situação', 'Valor gerado', 'Faturado', 'Devolvido', 'Saldo em aberto'],
@@ -240,6 +255,21 @@ export default function Vendas() {
           <Metric icon={IconRotateClockwise} label="Devoluções" value={money(summary.returns)} note={`${summary.reversedCount} pedido(s) totalmente estornado(s)`} tone="red" />
           <Metric icon={IconCash} label="Faturamento líquido" value={money(summary.netBilling)} note="Vendas menos devoluções" tone="ink" />
           <Metric icon={IconPackage} label="Carteira em aberto" value={money(summary.openValue)} note={`${portfolio.length} pedido(s) com saldo`} tone="amber" />
+        </section>
+
+        <section className="commerce-panel commerce-daily-chart">
+          <div className="commerce-panel-head"><div><span>Ritmo da competência</span><h3>Pedidos e faturamento por dia</h3></div><small>valores diários, incluindo devoluções</small></div>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={dailySeries} margin={{ top: 18, right: 24, left: 8, bottom: 2 }}>
+              <CartesianGrid strokeDasharray="4 7" vertical={false} />
+              <XAxis dataKey="dia" tickLine={false} axisLine={false} />
+              <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${Math.round(value / 1000)}k`} />
+              <Tooltip formatter={(value, name) => [money(value), name]} />
+              <Legend />
+              <Line type="monotone" dataKey="Pedidos" stroke="#d96d21" strokeWidth={2.7} dot={false} activeDot={{ r: 5 }} />
+              <Line type="monotone" dataKey="Faturamento" stroke="#355f4b" strokeWidth={2.7} dot={false} activeDot={{ r: 5 }} />
+            </LineChart>
+          </ResponsiveContainer>
         </section>
 
         {loading ? <Empty>Atualizando movimentos comerciais…</Empty> : (

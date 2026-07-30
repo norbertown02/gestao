@@ -1,832 +1,146 @@
-import { useState, useEffect } from 'react'
-import { supabaseAdmin } from '../lib/supabase'
+import { useEffect, useMemo, useState } from 'react'
+import { IconArrowDownRight, IconArrowUpRight, IconChartBar, IconPackage, IconReceipt, IconTargetArrow, IconTrendingUp } from '@tabler/icons-react'
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import Topbar from '../components/Topbar'
-import {
-  IconTrendingUp,
-  IconTrendingDown,
-  IconMinus,
-  IconAlertTriangle,
-  IconClock,
-  IconTargetArrow,
-  IconReceipt,
-  IconUsers,
-  IconRoute,
-  IconChartBar,
-  IconChevronRight,
-  IconBuildingStore,
-  IconFileText,
-  IconCircleCheck,
-  IconMoneybag,
-} from '@tabler/icons-react'
-import {
-  AreaChart,
-  Area,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts'
+import { supabaseAdmin } from '../lib/supabase'
 
-function fmt(n) {
-  return Number(n || 0).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
+const money = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const shortMoney = value => {
+  const number = Number(value || 0)
+  if (Math.abs(number) >= 1000000) return `R$ ${(number / 1000000).toFixed(2)} mi`
+  if (Math.abs(number) >= 1000) return `R$ ${(number / 1000).toFixed(0)} mil`
+  return money(number)
+}
+const integer = value => Number(value || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+const iso = date => date.toISOString().slice(0, 10)
+
+function rangeFor(year, type, index) {
+  const sizes = { bimestre: 2, trimestre: 3, semestre: 6, ano: 12 }
+  const size = sizes[type]
+  const startMonth = type === 'ano' ? 0 : (index - 1) * size
+  const start = new Date(year, startMonth, 1)
+  const nominalEnd = new Date(year, startMonth + size, 0)
+  const today = new Date()
+  const end = today >= start && today <= nominalEnd ? today : nominalEnd
+  const previousStart = new Date(year, startMonth - size, 1)
+  const elapsedDays = Math.floor((end.getTime() - start.getTime()) / 86400000)
+  const previousEnd = new Date(previousStart)
+  previousEnd.setDate(previousEnd.getDate() + elapsedDays)
+  return { start, end, previousStart, previousEnd, size }
 }
 
-function fmtInt(n) {
-  return Number(n || 0).toLocaleString('pt-BR', {
-    maximumFractionDigits: 0,
-  })
+function variation(current, previous) {
+  if (!previous) return current ? 100 : 0
+  return ((Number(current || 0) - Number(previous)) / Math.abs(Number(previous))) * 100
 }
 
-function fmtK(n) {
-  const v = Number(n || 0)
-
-  if (Math.abs(v) >= 1000000) return `R$ ${(v / 1000000).toFixed(1)} mi`
-  if (Math.abs(v) >= 1000) return `R$ ${(v / 1000).toFixed(1)} mil`
-
-  return `R$ ${fmt(v)}`
+function Comparison({ current, previous }) {
+  const value = variation(current, previous)
+  const positive = value >= 0
+  const Icon = positive ? IconArrowUpRight : IconArrowDownRight
+  return <small className={positive ? 'macro-up' : 'macro-down'}><Icon size={13} />{value >= 0 ? '+' : ''}{value.toFixed(1)}% vs. anterior</small>
 }
 
-function pct(atual, anterior) {
-  if (!anterior) return 0
-  return ((Number(atual || 0) - Number(anterior || 0)) / Number(anterior || 1)) * 100
-}
-
-function toISO(d) {
-  return d.toISOString().split('T')[0]
-}
-
-function mesAtual() {
-  const d = new Date()
-
-  return {
-    ano: d.getFullYear(),
-    mes: d.getMonth() + 1,
-    key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-    dia: d.getDate(),
-    diasMes: new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(),
-  }
-}
-
-function mesAnterior() {
-  const d = new Date()
-  d.setMonth(d.getMonth() - 1)
-
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-function diasAtras(n) {
-  const d = new Date()
-  d.setDate(d.getDate() - n)
-  return toISO(d)
-}
-
-function diasFrente(n) {
-  const d = new Date()
-  d.setDate(d.getDate() + n)
-  return toISO(d)
-}
-
-function VarBadge({ atual, anterior, suffix = '%' }) {
-  const diff = pct(atual, anterior)
-  const up = diff > 0
-  const eq = diff === 0
-
-  return (
-    <span className={`dash-var ${up ? 'up' : eq ? '' : 'down'}`}>
-      {up ? <IconTrendingUp size={13} /> : eq ? <IconMinus size={13} /> : <IconTrendingDown size={13} />}
-      {up ? '+' : ''}
-      {diff.toFixed(1)}
-      {suffix} vs mês anterior
-    </span>
-  )
-}
-
-function ProgressBar({ value }) {
-  const safe = Math.max(0, Math.min(100, Number(value || 0)))
-
-  return (
-    <div className="dash-progress">
-      <span style={{ width: `${safe}%` }} />
-    </div>
-  )
-}
-
-function Insight({ type = 'neutral', title, text }) {
-  const Icon = type === 'ok' ? IconCircleCheck : type === 'risk' ? IconAlertTriangle : IconChartBar
-
-  return (
-    <div className={`dash-insight ${type}`}>
-      <div className="dash-insight-icon">
-        <Icon size={16} />
-      </div>
-
-      <div>
-        <strong>{title}</strong>
-        <span>{text}</span>
-      </div>
-    </div>
-  )
-}
-
-function ActionItem({ icon: Icon, title, text, count, tone = 'neutral' }) {
-  return (
-    <div className={`dash-action ${tone}`}>
-      <div className="dash-action-icon">
-        <Icon size={16} />
-      </div>
-
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <strong>{title}</strong>
-        <span>{text}</span>
-      </div>
-
-      <div className="dash-action-count">{count}</div>
-      <IconChevronRight size={16} className="dash-action-arrow" />
-    </div>
-  )
-}
-
-function dataOf(result) {
-  return result?.data || []
+function Metric({ icon: Icon, label, value, note, current, previous }) {
+  return <article className="macro-metric"><Icon size={18} /><span>{label}</span><strong>{value}</strong>{previous !== undefined ? <Comparison current={current} previous={previous} /> : <small>{note}</small>}</article>
 }
 
 export default function Dashboard() {
-  const [dados, setDados] = useState(null)
+  const now = new Date()
+  const [year, setYear] = useState(now.getFullYear())
+  const [type, setType] = useState('ano')
+  const [index, setIndex] = useState(1)
+  const [sales, setSales] = useState([])
+  const [documents, setDocuments] = useState([])
+  const [goals, setGoals] = useState([])
+  const [portfolio, setPortfolio] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const range = useMemo(() => rangeFor(year, type, index), [year, type, index])
+
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/immutability
-    carregar()
-  }, [])
-
-  async function carregar() {
-    setLoading(true)
-
-    try {
-      const atual = mesAtual()
-      const mes = atual.key
-      const mesA = mesAnterior()
-      const hoje = toISO(new Date())
-      const d7 = diasFrente(7)
-      const d45 = diasAtras(45)
-      const d90 = diasAtras(90)
-
-      const [
-        salesMes,
-        salesAnt,
-        visitsMes,
-        ,
-        farms,
-        quotes,
-        profiles,
-        goals,
-        appointments,
-        allSales,
-        allVisits,
-        fiscalYear,
-        goalsYear,
-      ] = await Promise.all([
-        supabaseAdmin.from('sales').select('*').gte('sale_date', `${mes}-01`),
-        supabaseAdmin.from('sales').select('*').gte('sale_date', `${mesA}-01`).lt('sale_date', `${mes}-01`),
-        supabaseAdmin.from('visits').select('*').gte('visit_date', `${mes}-01`),
-        supabaseAdmin.from('visits').select('*').gte('visit_date', `${mesA}-01`).lt('visit_date', `${mes}-01`),
-        supabaseAdmin.from('farms').select('*').eq('status', 'ativo'),
-        supabaseAdmin.from('quotes').select('*'),
-        supabaseAdmin.from('profiles').select('*').eq('active', true),
-        supabaseAdmin.from('goals').select('*').eq('ano', atual.ano).eq('mes', atual.mes),
-        supabaseAdmin.from('appointments').select('*').gte('appointment_date', hoje).lte('appointment_date', d7).order('appointment_date'),
-        supabaseAdmin.from('sales').select('farm_id,seller_id,sale_date,total,status,needs_approval'),
-        supabaseAdmin.from('visits').select('farm_id,seller_id,visit_date,outcome').order('visit_date', { ascending: false }),
-        supabaseAdmin.from('fiscal_documents').select('document_total,fiscal_document_items(quantity)').gte('issue_date', `${atual.ano}-01-01`).lte('issue_date', hoje),
-        supabaseAdmin.from('goals').select('meta_fat,mes').eq('ano', atual.ano).lte('mes', atual.mes),
+    async function load() {
+      setLoading(true)
+      const [salesResult, docsResult, goalsResult, portfolioResult] = await Promise.all([
+        supabaseAdmin.from('sales').select('id,sale_date,total,seller_id,ultra_salesman_id,ultra_salesman_name,quantity_ordered').gte('sale_date', iso(range.previousStart)).lte('sale_date', iso(range.end)),
+        supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,seller_id,ultra_salesman_id,salesman_name,fiscal_document_items(quantity)').gte('issue_date', iso(range.previousStart)).lte('issue_date', iso(range.end)),
+        supabaseAdmin.from('goals').select('ano,mes,meta_fat,seller_id').gte('ano', range.previousStart.getFullYear()).lte('ano', range.end.getFullYear()),
+        supabaseAdmin.from('management_open_order_portfolio').select('open_value,quantity_open'),
       ])
-
-      const sm = dataOf(salesMes)
-      const sa = dataOf(salesAnt)
-      const vm = dataOf(visitsMes)
-      const fs = dataOf(farms)
-      const qs = dataOf(quotes)
-      const sellers = dataOf(profiles)
-      const metas = dataOf(goals)
-      const agenda = dataOf(appointments)
-      const vendasTodas = dataOf(allSales)
-      const visitasTodas = dataOf(allVisits)
-      const documentosAno = dataOf(fiscalYear)
-      const metasAno = dataOf(goalsYear)
-
-      const fatAno = documentosAno.reduce((sum, doc) => sum + Number(doc.document_total || 0), 0)
-      const qtdAno = documentosAno.reduce((sum, doc) => (
-        sum + (doc.fiscal_document_items || []).reduce((itemSum, item) => itemSum + Number(item.quantity || 0), 0)
-      ), 0)
-      const metaAno = metasAno.reduce((sum, goal) => sum + Number(goal.meta_fat || 0), 0)
-      const pctMetaAno = metaAno ? (fatAno / metaAno) * 100 : 0
-
-      const fatMes = sm.reduce((a, s) => a + Number(s.total || 0), 0)
-      const fatAnt = sa.reduce((a, s) => a + Number(s.total || 0), 0)
-
-      const comissaoMes = sm.reduce((a, s) => a + Number(s.total || 0) * (Number(s.comissao_pct || 0) / 100), 0)
-      const comissaoAnt = sa.reduce((a, s) => a + Number(s.total || 0) * (Number(s.comissao_pct || 0) / 100), 0)
-      const comissaoPctFat = fatMes > 0 ? (comissaoMes / fatMes) * 100 : 0
-
-      const pedMes = sm.length
-      const pedAnt = sa.length
-
-      const visitasPositivas = vm.filter(v => v.outcome === 'positiva').length
-      const eficienciaVisita = vm.length ? Math.round((visitasPositivas / vm.length) * 100) : 0
-
-      const metaTotal = metas.reduce((a, g) => a + Number(g.meta_fat || g.meta || 0), 0)
-      const metaRealizada = metaTotal ? Math.min(999, (fatMes / metaTotal) * 100) : 0
-      const ritmoEsperado = metaTotal ? Math.min(100, (atual.dia / atual.diasMes) * 100) : 0
-      const projecaoFechamento = atual.dia ? (fatMes / atual.dia) * atual.diasMes : fatMes
-      const gapMeta = metaTotal ? metaTotal - fatMes : 0
-      const statusMeta = !metaTotal ? 'sem_meta' : metaRealizada >= ritmoEsperado ? 'no_ritmo' : 'abaixo'
-
-      const abertas = qs.filter(q => q.status === 'rascunho' || q.status === 'enviada')
-      const convertidas = qs.filter(q => q.status === 'convertida').length
-      const valorAberto = abertas.reduce((a, q) => a + Number(q.total || 0), 0)
-      const txConversao = qs.length ? Math.round((convertidas / qs.length) * 100) : 0
-
-      const vendas90 = new Set(
-        vendasTodas
-          .filter(s => s.sale_date >= d90)
-          .map(s => s.farm_id)
-      )
-
-      const carteiraAtiva = vendas90.size
-      const carteiraTot = fs.length
-
-      const ultimaVisita = {}
-
-      visitasTodas.forEach(v => {
-        if (!ultimaVisita[v.farm_id]) ultimaVisita[v.farm_id] = v.visit_date
-      })
-
-      const esquecidas = fs
-        .map(f => {
-          const uv = ultimaVisita[f.id]
-          const dias = uv
-            ? Math.round((new Date() - new Date(`${uv}T12:00:00`)) / 86400000)
-            : 999
-
-          return { ...f, dias, ultimaVisita: uv }
-        })
-        .filter(f => !f.ultimaVisita || f.ultimaVisita < d45)
-        .sort((a, b) => b.dias - a.dias)
-        .slice(0, 6)
-
-      const pendentes = sm
-        .filter(s => s.status === 'pendente_envio')
-        .slice(0, 6)
-
-      const descontos = sm
-        .filter(s => s.needs_approval)
-        .slice(0, 6)
-
-      const segMap = {}
-
-      sm.forEach(s => {
-        const seg = fs.find(f => f.id === s.farm_id)?.segment || 'outros'
-        segMap[seg] = (segMap[seg] || 0) + Number(s.total || 0)
-      })
-
-      const segmentos = Object.entries(segMap)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value)
-
-      const vMap = {}
-
-      sm.forEach(s => {
-        const k = s.seller_id || (s.ultra_salesman_id ? `ultra:${s.ultra_salesman_id}` : 'geral')
-
-        if (!vMap[k]) {
-          const seller = sellers.find(p => p.id === k)
-
-          vMap[k] = {
-            id: k,
-            name: seller?.name || seller?.email || s.ultra_salesman_name || (k === 'geral' ? 'Geral' : 'Vendedor não vinculado'),
-            total: 0,
-            pedidos: 0,
-          }
-        }
-
-        vMap[k].total += Number(s.total || 0)
-        vMap[k].pedidos += 1
-      })
-
-      const topVendedores = Object.values(vMap)
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 5)
-
-      const fazMap = {}
-
-      sm.forEach(s => {
-        const f = fs.find(farm => farm.id === s.farm_id)
-        const k = s.farm_id || 'sem_fazenda'
-
-        if (!fazMap[k]) {
-          fazMap[k] = {
-            id: k,
-            name: f?.name || 'Fazenda não identificada',
-            total: 0,
-            pedidos: 0,
-          }
-        }
-
-        fazMap[k].total += Number(s.total || 0)
-        fazMap[k].pedidos += 1
-      })
-
-      const topFazendas = Object.values(fazMap)
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 5)
-
-      const d6m = new Date()
-      d6m.setMonth(d6m.getMonth() - 5)
-      d6m.setDate(1)
-
-      const ini6m = toISO(d6m)
-
-      const [salesEvol, quotesEvol] = await Promise.all([
-        supabaseAdmin.from('sales').select('sale_date,total').gte('sale_date', ini6m),
-        supabaseAdmin.from('quotes').select('created_at,total').gte('created_at', ini6m),
-      ])
-
-      const evolMap = {}
-
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date()
-        d.setMonth(d.getMonth() - i)
-        d.setDate(1)
-
-        const key = d.toISOString().slice(0, 7)
-
-        evolMap[key] = {
-          data: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
-          Vendas: 0,
-          Cotacoes: 0,
-        }
-      }
-
-      dataOf(salesEvol).forEach(s => {
-        const key = s.sale_date?.slice(0, 7)
-        if (evolMap[key]) evolMap[key].Vendas += Number(s.total || 0)
-      })
-
-      dataOf(quotesEvol).forEach(q => {
-        const key = q.created_at?.slice(0, 7)
-        if (evolMap[key]) evolMap[key].Cotacoes += Number(q.total || 0)
-      })
-
-      const evolucao = Object.values(evolMap)
-
-      const insights = []
-
-      if (!metaTotal) {
-        insights.push({
-          type: 'risk',
-          title: 'Meta mensal ainda não configurada.',
-          text: 'Configure metas para ativar ritmo, projeção e gap comercial.',
-        })
-      } else if (statusMeta === 'no_ritmo') {
-        insights.push({
-          type: 'ok',
-          title: 'Resultado dentro do ritmo esperado.',
-          text: `Realizado em ${metaRealizada.toFixed(1)}% contra ${ritmoEsperado.toFixed(1)}% esperado até hoje.`,
-        })
-      } else {
-        insights.push({
-          type: 'risk',
-          title: 'Faturamento abaixo do ritmo da meta.',
-          text: `Faltam ${fmtK(Math.max(0, gapMeta))} para atingir a meta do mês.`,
-        })
-      }
-
-      if (valorAberto > fatMes && txConversao < 30) {
-        insights.push({
-          type: 'risk',
-          title: 'Pipeline alto, mas conversão baixa.',
-          text: 'Priorize follow-up em cotações enviadas e propostas de maior valor.',
-        })
-      } else if (valorAberto > 0) {
-        insights.push({
-          type: 'neutral',
-          title: 'Pipeline com oportunidades abertas.',
-          text: `${fmtK(valorAberto)} em propostas abertas para acompanhamento.`,
-        })
-      }
-
-      if (esquecidas.length > 0) {
-        insights.push({
-          type: 'risk',
-          title: `${esquecidas.length} fazendas precisam de atenção.`,
-          text: 'Há clientes sem visita há mais de 45 dias ou nunca visitados.',
-        })
-      } else {
-        insights.push({
-          type: 'ok',
-          title: 'Carteira sem alerta crítico de visita.',
-          text: 'Nenhuma fazenda ativa passou do limite de 45 dias sem visita.',
-        })
-      }
-
-      if (vm.length > 0) {
-        insights.push({
-          type: eficienciaVisita >= 50 ? 'ok' : 'neutral',
-          title: `Eficiência de visitas em ${eficienciaVisita}%.`,
-          text: `${visitasPositivas} visitas positivas em ${vm.length} visitas realizadas no mês.`,
-        })
-      }
-
-      setDados({
-        fatAno,
-        qtdAno,
-        metaAno,
-        pctMetaAno,
-        fatMes,
-        fatAnt,
-        comissaoMes,
-        comissaoAnt,
-        comissaoPctFat,
-        pedMes,
-        pedAnt,
-        metaTotal,
-        metaRealizada,
-        ritmoEsperado,
-        projecaoFechamento,
-        gapMeta,
-        statusMeta,
-        abertas: abertas.length,
-        valorAberto,
-        txConversao,
-        visitasMes: vm.length,
-        visitasPositivas,
-        eficienciaVisita,
-        carteiraAtiva,
-        carteiraTot,
-        esquecidas,
-        pendentes,
-        descontos,
-        segmentos,
-        topVendedores,
-        topFazendas,
-        evolucao,
-        agenda,
-        insights: insights.slice(0, 4),
-      })
-    } catch (err) {
-      console.error('Erro ao carregar dashboard:', err)
-      setDados(null)
-    } finally {
+      setSales(salesResult.data || [])
+      setDocuments(docsResult.data || [])
+      setGoals(goalsResult.data || [])
+      setPortfolio(portfolioResult.data || [])
       setLoading(false)
     }
-  }
+    load()
+  }, [range])
 
-  const d = dados || {}
+  const data = useMemo(() => {
+    const between = (value, start, end) => value >= iso(start) && value <= iso(end)
+    const currentSales = sales.filter(row => between(row.sale_date, range.start, range.end))
+    const previousSales = sales.filter(row => between(row.sale_date, range.previousStart, range.previousEnd))
+    const currentDocs = documents.filter(row => between(row.issue_date, range.start, range.end))
+    const previousDocs = documents.filter(row => between(row.issue_date, range.previousStart, range.previousEnd))
+    const currentGoals = goals.filter(goal => {
+      const date = `${goal.ano}-${String(goal.mes).padStart(2, '0')}-01`
+      return between(date, range.start, range.end)
+    })
+    const previousGoals = goals.filter(goal => {
+      const date = `${goal.ano}-${String(goal.mes).padStart(2, '0')}-01`
+      return between(date, range.previousStart, range.previousEnd)
+    })
+    const orderValue = currentSales.reduce((sum, row) => sum + Number(row.total || 0), 0)
+    const previousOrderValue = previousSales.reduce((sum, row) => sum + Number(row.total || 0), 0)
+    const billing = currentDocs.reduce((sum, row) => sum + Number(row.document_total || 0), 0)
+    const previousBilling = previousDocs.reduce((sum, row) => sum + Number(row.document_total || 0), 0)
+    const goal = currentGoals.reduce((sum, row) => sum + Number(row.meta_fat || 0), 0)
+    const previousGoal = previousGoals.reduce((sum, row) => sum + Number(row.meta_fat || 0), 0)
+    const quantity = currentDocs.reduce((sum, doc) => sum + (doc.fiscal_document_items || []).reduce((itemSum, item) => itemSum + Number(item.quantity || 0), 0), 0)
+    const previousQuantity = previousDocs.reduce((sum, doc) => sum + (doc.fiscal_document_items || []).reduce((itemSum, item) => itemSum + Number(item.quantity || 0), 0), 0)
+    const series = []
+    for (let cursor = new Date(range.start); cursor <= range.end; cursor.setMonth(cursor.getMonth() + 1)) {
+      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`
+      series.push({
+        key,
+        label: cursor.toLocaleDateString('pt-BR', { month: 'short', year: range.size === 12 ? '2-digit' : undefined }).replace('.', ''),
+        Pedidos: currentSales.filter(row => row.sale_date?.startsWith(key)).reduce((sum, row) => sum + Number(row.total || 0), 0),
+        Faturamento: currentDocs.filter(row => row.issue_date?.startsWith(key)).reduce((sum, row) => sum + Number(row.document_total || 0), 0),
+        Meta: currentGoals.filter(row => row.ano === cursor.getFullYear() && row.mes === cursor.getMonth() + 1).reduce((sum, row) => sum + Number(row.meta_fat || 0), 0),
+      })
+    }
+    const sellerMap = new Map()
+    currentDocs.forEach(doc => {
+      const key = doc.seller_id || `ultra:${doc.ultra_salesman_id || 0}`
+      const current = sellerMap.get(key) || { name: doc.salesman_name || 'Sem vendedor', total: 0 }
+      current.total += Number(doc.document_total || 0)
+      sellerMap.set(key, current)
+    })
+    const topSellers = [...sellerMap.values()].sort((a, b) => b.total - a.total).slice(0, 6)
+    const openValue = portfolio.reduce((sum, row) => sum + Number(row.open_value || 0), 0)
+    return {
+      orderValue, previousOrderValue, billing, previousBilling, goal, previousGoal, quantity, previousQuantity,
+      orders: currentSales.length, previousOrders: previousSales.length, attainment: goal ? billing / goal * 100 : 0,
+      ticket: currentSales.length ? orderValue / currentSales.length : 0, series, topSellers, openValue,
+      billingRate: orderValue ? billing / orderValue * 100 : 0,
+    }
+  }, [sales, documents, goals, portfolio, range])
 
-  const rankingMax = Math.max(...(d.topVendedores || []).map(v => v.total), 1)
-  const segmentoMax = Math.max(...(d.segmentos || []).map(s => s.value), 1)
+  const counts = { ano: 1, semestre: 2, trimestre: 4, bimestre: 6 }
+  const labels = { ano: 'Ano completo', semestre: 'Semestre', trimestre: 'Trimestre', bimestre: 'Bimestre' }
+  const years = Array.from({ length: 5 }, (_, offset) => now.getFullYear() - offset)
+  const maxSeller = Math.max(...data.topSellers.map(item => item.total), 1)
 
-  return (
-    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Topbar title="Dashboard Executivo" subtitle="Visão comercial, pipeline e riscos da carteira" />
-
-      <div className="page dash-page" style={{ overflowY: 'auto' }}>
-        {loading ? (
-          <div className="empty">Carregando visão comercial...</div>
-        ) : !dados ? (
-          <div className="empty">Não foi possível carregar os dados do dashboard.</div>
-        ) : (
-          <>
-            <section className="dash-year-strip">
-              <div className="dash-year-heading">
-                <span className="dash-eyebrow">Ano até agora</span>
-                <strong>{new Date().getFullYear()}</strong>
-              </div>
-              <div>
-                <span>Faturamento líquido</span>
-                <strong>{fmtK(d.fatAno)}</strong>
-                <small>notas menos devoluções</small>
-              </div>
-              <div>
-                <span>Volume faturado</span>
-                <strong>{fmtInt(d.qtdAno)}</strong>
-                <small>quantidade líquida no ano</small>
-              </div>
-              <div>
-                <span>Meta acumulada</span>
-                <strong>{d.metaAno ? fmtK(d.metaAno) : '—'}</strong>
-                <small>{d.metaAno ? `${d.pctMetaAno.toFixed(1)}% realizado` : 'metas ainda não definidas'}</small>
-              </div>
-            </section>
-            <div className="dash-hero-grid">
-              <section className="dash-hero">
-                <div className="dash-hero-top">
-                  <div>
-                    <span className="dash-eyebrow">Resultado comercial</span>
-                    <h2>{fmtK(d.fatMes)}</h2>
-                    <VarBadge atual={d.fatMes} anterior={d.fatAnt} />
-                  </div>
-
-                  <div className={`dash-status ${d.statusMeta}`}>
-                    {d.statusMeta === 'sem_meta'
-                      ? 'Meta não configurada'
-                      : d.statusMeta === 'no_ritmo'
-                        ? 'No ritmo'
-                        : 'Abaixo do ritmo'}
-                  </div>
-                </div>
-
-                <div className="dash-hero-metrics">
-                  <div>
-                    <span>Meta do mês</span>
-                    <strong>{d.metaTotal ? fmtK(d.metaTotal) : '—'}</strong>
-                  </div>
-
-                  <div>
-                    <span>Realizado</span>
-                    <strong>{d.metaTotal ? `${d.metaRealizada.toFixed(1)}%` : '—'}</strong>
-                  </div>
-
-                  <div>
-                    <span>Projeção</span>
-                    <strong>{fmtK(d.projecaoFechamento)}</strong>
-                  </div>
-
-                  <div>
-                    <span>Gap para meta</span>
-                    <strong>{d.metaTotal ? fmtK(Math.max(0, d.gapMeta)) : '—'}</strong>
-                  </div>
-                </div>
-
-                {d.metaTotal ? (
-                  <div className="dash-hero-progress">
-                    <div>
-                      <span>Ritmo esperado até hoje</span>
-                      <strong>{d.ritmoEsperado.toFixed(1)}%</strong>
-                    </div>
-                    <ProgressBar value={d.metaRealizada} />
-                  </div>
-                ) : (
-                  <div className="dash-hero-note">
-                    Configure metas em Gestão para ativar a leitura completa de ritmo comercial.
-                  </div>
-                )}
-              </section>
-
-              <section className="dash-insights-card">
-                <div className="dash-card-head">
-                  <div>
-                    <span className="dash-eyebrow">Leitura executiva</span>
-                    <h3>O que merece atenção agora</h3>
-                  </div>
-                </div>
-
-                <div className="dash-insights-list">
-                  {d.insights.map((item, i) => (
-                    <Insight key={i} {...item} />
-                  ))}
-                </div>
-              </section>
-            </div>
-
-            <div className="dash-kpi-row">
-              <div className="dash-kpi-card">
-                <IconReceipt size={18} />
-                <span>Pedidos</span>
-                <strong>{fmtInt(d.pedMes)}</strong>
-                <VarBadge atual={d.pedMes} anterior={d.pedAnt} />
-              </div>
-
-              <div className="dash-kpi-card">
-                <IconTargetArrow size={18} />
-                <span>Pipeline aberto</span>
-                <strong>{fmtK(d.valorAberto)}</strong>
-                <small>{d.abertas} cotações abertas</small>
-              </div>
-
-              <div className="dash-kpi-card">
-                <IconChartBar size={18} />
-                <span>Conversão</span>
-                <strong>{d.txConversao}%</strong>
-                <small>do total de cotações</small>
-              </div>
-
-              <div className="dash-kpi-card">
-                <IconUsers size={18} />
-                <span>Carteira ativa</span>
-                <strong>{fmtInt(d.carteiraAtiva)}</strong>
-                <small>de {fmtInt(d.carteiraTot)} fazendas</small>
-              </div>
-
-              <div className="dash-kpi-card">
-                <IconRoute size={18} />
-                <span>Visitas positivas</span>
-                <strong>{d.eficienciaVisita}%</strong>
-                <small>{d.visitasPositivas} de {d.visitasMes} visitas</small>
-              </div>
-
-              <div className="dash-kpi-card">
-                <IconMoneybag size={18} />
-                <span>Comissões do mês</span>
-                <strong>{fmtK(d.comissaoMes)}</strong>
-                <small>{d.comissaoPctFat.toFixed(1)}% do faturamento</small>
-              </div>
-            </div>
-
-            <div className="dash-main-grid">
-              <section className="chart-card dash-chart-large">
-                <div className="chart-head">
-                  <div>
-                    <div className="chart-title">Evolução comercial</div>
-                    <div className="chart-subtitle">Vendas e cotações nos últimos 6 meses</div>
-                  </div>
-                </div>
-
-                {d.evolucao.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={290}>
-                    <AreaChart data={d.evolucao} margin={{ top: 8, right: 10, left: -16, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="vendasGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="var(--orange)" stopOpacity={0.22} />
-                          <stop offset="95%" stopColor="var(--orange)" stopOpacity={0.02} />
-                        </linearGradient>
-
-                        <linearGradient id="cotacoesGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#8A8178" stopOpacity={0.14} />
-                          <stop offset="95%" stopColor="#8A8178" stopOpacity={0.01} />
-                        </linearGradient>
-                      </defs>
-
-                      <CartesianGrid strokeDasharray="4 6" />
-                      <XAxis dataKey="data" tickLine={false} axisLine={false} />
-                      <YAxis tickLine={false} axisLine={false} tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} />
-                      <Tooltip formatter={(v, n) => [`R$ ${fmt(v)}`, n]} />
-
-                      <Area
-                        type="monotone"
-                        dataKey="Cotacoes"
-                        stroke="#8A8178"
-                        strokeWidth={2}
-                        fill="url(#cotacoesGradient)"
-                        dot={false}
-                      />
-
-                      <Area
-                        type="monotone"
-                        dataKey="Vendas"
-                        stroke="var(--orange)"
-                        strokeWidth={2.6}
-                        fill="url(#vendasGradient)"
-                        dot={{ r: 3 }}
-                        activeDot={{ r: 5 }}
-                      />
-
-                      <Line type="monotone" dataKey="Vendas" stroke="var(--orange)" strokeWidth={2.6} dot={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="empty">Sem dados para exibir</div>
-                )}
-              </section>
-
-              <section className="chart-card">
-                <div className="chart-head">
-                  <div>
-                    <div className="chart-title">Receita por segmento</div>
-                    <div className="chart-subtitle">Distribuição do mês atual</div>
-                  </div>
-                </div>
-
-                {d.segmentos.length > 0 ? (
-                  <div className="dash-segment-list">
-                    {d.segmentos.map(seg => (
-                      <div key={seg.name} className="dash-segment-item">
-                        <div>
-                          <strong>{seg.name}</strong>
-                          <span>{fmtK(seg.value)}</span>
-                        </div>
-
-                        <div className="dash-segment-bar">
-                          <span style={{ width: `${Math.max(4, (seg.value / segmentoMax) * 100)}%` }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="empty">Sem dados por segmento</div>
-                )}
-              </section>
-            </div>
-
-            <div className="dash-bottom-grid">
-              <section className="card">
-                <div className="dash-card-head">
-                  <div>
-                    <span className="dash-eyebrow">Performance</span>
-                    <h3>Top vendedores</h3>
-                  </div>
-                </div>
-
-                {d.topVendedores.length > 0 ? (
-                  <div className="dash-ranking">
-                    {d.topVendedores.map((v, i) => (
-                      <div key={v.id} className="dash-ranking-row">
-                        <span className="dash-rank">{i + 1}</span>
-
-                        <div className="dash-ranking-info">
-                          <strong>{v.name}</strong>
-                          <span>{v.pedidos} pedidos</span>
-                        </div>
-
-                        <div className="dash-ranking-bar">
-                          <span style={{ width: `${Math.max(6, (v.total / rankingMax) * 100)}%` }} />
-                        </div>
-
-                        <strong className="dash-ranking-value">{fmtK(v.total)}</strong>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="empty">Sem vendas por vendedor</div>
-                )}
-              </section>
-
-              <section className="card">
-                <div className="dash-card-head">
-                  <div>
-                    <span className="dash-eyebrow">Carteira</span>
-                    <h3>Clientes que mais compraram</h3>
-                  </div>
-                </div>
-
-                {d.topFazendas.length > 0 ? (
-                  <div className="dash-farm-list">
-                    {d.topFazendas.map(f => (
-                      <div key={f.id} className="dash-farm-item">
-                        <div>
-                          <strong>{f.name}</strong>
-                          <span>{f.pedidos} pedidos no mês</span>
-                        </div>
-                        <strong>{fmtK(f.total)}</strong>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="empty">Sem vendas por fazenda</div>
-                )}
-              </section>
-
-              <section className="card">
-                <div className="dash-card-head">
-                  <div>
-                    <span className="dash-eyebrow">Prioridades</span>
-                    <h3>Ações comerciais</h3>
-                  </div>
-                </div>
-
-                <div className="dash-actions-list">
-                  <ActionItem
-                    icon={IconFileText}
-                    title="Pendentes de envio"
-                    text={d.pendentes.length ? 'Vendas aguardando envio ou ajuste.' : 'Nenhuma pendência de envio.'}
-                    count={d.pendentes.length}
-                    tone={d.pendentes.length ? 'attention' : 'ok'}
-                  />
-
-                  <ActionItem
-                    icon={IconBuildingStore}
-                    title="Fazendas esquecidas"
-                    text={d.esquecidas.length ? 'Clientes sem visita há mais de 45 dias.' : 'Carteira sem alerta crítico.'}
-                    count={d.esquecidas.length}
-                    tone={d.esquecidas.length ? 'risk' : 'ok'}
-                  />
-
-                  <ActionItem
-                    icon={IconAlertTriangle}
-                    title="Descontos acima do limite"
-                    text={d.descontos.length ? 'Pedidos exigem atenção comercial.' : 'Nenhum desconto irregular.'}
-                    count={d.descontos.length}
-                    tone={d.descontos.length ? 'attention' : 'ok'}
-                  />
-
-                  <ActionItem
-                    icon={IconClock}
-                    title="Agenda 7 dias"
-                    text={d.agenda.length ? 'Compromissos comerciais próximos.' : 'Sem compromissos próximos.'}
-                    count={d.agenda.length}
-                    tone="neutral"
-                  />
-                </div>
-              </section>
-            </div>
-          </>
-        )}
-      </div>
+  return <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <Topbar title="Dashboard" subtitle="Visão macro de vendas, faturamento e metas" />
+    <div className="page macro-page" style={{ overflowY: 'auto' }}>
+      <section className="macro-toolbar"><div><select value={year} onChange={event => setYear(Number(event.target.value))}>{years.map(value => <option key={value}>{value}</option>)}</select><select value={type} onChange={event => { setType(event.target.value); setIndex(1) }}><option value="ano">Ano</option><option value="semestre">Semestre</option><option value="trimestre">Trimestre</option><option value="bimestre">Bimestre</option></select>{type !== 'ano' && <select value={index} onChange={event => setIndex(Number(event.target.value))}>{Array.from({ length: counts[type] }, (_, value) => <option value={value + 1} key={value + 1}>{value + 1}º {labels[type].toLowerCase()}</option>)}</select>}</div><span>{iso(range.start).split('-').reverse().join('/')} — {iso(range.end).split('-').reverse().join('/')}</span></section>
+      {loading ? <div className="empty">Preparando visão executiva...</div> : <>
+        <section className="macro-hero"><div><span>Faturamento líquido no período</span><h2>{shortMoney(data.billing)}</h2><Comparison current={data.billing} previous={data.previousBilling} /></div><div className="macro-hero-goal"><span>Meta acumulada</span><strong>{data.goal ? shortMoney(data.goal) : '—'}</strong><small>{data.goal ? `${data.attainment.toFixed(1)}% atingido · saldo ${shortMoney(data.billing - data.goal)}` : 'Cadastre as metas para ativar o comparativo'}</small><div><i style={{ width: `${Math.min(100, data.attainment)}%` }} /></div></div></section>
+        <section className="macro-metrics"><Metric icon={IconReceipt} label="Vendas geradas" value={shortMoney(data.orderValue)} current={data.orderValue} previous={data.previousOrderValue} /><Metric icon={IconChartBar} label="Pedidos" value={integer(data.orders)} current={data.orders} previous={data.previousOrders} /><Metric icon={IconPackage} label="Volume faturado" value={integer(data.quantity)} current={data.quantity} previous={data.previousQuantity} /><Metric icon={IconTrendingUp} label="Ticket médio" value={shortMoney(data.ticket)} note="valor médio por pedido" /><Metric icon={IconTargetArrow} label="Carteira aberta" value={shortMoney(data.openValue)} note="pedidos aguardando faturamento" /></section>
+        <section className="macro-chart"><div className="macro-card-head"><div><span>Ritmo comercial</span><h3>Pedidos, faturamento e meta</h3></div><small>{data.billingRate.toFixed(1)}% do valor vendido já faturado</small></div><ResponsiveContainer width="100%" height={390}><LineChart data={data.series} margin={{ top: 18, right: 24, left: 8, bottom: 4 }}><CartesianGrid strokeDasharray="4 7" vertical={false} /><XAxis dataKey="label" tickLine={false} axisLine={false} /><YAxis tickLine={false} axisLine={false} tickFormatter={value => `${Math.round(value / 1000)}k`} /><Tooltip formatter={(value, name) => [money(value), name]} /><Legend /><Line type="monotone" dataKey="Pedidos" stroke="#d96d21" strokeWidth={3} dot={{ r: 4 }} /><Line type="monotone" dataKey="Faturamento" stroke="#355f4b" strokeWidth={3} dot={{ r: 4 }} /><Line type="monotone" dataKey="Meta" stroke="#8b97a0" strokeWidth={2.5} strokeDasharray="7 6" dot={false} /></LineChart></ResponsiveContainer></section>
+        <section className="macro-bottom"><div className="macro-ranking"><div className="macro-card-head"><div><span>Contribuição</span><h3>Faturamento por vendedor</h3></div></div>{data.topSellers.map((seller, position) => <div key={seller.name}><b>{position + 1}</b><span><strong>{seller.name}</strong><i><em style={{ width: `${Math.max(5, seller.total / maxSeller * 100)}%` }} /></i></span><strong>{shortMoney(seller.total)}</strong></div>)}</div><div className="macro-reading"><span>Leitura do período</span><h3>{data.attainment >= 100 ? 'Meta superada' : data.goal ? 'Meta ainda em construção' : 'Planejamento pendente'}</h3><p>{data.goal ? `O faturamento representa ${data.attainment.toFixed(1)}% da meta e ${data.billingRate.toFixed(1)}% do valor dos pedidos gerados no período.` : 'Cadastre as metas mensais para comparar execução, ritmo e saldo acumulado.'}</p></div></section>
+      </>}
     </div>
-  )
+  </div>
 }

@@ -20,10 +20,13 @@ export default function Metas() {
   const [year, setYear] = useState(CURRENT_YEAR)
   const [month, setMonth] = useState(CURRENT_MONTH)
   const [selectedSeller, setSelectedSeller] = useState('todos')
+  const [tab, setTab] = useState('acompanhamento')
   const [sellers, setSellers] = useState([])
   const [goals, setGoals] = useState([])
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
+  const [editGoals, setEditGoals] = useState({})
+  const [saving, setSaving] = useState({})
 
   useEffect(() => {
     async function load() {
@@ -36,6 +39,9 @@ export default function Metas() {
       setSellers(profilesResult.data || [])
       setGoals(goalsResult.data || [])
       setDocuments(documentsResult.data || [])
+      const values = {}
+      ;(goalsResult.data || []).filter(goal => goal.mes === month).forEach(goal => { values[goal.seller_id] = goal.meta_fat })
+      setEditGoals(values)
       setLoading(false)
     }
     load()
@@ -77,6 +83,17 @@ export default function Metas() {
   const years = Array.from({ length: 4 }, (_, index) => CURRENT_YEAR - index)
   const selectedName = selectedSeller === 'todos' ? 'Time comercial' : data.sellerOptions.find(([id]) => id === selectedSeller)?.[1]
 
+  async function saveGoal(sellerId) {
+    const value = Number(String(editGoals[sellerId] || 0).replace(',', '.'))
+    setSaving(current => ({ ...current, [sellerId]: true }))
+    const existing = goals.find(goal => goal.seller_id === sellerId && goal.mes === month)
+    const result = existing
+      ? await supabaseAdmin.from('goals').update({ meta_fat: value, updated_at: new Date().toISOString() }).eq('id', existing.id).select().single()
+      : await supabaseAdmin.from('goals').insert({ seller_id: sellerId, ano: year, mes: month, meta_fat: value }).select().single()
+    if (result.data) setGoals(current => existing ? current.map(goal => goal.id === existing.id ? result.data : goal) : [...current, result.data])
+    setSaving(current => ({ ...current, [sellerId]: false }))
+  }
+
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Topbar title="Metas Comerciais" subtitle="Resultado mensal e acumulado por vendedor" />
@@ -90,10 +107,10 @@ export default function Metas() {
               {data.sellerOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
             </select>
           </div>
-          <span className="goals-source">Somente leitura · fonte Ultra</span>
+          <div className="goals-tabs"><button className={tab === 'acompanhamento' ? 'active' : ''} onClick={() => setTab('acompanhamento')}>Acompanhamento</button><button className={tab === 'cadastro' ? 'active' : ''} onClick={() => setTab('cadastro')}>Definir metas</button></div>
         </section>
 
-        {loading ? <div className="empty">Carregando metas...</div> : <>
+        {loading ? <div className="empty">Carregando metas...</div> : tab === 'acompanhamento' ? <>
           <section className="goals-year-card">
             <div><span className="goals-eyebrow">Acumulado no ano · {selectedName}</span><h2>{moneyShort(data.realizedYtd)}</h2><small>faturamento líquido de janeiro até o período atual</small></div>
             <div className="goals-year-stats">
@@ -127,7 +144,14 @@ export default function Metas() {
           {selectedSeller === 'todos' && <section className="goals-team-grid">{data.team.map(seller => <button key={seller.id} onClick={() => setSelectedSeller(seller.id)}>
             <div className="goals-avatar"><IconUser size={17} /></div><div><strong>{seller.name}</strong><span>{moneyShort(seller.realized)} de {seller.goal ? moneyShort(seller.goal) : 'meta não definida'}</span></div><b>{seller.goal ? `${seller.percent.toFixed(0)}%` : '—'}</b>
           </button>)}</section>}
-        </>}
+        </> : <section className="goals-editor">
+          <div className="goals-card-head"><div><span className="goals-eyebrow">Planejamento interno</span><h3>Metas de {monthName(month)} de {year}</h3></div><small>cadastro centralizado no Gestão</small></div>
+          {sellers.map(seller => <div className="goals-editor-row" key={seller.id}>
+            <div className="goals-avatar">{(seller.name || seller.email || 'V').charAt(0)}</div><div><strong>{seller.name || seller.email}</strong><span>Meta mensal de faturamento</span></div>
+            <label>R$ <input type="number" value={editGoals[seller.id] || ''} onChange={event => setEditGoals(current => ({ ...current, [seller.id]: event.target.value }))} placeholder="0,00" /></label>
+            <button className="btn btn-primary btn-sm" onClick={() => saveGoal(seller.id)} disabled={saving[seller.id]}><IconCheck size={14} />{saving[seller.id] ? 'Salvando' : 'Salvar'}</button>
+          </div>)}
+        </section>}
       </div>
     </div>
   )
