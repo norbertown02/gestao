@@ -6,7 +6,6 @@ import {
   IconBuildingStore,
   IconDownload,
   IconFilter,
-  IconMap,
   IconReceipt,
   IconTargetArrow,
   IconTrendingDown,
@@ -16,8 +15,9 @@ import {
 import {
   AreaChart,
   Area,
-  BarChart,
-  Bar,
+  Cell,
+  Pie,
+  PieChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -388,6 +388,10 @@ export default function Regioes() {
     const totalReceita = estados.reduce((a, e) => a + e.vendas, 0)
     const totalReceitaAnt = estados.reduce((a, e) => a + e.vendasAnt, 0)
     const totalClientes = estados.reduce((a, e) => a + e.fazendas, 0)
+    const carteiraOrdenada = [...estados].filter(e => e.fazendas > 0).sort((a, b) => b.fazendas - a.fazendas)
+    const carteiraPorEstado = carteiraOrdenada.slice(0, 7).map(e => ({ name: e.state, value: e.fazendas }))
+    const outrosClientes = carteiraOrdenada.slice(7).reduce((sum, e) => sum + e.fazendas, 0)
+    if (outrosClientes) carteiraPorEstado.push({ name: 'Outros', value: outrosClientes })
     const totalClientesComVenda = estados.reduce((a, e) => a + e.fazendasComVendaCount, 0)
     const totalVisitas = estados.reduce((a, e) => a + e.visitas, 0)
     const totalCotacoesAbertas = estados.reduce((a, e) => a + e.cotacoesAbertas, 0)
@@ -452,6 +456,7 @@ export default function Regioes() {
       totalReceita,
       totalReceitaAnt,
       totalClientes,
+      carteiraPorEstado,
       totalClientesComVenda,
       totalVisitas,
       totalCotacoesAbertas,
@@ -855,16 +860,15 @@ export default function Regioes() {
                   </div>
                 </div>
 
-                {dados.estados.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={290}>
-                    <BarChart data={dados.estados.slice(0, 10)} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="4 6" />
-                      <XAxis dataKey="state" tickLine={false} axisLine={false} />
-                      <YAxis tickLine={false} axisLine={false} />
-                      <Tooltip />
-                      <Bar dataKey="fazendas" name="Clientes" fill="var(--orange)" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                {dados.carteiraPorEstado.length > 0 ? (
+                  <div className="regioes-donut-wrap"><ResponsiveContainer width="100%" height={290}>
+                    <PieChart>
+                      <Pie data={dados.carteiraPorEstado} dataKey="value" nameKey="name" innerRadius={65} outerRadius={104} paddingAngle={2} stroke="#fff" strokeWidth={3}>
+                        {dados.carteiraPorEstado.map((entry, index) => <Cell key={entry.name} fill={['#E87722', '#292623', '#A79C92', '#C85F18', '#665D56', '#E9A36D', '#B8AEA5', '#DDD5CE'][index % 8]} />)}
+                      </Pie>
+                      <Tooltip formatter={(value, name) => [`${fmtInt(value)} clientes`, name]} />
+                    </PieChart>
+                  </ResponsiveContainer><div className="regioes-donut-center"><strong>{fmtInt(dados.totalClientes)}</strong><span>clientes</span></div><div className="regioes-donut-legend">{dados.carteiraPorEstado.map((entry, index) => <div key={entry.name}><i style={{ background: ['#E87722', '#292623', '#A79C92', '#C85F18', '#665D56', '#E9A36D', '#B8AEA5', '#DDD5CE'][index % 8] }} /><span>{entry.name}</span><strong>{dados.totalClientes ? `${(entry.value / dados.totalClientes * 100).toFixed(1)}%` : '0%'}</strong></div>)}</div></div>
                 ) : (
                   <Empty>Sem carteira por estado</Empty>
                 )}
