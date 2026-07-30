@@ -4,7 +4,6 @@ import Topbar from '../components/Topbar'
 import {
   IconAlertTriangle,
   IconBox,
-  IconChartBar,
   IconDownload,
   IconFilter,
   IconPackage,
@@ -101,7 +100,8 @@ function parseItems(items) {
 }
 
 function productName(item) {
-  return item?.productName || item?.product_name || item?.name || item?.product || 'Produto'
+  const name = item?.productName || item?.product_name || item?.name || item?.product || 'Produto'
+  return String(name).replace(/\s+-\s*$/, '').trim()
 }
 
 function productQty(item) {
@@ -109,11 +109,23 @@ function productQty(item) {
 }
 
 function productSubtotal(item) {
-  return Number(item?.subtotal || item?.total || item?.value || 0)
+  return Number(item?.product_total ?? item?.subtotal ?? item?.total ?? item?.value ?? 0)
+}
+
+function productCode(item) {
+  return String(item?.product_code || item?.code || '').trim()
+}
+
+function catalogProductCode(product) {
+  if (!product?.ultra_codproduto) return ''
+  return `${product.ultra_codproduto}/${product.ultra_codproduto_clas || 1}`
 }
 
 function getCategoria(produto) {
-  const raw = String(produto?.category || produto?.categoria || produto?.line || produto?.linha || '').trim()
+  const raw = String(
+    produto?.category || produto?.categoria || produto?.line || produto?.linha ||
+    produto?.raw?.DSCGRUPO_N1 || produto?.raw?.dscgrupo_n1 || ''
+  ).trim()
 
   if (raw) return raw
 
@@ -194,31 +206,28 @@ function Empty({ children = 'Sem dados para exibir' }) {
 
 export default function Produtos() {
   const [periodo, setPeriodo] = useState('mes')
-  const [segmento, setSegmento] = useState('todos')
   const [categoria, setCategoria] = useState('todos')
   const [sales, setSales] = useState([])
   const [salesAnt, setSalesAnt] = useState([])
   const [salesHistorico, setSalesHistorico] = useState([])
   const [produtos, setProdutos] = useState([])
-  const [farms, setFarms] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
     carregarBase()
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
     carregarVendas()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodo])
 
   async function carregarBase() {
-    const [prodRes, farmsRes] = await Promise.all([
-      supabaseAdmin.from('products').select('*').eq('active', true).order('name'),
-      supabaseAdmin.from('farms').select('id,name,segment'),
-    ])
+    const prodRes = await supabaseAdmin.from('products').select('*').eq('active', true).order('name')
 
     setProdutos(prodRes.data || [])
-    setFarms(farmsRes.data || [])
   }
 
   async function carregarVendas() {
@@ -231,29 +240,26 @@ export default function Produtos() {
       histIni.setMonth(histIni.getMonth() - 5)
       histIni.setDate(1)
 
-      const [rAtual, rAnt, rHist] = await Promise.all([
-        supabaseAdmin
-          .from('sales')
-          .select('*')
-          .gte('sale_date', toISO(ini))
-          .lte('sale_date', toISO(fim)),
+      const earliest = new Date(Math.min(iniAnt.getTime(), histIni.getTime()))
+      const result = await supabaseAdmin
+        .from('fiscal_documents')
+        .select('ultra_document_id,issue_date,partner_id,partner_name,movement_type,fiscal_document_items(item_number,product_code,product_name,quantity,unit,unit_value,product_total,raw)')
+        .gte('issue_date', toISO(earliest))
+        .lte('issue_date', toISO(new Date()))
 
-        supabaseAdmin
-          .from('sales')
-          .select('*')
-          .gte('sale_date', toISO(iniAnt))
-          .lte('sale_date', toISO(fimAnt)),
+      if (result.error) throw result.error
 
-        supabaseAdmin
-          .from('sales')
-          .select('*')
-          .gte('sale_date', toISO(histIni))
-          .lte('sale_date', toISO(new Date())),
-      ])
+      const documentos = (result.data || []).map(doc => ({
+        ...doc,
+        sale_date: doc.issue_date,
+        farm_id: doc.partner_id ? `ultra:${doc.partner_id}` : doc.partner_name,
+        items: doc.fiscal_document_items || [],
+      }))
+      const dentro = (doc, inicio, final) => doc.issue_date >= toISO(inicio) && doc.issue_date <= toISO(final)
 
-      setSales(rAtual.data || [])
-      setSalesAnt(rAnt.data || [])
-      setSalesHistorico(rHist.data || [])
+      setSales(documentos.filter(doc => dentro(doc, ini, fim)))
+      setSalesAnt(documentos.filter(doc => dentro(doc, iniAnt, fimAnt)))
+      setSalesHistorico(documentos.filter(doc => doc.issue_date >= toISO(histIni)))
     } catch (err) {
       console.error('Erro ao carregar produtos:', err)
       setSales([])
@@ -265,25 +271,17 @@ export default function Produtos() {
   }
 
   const dados = useMemo(() => {
-    const farmById = new Map(farms.map(f => [f.id, f]))
-    const productByName = new Map(produtos.map(p => [String(p.name || '').toLowerCase(), p]))
-
-    const filtrarSale = sale => {
-      if (segmento === 'todos') return true
-      const farm = farmById.get(sale.farm_id)
-      return String(farm?.segment || '').toLowerCase() === segmento
-    }
+    const productByName = new Map(produtos.map(p => [productName(p).toLowerCase(), p]))
+    const productByCode = new Map(produtos.map(p => [catalogProductCode(p), p]).filter(([code]) => code))
 
     const agregar = base => {
       const itemMap = {}
 
-      base.filter(filtrarSale).forEach(sale => {
-        const farm = farmById.get(sale.farm_id)
-
+      base.forEach(sale => {
         parseItems(sale.items).forEach(item => {
           const name = productName(item)
-          const produto = productByName.get(String(name).toLowerCase())
-          const cat = getCategoria(produto || { name })
+          const produto = productByCode.get(productCode(item)) || productByName.get(String(name).toLowerCase())
+          const cat = getCategoria(produto || { name, raw: item.raw })
 
           if (categoria !== 'todos' && String(cat).toLowerCase() !== categoria) return
 
@@ -308,7 +306,7 @@ export default function Produtos() {
 
           if (sale.farm_id) itemMap[name].fazendasSet.add(sale.farm_id)
 
-          const seg = farm?.segment || '—'
+          const seg = sale.partner_name || 'Cliente não identificado'
           itemMap[name].segmentos[seg] = (itemMap[name].segmentos[seg] || 0) + subtotal
         })
       })
@@ -340,8 +338,12 @@ export default function Produtos() {
       })
       .map(p => p.name)
 
-    const produtosComVenda = new Set(porProduto.map(p => p.name))
-    const semVenda = produtosAtivos.filter(p => !produtosComVenda.has(p))
+    const codigosComVenda = new Set(sales.flatMap(sale => parseItems(sale.items).map(productCode)).filter(Boolean))
+    const nomesComVenda = new Set(porProduto.map(p => p.name.toLowerCase()))
+    const semVenda = produtos
+      .filter(p => produtosAtivos.includes(p.name))
+      .filter(p => !codigosComVenda.has(catalogProductCode(p)) && !nomesComVenda.has(productName(p).toLowerCase()))
+      .map(p => p.name)
     const totalQtd = porProduto.reduce((a, p) => a + p.qty, 0)
     const totalQtdAnt = porProdutoAnt.reduce((a, p) => a + p.qty, 0)
     const totalPedidos = porProduto.reduce((a, p) => a + p.pedidos, 0)
@@ -373,7 +375,7 @@ export default function Produtos() {
     const top3 = porProduto.slice(0, 3).map(p => p.name)
     const mesesMap = {}
 
-    salesHistorico.filter(filtrarSale).forEach(sale => {
+    salesHistorico.forEach(sale => {
       const mes = sale.sale_date?.slice(0, 7)
       if (!mes) return
 
@@ -402,7 +404,7 @@ export default function Produtos() {
       .sort((a, b) => a.mes.localeCompare(b.mes))
       .slice(-6)
 
-    const categoriasDisponiveis = [...new Set(produtos.map(getCategoria))]
+    const categoriasDisponiveis = [...new Set([...produtos.map(getCategoria), ...porProduto.map(p => p.categoria)])]
       .filter(Boolean)
       .sort()
 
@@ -422,7 +424,7 @@ export default function Produtos() {
       top3,
       categoriasDisponiveis,
     }
-  }, [sales, salesAnt, salesHistorico, produtos, farms, segmento, categoria])
+  }, [sales, salesAnt, salesHistorico, produtos, categoria])
 
   const receitaMax = Math.max(...dados.porProduto.map(p => p.receita), 1)
   const qtyMax = Math.max(...dados.porProduto.map(p => p.qty), 1)
@@ -474,13 +476,6 @@ export default function Produtos() {
               <option value="trimestre">Trimestre</option>
               <option value="semestre">Semestre</option>
               <option value="ano">Ano</option>
-            </select>
-
-            <select value={segmento} onChange={e => setSegmento(e.target.value)}>
-              <option value="todos">Todos os segmentos</option>
-              <option value="leite">Leite</option>
-              <option value="corte">Corte</option>
-              <option value="suinos">Suínos</option>
             </select>
 
             <select value={categoria} onChange={e => setCategoria(e.target.value)}>
