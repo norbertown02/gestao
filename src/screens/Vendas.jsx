@@ -27,6 +27,8 @@ const dateBR = value => value
   : '—'
 
 const sellerKey = row => row.seller_id || (row.ultra_salesman_id ? `ultra:${row.ultra_salesman_id}` : null)
+const isValidOrder = row => !['cancelado', 'cancelado_apos_faturamento', 'estornado'].includes(row.order_stage)
+  && Math.abs(Number(row.fiscal_returned_value || 0)) === 0
 
 const currentMonth = () => {
   const now = new Date()
@@ -144,11 +146,10 @@ export default function Vendas() {
   }, [orders, documents, portfolio])
 
   const summary = useMemo(() => {
-    const generated = orders.reduce((sum, row) => sum + Number(row.order_value || 0), 0)
+    const validOrders = orders.filter(isValidOrder)
+    const generated = validOrders.reduce((sum, row) => sum + Number(row.order_value || 0), 0)
     const reversedOrders = orders.filter(row => row.order_stage === 'estornado')
-    const valid = orders
-      .filter(row => !['cancelado', 'cancelado_apos_faturamento', 'estornado'].includes(row.order_stage))
-      .reduce((sum, row) => sum + Number(row.order_value || 0), 0)
+    const valid = generated
     const salesDocs = documents.filter(row => row.movement_type === 'venda')
     const returnDocs = documents.filter(row => row.movement_type === 'devolucao')
     const grossBilling = salesDocs.reduce((sum, row) => sum + Number(row.document_total || 0), 0)
@@ -158,6 +159,7 @@ export default function Vendas() {
     return {
       generated,
       valid,
+      validOrderCount: validOrders.length,
       reversedCount: reversedOrders.length,
       reversedValue: reversedOrders.reduce((sum, row) => sum + Number(row.order_value || 0), 0),
       invoices: salesDocs.length,
@@ -176,7 +178,7 @@ export default function Vendas() {
       const suffix = `-${String(day).padStart(2, '0')}`
       return {
         dia: String(day).padStart(2, '0'),
-        Pedidos: orders.filter(row => row.sale_date?.endsWith(suffix)).reduce((sum, row) => sum + Number(row.order_value || 0), 0),
+        Pedidos: orders.filter(row => row.sale_date?.endsWith(suffix) && isValidOrder(row)).reduce((sum, row) => sum + Number(row.order_value || 0), 0),
         Faturamento: documents.filter(row => row.issue_date?.endsWith(suffix)).reduce((sum, row) => sum + Number(row.document_total || 0), 0),
       }
     })
@@ -241,7 +243,7 @@ export default function Vendas() {
             <p>O pedido mede o trabalho vendido. A nota confirma o faturamento. A carteira mostra o que ainda falta realizar.</p>
           </header>
           <div className="commerce-flow" aria-label="Fluxo comercial do mês">
-            <div><span>Pedidos gerados</span><strong>{money(summary.generated)}</strong><small>{integer(orders.length)} pedidos</small></div>
+            <div><span>Pedidos válidos</span><strong>{money(summary.generated)}</strong><small>{integer(summary.validOrderCount)} pedidos sem devolução</small></div>
             <IconArrowUpRight size={22} />
             <div><span>Faturamento líquido</span><strong>{money(summary.netBilling)}</strong><small>{integer(summary.invoices)} notas de venda</small></div>
             <IconArrowDownRight size={22} />
@@ -250,7 +252,7 @@ export default function Vendas() {
         </section>
 
         <section className="commerce-metrics">
-          <Metric icon={IconShoppingCart} label="Pedidos válidos" value={money(summary.valid)} note="Exclui cancelados e estornados" tone="blue" />
+          <Metric icon={IconShoppingCart} label="Pedidos válidos" value={money(summary.valid)} note="Exclui cancelados, estornados e devolvidos" tone="blue" />
           <Metric icon={IconFileInvoice} label="Faturamento bruto" value={money(summary.grossBilling)} note="Notas emitidas no mês" tone="orange" />
           <Metric icon={IconRotateClockwise} label="Devoluções" value={money(summary.returns)} note={`${summary.reversedCount} pedido(s) totalmente estornado(s)`} tone="red" />
           <Metric icon={IconCash} label="Faturamento líquido" value={money(summary.netBilling)} note="Vendas menos devoluções" tone="ink" />
@@ -276,7 +278,7 @@ export default function Vendas() {
           <div className="commerce-columns">
             <section className="commerce-panel commerce-panel-wide">
               <div className="commerce-panel-head">
-                <div><span>Pedidos gerados</span><h3>Pedidos do mês</h3></div>
+                <div><span>Pedidos do mês</span><h3>Valor líquido de pedidos válidos</h3></div>
                 <strong>{money(summary.generated)}</strong>
               </div>
               <div className="commerce-table-wrap">

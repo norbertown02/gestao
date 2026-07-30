@@ -13,6 +13,8 @@ const shortMoney = value => {
 }
 const integer = value => Number(value || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
 const iso = date => date.toISOString().slice(0, 10)
+const isValidOrder = row => !['cancelado', 'cancelado_apos_faturamento', 'estornado'].includes(row.order_stage)
+  && Math.abs(Number(row.fiscal_returned_value || 0)) === 0
 
 function rangeFor(year, type, index) {
   const sizes = { bimestre: 2, trimestre: 3, semestre: 6, ano: 12 }
@@ -62,7 +64,7 @@ export default function Dashboard() {
     async function load() {
       setLoading(true)
       const [salesResult, docsResult, goalsResult, portfolioResult] = await Promise.all([
-        supabaseAdmin.from('sales').select('id,sale_date,total,seller_id,ultra_salesman_id,ultra_salesman_name,quantity_ordered').gte('sale_date', iso(range.previousStart)).lte('sale_date', iso(range.end)),
+        supabaseAdmin.from('management_order_overview').select('id,sale_date,order_value,order_stage,fiscal_returned_value,seller_id,ultra_salesman_id,ultra_salesman_name,quantity_ordered').gte('sale_date', iso(range.previousStart)).lte('sale_date', iso(range.end)),
         supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,seller_id,ultra_salesman_id,salesman_name,fiscal_document_items(quantity)').gte('issue_date', iso(range.previousStart)).lte('issue_date', iso(range.end)),
         supabaseAdmin.from('goals').select('ano,mes,meta_fat,seller_id').gte('ano', range.previousStart.getFullYear()).lte('ano', range.end.getFullYear()),
         supabaseAdmin.from('management_open_order_portfolio').select('open_value,quantity_open'),
@@ -78,8 +80,8 @@ export default function Dashboard() {
 
   const data = useMemo(() => {
     const between = (value, start, end) => value >= iso(start) && value <= iso(end)
-    const currentSales = sales.filter(row => between(row.sale_date, range.start, range.end))
-    const previousSales = sales.filter(row => between(row.sale_date, range.previousStart, range.previousEnd))
+    const currentSales = sales.filter(row => between(row.sale_date, range.start, range.end) && isValidOrder(row))
+    const previousSales = sales.filter(row => between(row.sale_date, range.previousStart, range.previousEnd) && isValidOrder(row))
     const currentDocs = documents.filter(row => between(row.issue_date, range.start, range.end))
     const previousDocs = documents.filter(row => between(row.issue_date, range.previousStart, range.previousEnd))
     const currentGoals = goals.filter(goal => {
@@ -90,8 +92,8 @@ export default function Dashboard() {
       const date = `${goal.ano}-${String(goal.mes).padStart(2, '0')}-01`
       return between(date, range.previousStart, range.previousEnd)
     })
-    const orderValue = currentSales.reduce((sum, row) => sum + Number(row.total || 0), 0)
-    const previousOrderValue = previousSales.reduce((sum, row) => sum + Number(row.total || 0), 0)
+    const orderValue = currentSales.reduce((sum, row) => sum + Number(row.order_value || 0), 0)
+    const previousOrderValue = previousSales.reduce((sum, row) => sum + Number(row.order_value || 0), 0)
     const billing = currentDocs.reduce((sum, row) => sum + Number(row.document_total || 0), 0)
     const previousBilling = previousDocs.reduce((sum, row) => sum + Number(row.document_total || 0), 0)
     const goal = currentGoals.reduce((sum, row) => sum + Number(row.meta_fat || 0), 0)
@@ -104,7 +106,7 @@ export default function Dashboard() {
       series.push({
         key,
         label: cursor.toLocaleDateString('pt-BR', { month: 'short', year: range.size === 12 ? '2-digit' : undefined }).replace('.', ''),
-        Pedidos: currentSales.filter(row => row.sale_date?.startsWith(key)).reduce((sum, row) => sum + Number(row.total || 0), 0),
+        Pedidos: currentSales.filter(row => row.sale_date?.startsWith(key)).reduce((sum, row) => sum + Number(row.order_value || 0), 0),
         Faturamento: currentDocs.filter(row => row.issue_date?.startsWith(key)).reduce((sum, row) => sum + Number(row.document_total || 0), 0),
         Meta: currentGoals.filter(row => row.ano === cursor.getFullYear() && row.mes === cursor.getMonth() + 1).reduce((sum, row) => sum + Number(row.meta_fat || 0), 0),
       })
