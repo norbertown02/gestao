@@ -25,6 +25,8 @@ const dateBR = value => value
   ? new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR')
   : '—'
 
+const sellerKey = row => row.seller_id || (row.ultra_salesman_id ? `ultra:${row.ultra_salesman_id}` : null)
+
 const currentMonth = () => {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -84,7 +86,7 @@ export default function Vendas() {
 
     let fiscalQuery = supabase
       .from('fiscal_documents')
-      .select('ultra_document_id,invoice_number,issue_date,partner_name,seller_id,salesman_name,operation_nature,movement_type,document_total')
+      .select('ultra_document_id,invoice_number,issue_date,partner_name,seller_id,ultra_salesman_id,salesman_name,operation_nature,movement_type,document_total')
       .gte('issue_date', start)
       .lte('issue_date', end)
       .order('issue_date', { ascending: false })
@@ -95,9 +97,12 @@ export default function Vendas() {
       .order('sale_date', { ascending: true })
 
     if (seller !== 'todos') {
-      ordersQuery = ordersQuery.eq('seller_id', seller)
-      fiscalQuery = fiscalQuery.eq('seller_id', seller)
-      portfolioQuery = portfolioQuery.eq('seller_id', seller)
+      const isUltraSeller = seller.startsWith('ultra:')
+      const field = isUltraSeller ? 'ultra_salesman_id' : 'seller_id'
+      const value = isUltraSeller ? Number(seller.slice(6)) : seller
+      ordersQuery = ordersQuery.eq(field, value)
+      fiscalQuery = fiscalQuery.eq(field, value)
+      portfolioQuery = portfolioQuery.eq(field, value)
     }
 
     const [ordersResult, fiscalResult, portfolioResult] = await Promise.all([
@@ -131,7 +136,8 @@ export default function Vendas() {
   const sellers = useMemo(() => {
     const map = new Map()
     ;[...orders, ...documents, ...portfolio].forEach(row => {
-      if (row.seller_id) map.set(row.seller_id, row.ultra_salesman_name || row.salesman_name || 'Vendedor')
+      const key = sellerKey(row)
+      if (key) map.set(key, row.ultra_salesman_name || row.salesman_name || 'Vendedor')
     })
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
   }, [orders, documents, portfolio])

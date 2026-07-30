@@ -160,6 +160,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
     carregar()
   }, [])
 
@@ -179,7 +180,7 @@ export default function Dashboard() {
         salesMes,
         salesAnt,
         visitsMes,
-        visitsAnt,
+        ,
         farms,
         quotes,
         profiles,
@@ -204,7 +205,6 @@ export default function Dashboard() {
       const sm = dataOf(salesMes)
       const sa = dataOf(salesAnt)
       const vm = dataOf(visitsMes)
-      const va = dataOf(visitsAnt)
       const fs = dataOf(farms)
       const qs = dataOf(quotes)
       const sellers = dataOf(profiles)
@@ -288,14 +288,14 @@ export default function Dashboard() {
       const vMap = {}
 
       sm.forEach(s => {
-        const k = s.seller_id || 'geral'
+        const k = s.seller_id || (s.ultra_salesman_id ? `ultra:${s.ultra_salesman_id}` : 'geral')
 
         if (!vMap[k]) {
           const seller = sellers.find(p => p.id === k)
 
           vMap[k] = {
             id: k,
-            name: seller?.name || seller?.email || (k === 'geral' ? 'Geral' : 'Sem vendedor'),
+            name: seller?.name || seller?.email || s.ultra_salesman_name || (k === 'geral' ? 'Geral' : 'Vendedor não vinculado'),
             total: 0,
             pedidos: 0,
           }

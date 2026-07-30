@@ -7,7 +7,6 @@ import {
   IconChartBar,
   IconChevronDown,
   IconChevronUp,
-  IconClock,
   IconDownload,
   IconFilter,
   IconMapPin,
@@ -16,7 +15,6 @@ import {
   IconTrendingDown,
   IconTrendingUp,
   IconUser,
-  IconUsers,
   IconWallet,
 } from '@tabler/icons-react'
 import {
@@ -98,17 +96,6 @@ function diasDesde(data) {
     return Math.max(0, Math.floor((new Date() - new Date(safe)) / 86400000))
   } catch {
     return 999
-  }
-}
-
-function dataBR(data) {
-  if (!data) return '—'
-
-  try {
-    const safe = String(data).length === 10 ? `${data}T12:00:00` : data
-    return new Date(safe).toLocaleDateString('pt-BR')
-  } catch {
-    return '—'
   }
 }
 
@@ -202,11 +189,14 @@ export default function Vendedores() {
   const [detalheId, setDetalheId] = useState(null)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
     carregarBase()
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
     carregarPeriodo()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodo])
 
   async function carregarBase() {
@@ -267,6 +257,7 @@ export default function Vendedores() {
 
   const dados = useMemo(() => {
     const sellerById = new Map(sellers.map(s => [s.id, s]))
+    const saleSellerKey = sale => sale.seller_id || (sale.ultra_salesman_id ? `ultra:${sale.ultra_salesman_id}` : null)
     const sellersAtivos = sellers.filter(s => s.id)
     const farmById = new Map(farms.map(f => [f.id, f]))
 
@@ -300,17 +291,23 @@ export default function Vendedores() {
 
     const sellerIdsAtivos = new Set([
       ...sellersAtivos.map(s => s.id),
-      ...vendas.map(s => s.seller_id),
+      ...vendas.map(saleSellerKey),
       ...visitas.map(v => v.seller_id || v.user_id || v.created_by),
       ...cotacoes.map(q => q.seller_id),
       ...carteiraFiltrada.map(f => f.seller_id),
     ].filter(Boolean))
 
     const rows = [...sellerIdsAtivos].map(id => {
-      const seller = sellerById.get(id) || { id, name: 'Desconhecido', email: '' }
+      const ultraSale = vendas.find(s => saleSellerKey(s) === id) || vendasAnt.find(s => saleSellerKey(s) === id)
+      const seller = sellerById.get(id) || {
+        id,
+        name: ultraSale?.ultra_salesman_name || 'Vendedor não vinculado',
+        email: '',
+        ultra_salesman_id: ultraSale?.ultra_salesman_id || null,
+      }
       const fazendas = carteiraFiltrada.filter(f => f.seller_id === id)
-      const vendasSeller = vendas.filter(s => s.seller_id === id)
-      const vendasSellerAnt = vendasAnt.filter(s => s.seller_id === id)
+      const vendasSeller = vendas.filter(s => saleSellerKey(s) === id)
+      const vendasSellerAnt = vendasAnt.filter(s => saleSellerKey(s) === id)
       const visitasSeller = visitas.filter(v => (v.seller_id || v.user_id || v.created_by) === id)
       const visitasSellerAnt = visitasAnt.filter(v => (v.seller_id || v.user_id || v.created_by) === id)
       const cotacoesSeller = cotacoes.filter(q => q.seller_id === id)
@@ -440,13 +437,12 @@ export default function Vendedores() {
       barData,
       totalCarteira: carteiraFiltrada.length,
     }
-  }, [sellers, farms, sales, salesAnt, visits, visitsAnt, quotes, quotesAnt, checklists, periodo, segmento])
+  }, [sellers, farms, sales, salesAnt, visits, visitsAnt, quotes, quotesAnt, checklists, segmento])
 
   const topFatMax = Math.max(...dados.topFaturamento.map(v => v.fat), 1)
   const topConvMax = Math.max(...dados.topConversao.map(v => v.txConversao), 1)
   const topVisitasMax = Math.max(...dados.topVisitas.map(v => v.visitas), 1)
   const riscoMax = Math.max(...dados.risco.map(v => v.clientesRisco), 1)
-  const sellerDetalhe = detalheId ? dados.vendedores.find(s => s.id === detalheId) : null
 
   function exportCSV() {
     const rows = [
