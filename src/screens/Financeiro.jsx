@@ -215,7 +215,7 @@ export default function Financeiro() {
     const custoFinanceiro = grupoTotais.get('BANCARIAS') || 0
 
     return {
-      months, last, prev, totalReceitas, totalCustosVariaveis, totalMargem, totalCustosFixos, totalResultadoLiquido,
+      months, last, prev, totalReceitas, totalCustosVariaveis, totalMargem, totalCustosFixos, custosFixosMedioMensal, totalResultadoLiquido,
       avgMargemPct: totalReceitas ? totalMargem / totalReceitas * 100 : 0,
       balanco, balanceMetrics, competencia, closing,
       despesasPorGrupo, receitaCaixaOperacional, despesaCaixaOperacional,
@@ -331,6 +331,8 @@ export default function Financeiro() {
         <Kpi icon={IconPercentage} label="Margem líquida" value={pct(data.totalReceitas ? data.totalResultadoLiquido / data.totalReceitas * 100 : 0)} note={`acumulado do ano · ${shortMoney(data.totalResultadoLiquido)}`} tone={data.totalResultadoLiquido >= 0 ? 'ok' : 'risk'} />
         <Kpi icon={IconUsers} label="Folha sobre receita" value={pct(data.payrollPct)} note={`${shortMoney(data.payrollTotal)} acumulado no período`} tone={data.payrollPct > 25 ? 'risk' : ''} />
         <Kpi icon={IconCoins} label="Custo financeiro acumulado" value={shortMoney(data.custoFinanceiro)} note="juros, IOF e tarifas bancárias" />
+        <Kpi icon={IconCoins} label="Custos fixos totais" value={shortMoney(data.totalCustosFixos)} note={`soma de ${data.months.length} meses`} />
+        <Kpi icon={IconCoins} label="Custos fixos médios" value={shortMoney(data.custosFixosMedioMensal)} note={`${shortMoney(data.totalCustosFixos)} ÷ ${data.months.length} meses`} />
         <Kpi icon={IconScale} label="Ponto de equilíbrio médio" value={shortMoney(data.peMedio)} note="custo fixo médio ÷ margem de contribuição do período" tone={data.mesesAcimaPE >= data.months.length / 2 ? 'ok' : 'risk'} />
       </section>
 
