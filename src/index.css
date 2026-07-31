@@ -1788,7 +1788,7 @@ td,
 
 .dash-kpi-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(208px, 1fr));
   gap: 14px;
 }
 
@@ -1801,6 +1801,8 @@ td,
   border: 1px solid rgba(230,223,215,.82);
   box-shadow: 0 12px 28px rgba(35,25,15,.045);
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 .dash-kpi-card:hover {
@@ -1826,12 +1828,16 @@ td,
 
 .dash-kpi-card > strong {
   display: block;
-  font-size: 27px;
-  line-height: 1;
-  letter-spacing: -0.05em;
-  font-weight: 620;
+  font-size: 22px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 650;
   color: var(--text);
   margin-bottom: 8px;
+  white-space: normal;
+  overflow-wrap: break-word;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .dash-kpi-card small {
@@ -8547,8 +8553,10 @@ td,
 .commerce-daily-chart { margin-bottom: 16px; padding-bottom: 12px; }
 .commerce-daily-chart .commerce-panel-head small { color: var(--text-faint); white-space: nowrap; }
 
-/* números executivos nunca devem quebrar em duas linhas */
-:is(.dash-kpi-card,.commerce-metric,.produtos-kpi,.vendedores-kpi,.regioes-kpi,.goals-kpis article,.stock-metric) strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* números executivos nunca devem quebrar em duas linhas -- exceto no Financeiro/DRE
+   (.dash-kpi-card), onde valores em R$ podem ser mais longos que o card e cortar
+   dígito era pior que quebrar linha */
+:is(.commerce-metric,.produtos-kpi,.vendedores-kpi,.regioes-kpi,.goals-kpis article,.stock-metric) strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .commerce-metrics { grid-template-columns: repeat(5, minmax(190px, 1fr)); overflow-x: auto; }
 .produtos-kpi-grid, .vendedores-kpi-grid, .regioes-kpi-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
 

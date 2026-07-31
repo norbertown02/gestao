@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   IconAlertTriangle, IconArrowRight, IconBuildingBank,
   IconClockDollar, IconCoins, IconCreditCard, IconInvoice, IconPackage, IconPercentage,
-  IconReceipt2, IconScale, IconTicket, IconUserPlus, IconUsers, IconWallet,
+  IconScale, IconUsers, IconWallet,
 } from '@tabler/icons-react'
 import { Bar, CartesianGrid, Cell, ComposedChart, Legend, Line, LineChart, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import Topbar from '../components/Topbar'
@@ -307,16 +307,6 @@ export default function Financeiro() {
           </LineChart>
         </ResponsiveContainer>
       </section>
-
-      {data.mgrLast && <>
-        <div className="macro-section-title macro-section-title-compact"><div><span>Comercial</span><h3>Ticket, novos clientes e caixa — {data.mgrLast.label}/26</h3></div></div>
-        <section className="dash-kpi-row">
-          <Kpi icon={IconTicket} label="Ticket médio por venda" value={shortMoney(data.mgrLast.ticket_medio_venda)} note={`${data.mgrLast.qtd_vendas} vendas no mês`} />
-          <Kpi icon={IconUserPlus} label="Novos clientes" value={data.mgrLast.qtd_novos_clientes} note={`${data.mgrLast.qtd_clientes} clientes ativos no mês`} />
-          <Kpi icon={IconReceipt2} label="Recebimentos de caixa" value={shortMoney(data.mgrLast.caixa_recebimentos)} note={`pagamentos: ${shortMoney(data.mgrLast.caixa_pagamentos)}`} />
-          <Kpi icon={IconBuildingBank} label="Saldo em bancos" value={shortMoney(data.mgrLast.bancos_saldo)} note={data.mgrFirst ? `${data.mgrFirst.label}/26 estava em ${shortMoney(data.mgrFirst.bancos_saldo)}` : 'posição no fim do mês'} tone={data.mgrLast.bancos_saldo >= (data.mgrFirst?.bancos_saldo || 0) ? 'ok' : 'risk'} />
-        </section>
-      </>}
 
       <div className="macro-section-title macro-section-title-compact"><div><span>Despesas</span><h3>Regime de caixa, acumulado do período</h3></div><Link to="/dre" className="btn btn-ghost btn-sm">Ver DRE mês a mês →</Link></div>
       <section className="dash-main-grid">
