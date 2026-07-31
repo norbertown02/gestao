@@ -136,9 +136,22 @@ export default function Financeiro() {
       const apVencidoTotal = Number(balanco.contas_pagar_vencido_curto) + Number(balanco.contas_pagar_vencido_medio)
       const apVencidoPct = Number(balanco.contas_pagar_total) ? apVencidoTotal / Number(balanco.contas_pagar_total) * 100 : 0
       const apLongoPct = Number(balanco.contas_pagar_total) ? passivoNaoCirculante / Number(balanco.contas_pagar_total) * 100 : 0
+
+      // Casa o vencimento de contas a receber com o de contas a pagar, faixa a faixa, pra achar
+      // onde exatamente o caixa aperta -- uma liquidez corrente "ok" no total pode esconder uma
+      // faixa de prazo com muito mais saindo do que entrando.
+      const apVencidoCurto = Number(balanco.contas_pagar_vencido_curto) + Number(balanco.contas_pagar_vencido_medio)
+      const buckets = [
+        { label: 'Vencido', ar: Number(balanco.contas_receber_vencido), ap: apVencidoCurto },
+        { label: 'Até 90 dias', ar: Number(balanco.contas_receber_a_vencer_curto), ap: Number(balanco.contas_pagar_a_vencer_curto) },
+        { label: 'Até 360 dias', ar: Number(balanco.contas_receber_a_vencer_medio), ap: Number(balanco.contas_pagar_a_vencer_medio) },
+        { label: 'Longo prazo', ar: 0, ap: Number(balanco.contas_pagar_a_vencer_longo) },
+      ].map(b => ({ ...b, gap: b.ar - b.ap }))
+      const piorFaixa = buckets.reduce((worst, b) => b.gap < worst.gap ? b : worst, buckets[0])
+
       balanceMetrics = {
         ativoCirculante, passivoCirculante, passivoNaoCirculante, liquidezCorrente, liquidezSeca, endividamento,
-        arVencidoPct, apVencidoPct, apVencidoTotal, apLongoPct,
+        arVencidoPct, apVencidoPct, apVencidoTotal, apLongoPct, buckets, piorFaixa,
         patrimonioLiquido: Number(balanco.lucro_prejuizo_acumulado),
         capitalGiroLiquido: ativoCirculante - passivoCirculante,
       }
@@ -200,6 +213,7 @@ export default function Financeiro() {
     if (!data?.balanceMetrics) return []
     const { balanceMetrics: bm, last, prev, totalResultadoLiquido } = data
     const list = []
+    if (bm.piorFaixa && bm.piorFaixa.gap < 0) list.push({ tone: 'risk', title: `Aperto concentrado em "${bm.piorFaixa.label}": faltam ${shortMoney(Math.abs(bm.piorFaixa.gap))}`, text: `Nessa faixa de vencimento a empresa tem ${shortMoney(bm.piorFaixa.ar)} a receber contra ${shortMoney(bm.piorFaixa.ap)} a pagar. É aqui que o caixa vai apertar primeiro, mesmo que a liquidez total pareça administrável.` })
     if (bm.patrimonioLiquido < 0) list.push({ tone: 'risk', title: `Patrimônio líquido negativo: ${shortMoney(bm.patrimonioLiquido)}`, text: 'O prejuízo acumulado supera o capital social — sob a ótica contábil a empresa opera com passivo a descoberto, financiada essencialmente por fornecedores e terceiros.' })
     if (bm.liquidezCorrente < 1) list.push({ tone: 'risk', title: `Liquidez corrente de ${bm.liquidezCorrente.toFixed(2)}x`, text: `Para cada R$ 1,00 de contas a pagar até 360 dias, a empresa tem R$ ${bm.liquidezCorrente.toFixed(2)} em caixa, recebíveis e estoque. O descoberto é de ${shortMoney(bm.passivoCirculante - bm.ativoCirculante)}.` })
     if (bm.apVencidoTotal > 0) list.push({ tone: bm.apVencidoPct > 5 ? 'risk' : 'warn', title: `${shortMoney(bm.apVencidoTotal)} em contas a pagar vencidas`, text: `Equivale a ${pct(bm.apVencidoPct)} do total a pagar, contra apenas ${pct(bm.arVencidoPct)} de inadimplência nos recebíveis — a empresa está mais atrasada com fornecedores do que seus clientes estão com ela.` })
@@ -375,16 +389,21 @@ export default function Financeiro() {
         </section>
       </>}
 
-      <div className="macro-section-title macro-section-title-compact"><div><span>Balanço patrimonial</span><h3>Composição de ativo e passivo</h3></div></div>
-      <section className="dash-bottom-grid">
+      <div className="macro-section-title macro-section-title-compact"><div><span>Balanço patrimonial</span><h3>Composição de ativo e passivo, faixa a faixa</h3></div></div>
+      <section className="dash-two-col">
         <div className="card">
           <div className="dash-card-head"><h3>Ativo</h3><small>{money(balanco.ativo_total)}</small></div>
+          <div className="dash-stat-duo">
+            <div className="dash-stat-mini"><span>Disponibilidades</span><strong>{money(balanco.disponibilidades)}</strong></div>
+            <div className="dash-stat-mini"><span>Estoque</span><strong>{money(balanco.estoque)}</strong></div>
+          </div>
+          <div className="dash-segment-head">Contas a receber — {money(balanco.contas_receber_total)}</div>
           <div className="dash-segment-list">
             {[
-              { label: 'Disponibilidades', value: balanco.disponibilidades, color: '#E87722' },
-              { label: 'Contas a receber', value: balanco.contas_receber_total, color: '#426A8C' },
-              { label: 'Estoque', value: balanco.estoque, color: '#C87812' },
-            ].map(seg => <div key={seg.label} className="dash-segment-item"><strong>{seg.label}</strong><span>{money(seg.value)} · {pct(Number(seg.value) / Number(balanco.ativo_total) * 100)}</span><div className="dash-segment-bar"><span style={{ width: `${Number(seg.value) / Number(balanco.ativo_total) * 100}%`, background: seg.color }} /></div></div>)}
+              { label: 'Vencido', value: balanco.contas_receber_vencido, color: '#C93A32' },
+              { label: 'A vencer até 90 dias', value: balanco.contas_receber_a_vencer_curto, color: '#C87812' },
+              { label: 'A vencer até 360 dias', value: balanco.contas_receber_a_vencer_medio, color: '#426A8C' },
+            ].map(seg => <div key={seg.label} className="dash-segment-item"><strong>{seg.label}</strong><span>{money(seg.value)} · {pct(balanco.contas_receber_total ? Number(seg.value) / Number(balanco.contas_receber_total) * 100 : 0)}</span><div className="dash-segment-bar"><span style={{ width: `${balanco.contas_receber_total ? Number(seg.value) / Number(balanco.contas_receber_total) * 100 : 0}%`, background: seg.color }} /></div></div>)}
           </div>
         </div>
         <div className="card">
@@ -398,13 +417,33 @@ export default function Financeiro() {
             ].map(seg => <div key={seg.label} className="dash-segment-item"><strong>{seg.label}</strong><span>{money(seg.value)} · {pct(Number(seg.value) / Number(balanco.contas_pagar_total) * 100)}</span><div className="dash-segment-bar"><span style={{ width: `${Number(seg.value) / Number(balanco.contas_pagar_total) * 100}%`, background: seg.color }} /></div></div>)}
           </div>
         </div>
-        <div className="dash-insights-card">
-          <div className="dash-card-head"><h3>Pontos de atenção</h3></div>
-          <div className="dash-insights-list">
-            {insights.length ? insights.map(item => <Insight key={item.title} {...item} />) : <div className="empty">Sem alertas para este fechamento.</div>}
-          </div>
+      </section>
+
+      <div className="macro-section-title macro-section-title-compact"><div><span>Aperto de caixa</span><h3>Contas a receber vs. a pagar, faixa a faixa</h3></div><small>faixa com maior descoberto: {bm.piorFaixa.label}</small></div>
+      <section className="chart-card">
+        <div className="chart-head"><div><span className="chart-title">Onde o caixa aperta primeiro</span><div className="chart-subtitle">Compara o que entra e o que sai em cada janela de vencimento — não a liquidez total, mas a liquidez por prazo</div></div></div>
+        <ResponsiveContainer width="100%" height={260}>
+          <ComposedChart data={bm.buckets} margin={{ top: 10, right: 18, left: 4, bottom: 4 }}>
+            <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} />
+            <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${Math.round(value / 1000)}k`} width={54} />
+            <Tooltip formatter={(value, name) => [money(value), name]} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Bar dataKey="ar" name="A receber" fill="#426A8C" radius={[6, 6, 0, 0]} barSize={30} />
+            <Bar dataKey="ap" name="A pagar" fill="#C93A32" radius={[6, 6, 0, 0]} barSize={30} />
+          </ComposedChart>
+        </ResponsiveContainer>
+        <div className="dash-gap-row">
+          {bm.buckets.map(b => <div key={b.label} className={`dash-gap-item ${b.gap < 0 ? 'negative' : 'positive'}`}><span>{b.label}</span><strong>{b.gap >= 0 ? '+' : ''}{shortMoney(b.gap)}</strong></div>)}
         </div>
       </section>
+
+      <div className="macro-section-title macro-section-title-compact"><div><span>Resumo</span><h3>Pontos de atenção</h3></div></div>
+      <div className="dash-insights-card">
+        <div className="dash-insights-list dash-insights-list-wide">
+          {insights.length ? insights.map(item => <Insight key={item.title} {...item} />) : <div className="empty">Sem alertas para este fechamento.</div>}
+        </div>
+      </div>
 
       <div className="dre-cta card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div><strong style={{ display: 'block', fontSize: 14, marginBottom: 3 }}>Quer o DRE mês a mês, por bimestre, trimestre ou ano?</strong><span style={{ color: 'var(--text-dim)', fontSize: 12.5 }}>A página DRE tem o demonstrativo completo, nível de conta, com filtro de período.</span></div>
