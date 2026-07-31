@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   IconAlertTriangle, IconArrowRight, IconBuildingBank,
-  IconClockDollar, IconCreditCard, IconInvoice, IconPercentage,
-  IconScale,
+  IconClockDollar, IconCoins, IconCreditCard, IconInvoice, IconPackage, IconPercentage,
+  IconScale, IconUsers, IconWallet,
 } from '@tabler/icons-react'
-import { Bar, CartesianGrid, Cell, ComposedChart, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, CartesianGrid, Cell, ComposedChart, Legend, Line, LineChart, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import Topbar from '../components/Topbar'
 import { supabaseAdmin } from '../lib/supabase'
 
@@ -108,6 +108,20 @@ export default function Financeiro() {
     const mediaReceitaMensal = totalReceitas / months.length
     const mediaCmvMensal = dre.reduce((s, r) => s + Number(r.custos_variaveis_detail?.cmv || 0), 0) / months.length
 
+    // Ponto de equilíbrio médio (custo fixo médio ÷ margem de contribuição agregada) em vez da
+    // média simples mês a mês -- um único mês com margem quase nula (ex.: fevereiro) faz o PE
+    // individual explodir matematicamente e não serve como referência.
+    const custosFixosMedioMensal = totalCustosFixos / months.length
+    const margemPctAgregada = totalReceitas ? totalMargem / totalReceitas : 0
+    const peMedio = margemPctAgregada ? custosFixosMedioMensal / margemPctAgregada : 0
+    const mesesAcimaPE = months.filter(m => m.acimaPE).length
+
+    const payrollTotal = dre.reduce((s, r) => s + Number(r.custos_fixos_detail?.funcionarios || 0) + Number(r.custos_variaveis_detail?.funcionarios || 0), 0)
+
+    const top2 = [...months].sort((a, b) => b.Receita - a.Receita).slice(0, 2)
+    const concentracaoTop2Pct = totalReceitas ? top2.reduce((s, m) => s + m.Receita, 0) / totalReceitas * 100 : 0
+    const top2Labels = top2.map(m => `${m.label}/26`).join(' e ')
+
     let balanceMetrics = null
     if (balanco) {
       const ativoCirculante = Number(balanco.disponibilidades) + Number(balanco.contas_receber_total) + Number(balanco.estoque)
@@ -127,6 +141,7 @@ export default function Financeiro() {
         ativoCirculante, passivoCirculante, passivoNaoCirculante, liquidezCorrente, liquidezSeca, endividamento,
         dso, dio, dpo, cicloFinanceiro: dso + dio - dpo, arVencidoPct, apVencidoPct, apVencidoTotal, apLongoPct,
         patrimonioLiquido: Number(balanco.lucro_prejuizo_acumulado),
+        capitalGiroLiquido: ativoCirculante - passivoCirculante,
       }
     }
 
@@ -143,6 +158,7 @@ export default function Financeiro() {
     const despesasPorGrupo = [...grupoTotais.entries()]
       .map(([grupo, value]) => ({ name: GRUPO_LABEL[grupo] || grupo, value }))
       .sort((a, b) => b.value - a.value)
+    const custoFinanceiro = grupoTotais.get('BANCARIAS') || 0
 
     return {
       months, last, prev, totalReceitas, totalCustosVariaveis, totalMargem, totalCustosFixos, totalResultadoLiquido,
@@ -150,6 +166,9 @@ export default function Financeiro() {
       balanco, balanceMetrics, competencia, closing,
       despesasPorGrupo, receitaCaixaOperacional, despesaCaixaOperacional,
       resultadoCaixaOperacional: receitaCaixaOperacional - despesaCaixaOperacional,
+      peMedio, mesesAcimaPE, concentracaoTop2Pct, top2Labels,
+      payrollTotal, payrollPct: totalReceitas ? payrollTotal / totalReceitas * 100 : 0,
+      custoFinanceiro,
     }
   }, [dre, balancos, contas, closings])
 
@@ -163,6 +182,8 @@ export default function Financeiro() {
     if (bm.cicloFinanceiro < 0) list.push({ tone: 'ok', title: `Ciclo financeiro negativo (${Math.round(bm.cicloFinanceiro)} dias)`, text: `Estimativa: recebe de clientes e gira estoque bem mais rápido do que paga fornecedores, o que alivia caixa no curto prazo. Mas ${pct(bm.apLongoPct)} das contas a pagar só vencem em prazo longo — há concentração de dívida à frente.` })
     if (prev && last.ResultadoOperacional > 0 && prev.ResultadoOperacional <= 0) list.push({ tone: 'ok', title: `${last.label}/26 fechou com resultado operacional positivo`, text: `Depois de meses no vermelho, a operação voltou a superar o ponto de equilíbrio (${shortMoney(last['Ponto de Equilíbrio'])}) com margem de contribuição de ${pct(last.margemPct)}.` })
     if (totalResultadoLiquido < 0 && last['Resultado Líquido'] > 0) list.push({ tone: 'warn', title: 'Resultado acumulado ainda negativo', text: `Mesmo com ${last.label}/26 positivo, o acumulado do período segue em ${shortMoney(totalResultadoLiquido)}. A recuperação de um mês ainda não compensa os anteriores.` })
+    if (data.concentracaoTop2Pct > 50) list.push({ tone: 'warn', title: `${data.top2Labels} concentram ${pct(data.concentracaoTop2Pct)} da receita`, text: 'Dois meses puxam a maior parte do faturamento do período — indício de vendas pontuais (grandes pedidos) em vez de um ritmo comercial recorrente. Vale entender se dá pra reproduzir isso todo mês.' })
+    list.push({ tone: data.mesesAcimaPE >= data.months.length / 2 ? 'ok' : 'warn', title: `${data.mesesAcimaPE} de ${data.months.length} meses fecharam acima do ponto de equilíbrio`, text: `Ponto de equilíbrio médio estimado em ${shortMoney(data.peMedio)}/mês. ${data.mesesAcimaPE < data.months.length ? 'Nos demais meses a receita não cobriu os custos fixos do período.' : 'Todos os meses cobriram os custos fixos do período.'}` })
     return list
   }, [data])
 
@@ -200,12 +221,27 @@ export default function Financeiro() {
       <section className="dash-kpi-row">
         <Kpi icon={IconScale} label="Liquidez corrente" value={`${bm.liquidezCorrente.toFixed(2)}x`} note="ativo circulante ÷ passivo até 360 dias" tone={bm.liquidezCorrente < 1 ? 'risk' : 'ok'} />
         <Kpi icon={IconScale} label="Liquidez seca" value={`${bm.liquidezSeca.toFixed(2)}x`} note="sem contar estoque" tone={bm.liquidezSeca < 1 ? 'risk' : 'ok'} />
+        <Kpi icon={IconWallet} label="Capital de giro líquido" value={shortMoney(bm.capitalGiroLiquido)} note="ativo circulante − passivo até 360 dias" tone={bm.capitalGiroLiquido < 0 ? 'risk' : 'ok'} />
         <Kpi icon={IconBuildingBank} label="Patrimônio líquido" value={shortMoney(bm.patrimonioLiquido)} note="lucro/prejuízo acumulado" tone={bm.patrimonioLiquido < 0 ? 'risk' : 'ok'} />
         <Kpi icon={IconCreditCard} label="Endividamento" value={pct(bm.endividamento)} note="contas a pagar ÷ ativo total" tone={bm.endividamento > 100 ? 'risk' : ''} />
-        <Kpi icon={IconClockDollar} label="Ciclo financeiro (est.)" value={`${Math.round(bm.cicloFinanceiro)} dias`} note="PMR + PME − PMP, estimado" tone={bm.cicloFinanceiro < 0 ? 'ok' : ''} />
+      </section>
+
+      <div className="macro-section-title macro-section-title-compact"><div><span>Ciclo de caixa</span><h3>Prazos médios (estimados) e inadimplência</h3></div></div>
+      <section className="dash-kpi-row">
+        <Kpi icon={IconInvoice} label="Prazo médio de recebimento" value={`${Math.round(bm.dso)} dias`} note="PMR · contas a receber ÷ receita média diária" />
+        <Kpi icon={IconPackage} label="Prazo médio de estoque" value={`${Math.round(bm.dio)} dias`} note="PME · estoque ÷ CMV médio diário" />
+        <Kpi icon={IconCreditCard} label="Prazo médio de pagamento" value={`${Math.round(bm.dpo)} dias`} note="PMP · contas a pagar ÷ CMV médio diário" />
+        <Kpi icon={IconClockDollar} label="Ciclo financeiro" value={`${Math.round(bm.cicloFinanceiro)} dias`} note="PMR + PME − PMP" tone={bm.cicloFinanceiro < 0 ? 'ok' : ''} />
         <Kpi icon={IconInvoice} label="Recebíveis vencidos" value={pct(bm.arVencidoPct)} note={`${money(balanco.contas_receber_vencido)} em atraso`} />
         <Kpi icon={IconCreditCard} label="Contas a pagar vencidas" value={pct(bm.apVencidoPct)} note={`${money(bm.apVencidoTotal)} em atraso`} tone={bm.apVencidoPct > 5 ? 'risk' : ''} />
+      </section>
+
+      <div className="macro-section-title macro-section-title-compact"><div><span>Estrutura de custos</span><h3>Rentabilidade e peso da folha</h3></div></div>
+      <section className="dash-kpi-row">
         <Kpi icon={IconPercentage} label="Margem de contribuição" value={pct(data.last.margemPct)} note={`${data.last.label}/26 · ${shortMoney(data.last.MargemContribuicao)}`} />
+        <Kpi icon={IconPercentage} label="Margem líquida" value={pct(data.last.liquidaPct)} note={`${data.last.label}/26 · ${shortMoney(data.last['Resultado Líquido'])}`} tone={data.last.liquidaPct >= 0 ? 'ok' : 'risk'} />
+        <Kpi icon={IconUsers} label="Folha sobre receita" value={pct(data.payrollPct)} note={`${shortMoney(data.payrollTotal)} acumulado no período`} tone={data.payrollPct > 25 ? 'risk' : ''} />
+        <Kpi icon={IconCoins} label="Custo financeiro acumulado" value={shortMoney(data.custoFinanceiro)} note="juros, IOF e tarifas bancárias" />
       </section>
 
       <section className="dash-main-grid">
@@ -220,9 +256,10 @@ export default function Financeiro() {
               <Bar dataKey="Receita" fill="#E87722" radius={[6, 6, 0, 0]} barSize={26} />
               <Bar dataKey="Custos" fill="#292623" radius={[6, 6, 0, 0]} barSize={26} />
               <Line type="monotone" dataKey="Resultado Líquido" stroke="#23864A" strokeWidth={2.6} dot={{ r: 3.5 }} />
-              <Line type="monotone" dataKey="Ponto de Equilíbrio" stroke="#A79C92" strokeWidth={1.8} strokeDasharray="5 6" dot={false} />
+              <ReferenceLine y={data.peMedio} stroke="#A79C92" strokeWidth={1.8} strokeDasharray="5 6" label={{ value: `PE médio: ${shortMoney(data.peMedio)}`, position: 'insideBottomRight', fill: '#8A8178', fontSize: 10.5, fontWeight: 600 }} />
             </ComposedChart>
           </ResponsiveContainer>
+          <p style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 8, lineHeight: 1.5 }}>Mostramos a <strong>média</strong> do ponto de equilíbrio (custo fixo médio ÷ margem de contribuição do período) em vez do valor mês a mês: em fevereiro a margem de contribuição foi quase nula, o que torna o ponto de equilíbrio individual daquele mês (R$ 15,05 mi) matematicamente extremo e inútil como referência visual. O valor mês a mês continua na tabela abaixo.</p>
         </div>
         <div className="chart-card">
           <div className="chart-head"><div><span className="chart-title">Despesas — regime de caixa</span><div className="chart-subtitle">Acumulado do período, sem aportes/adiantamentos</div></div></div>
@@ -238,6 +275,24 @@ export default function Financeiro() {
             {data.despesasPorGrupo.slice(0, 6).map((item, index) => <div key={item.name} className="dash-ranking-row" style={{ gridTemplateColumns: '12px 1fr auto' }}><span style={{ width: 9, height: 9, borderRadius: 99, background: PIE_COLORS[index % PIE_COLORS.length] }} /><div className="dash-ranking-info"><strong>{item.name}</strong></div><span className="dash-ranking-value">{shortMoney(item.value)}</span></div>)}
           </div>
         </div>
+      </section>
+
+      <div className="macro-section-title macro-section-title-compact"><div><span>Evolução</span><h3>Indicadores mês a mês</h3></div><small>{data.mesesAcimaPE} de {data.months.length} meses acima do ponto de equilíbrio</small></div>
+      <section className="chart-card">
+        <div className="chart-head"><div><span className="chart-title">Margens ao longo do período</span><div className="chart-subtitle">Únicos indicadores que dá pra comparar mês a mês hoje — liquidez e prazos médios dependem de um novo balanço a cada fechamento</div></div></div>
+        <ResponsiveContainer width="100%" height={260}>
+          <LineChart data={data.months.map(m => ({ label: m.label, 'Margem de contribuição': m.margemPct, 'Margem líquida': m.liquidaPct, 'Custos fixos / receita': m.Receita ? m.CustosFixos / m.Receita * 100 : 0 }))} margin={{ top: 10, right: 18, left: 4, bottom: 4 }}>
+            <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} />
+            <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${value}%`} width={44} />
+            <Tooltip formatter={value => `${Number(value).toFixed(1)}%`} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <ReferenceLine y={0} stroke="#C9BFB7" />
+            <Line type="monotone" dataKey="Margem de contribuição" stroke="#E87722" strokeWidth={2.6} dot={{ r: 3.5 }} />
+            <Line type="monotone" dataKey="Margem líquida" stroke="#23864A" strokeWidth={2.6} dot={{ r: 3.5 }} />
+            <Line type="monotone" dataKey="Custos fixos / receita" stroke="#426A8C" strokeWidth={1.8} strokeDasharray="4 5" dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
       </section>
 
       <div className="macro-section-title macro-section-title-compact"><div><span>Balanço patrimonial</span><h3>Composição de ativo e passivo</h3></div></div>
