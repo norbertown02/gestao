@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import * as d3 from 'd3'
 import { IconArrowLeft, IconArrowRight, IconDownload, IconFileTypePdf, IconPresentation, IconRefresh } from '@tabler/icons-react'
 import html2canvas from 'html2canvas'
@@ -13,6 +13,11 @@ const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', '
 const MONTHS_FULL = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 const COLORS = ['#f47b20', '#ffb067', '#3b3835', '#81776f', '#c8bdb3', '#f3e7dc']
 
+const PERIOD_TYPE_LABEL = { mensal: 'Mês', trimestral: 'Trimestre', semestral: 'Semestre', anual: 'Ano' }
+const PERIOD_TYPE_SIZE = { mensal: 1, trimestral: 3, semestral: 6, anual: 12 }
+const PERIOD_TYPE_COUNT = { mensal: 12, trimestral: 4, semestral: 2, anual: 1 }
+const COMPARISON_NOUN = { mensal: 'mês anterior', trimestral: 'trimestre anterior', semestral: 'semestre anterior', anual: 'ano anterior' }
+
 const number = value => Number(value || 0)
 const money = value => number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const shortMoney = value => {
@@ -23,12 +28,42 @@ const shortMoney = value => {
 }
 const pct = value => `${number(value).toFixed(1).replace('.', ',')}%`
 const variation = (current, previous) => previous ? (current - previous) / Math.abs(previous) * 100 : current ? 100 : 0
-const monthKey = (year, month) => `${year}-${String(month).padStart(2, '0')}`
-const monthRange = (year, month) => ({ start: `${monthKey(year, month)}-01`, end: new Date(year, month, 0).toISOString().slice(0, 10) })
-const previousPeriod = (year, month) => month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 }
-const sanitizeName = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-|-$/g, '').toLowerCase()
+const sanitizeName = value => String(value).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-|-$/g, '').toLowerCase()
+const iso = date => date.toISOString().slice(0, 10)
 
-function Delta({ current, previous, suffix = 'vs. mês anterior' }) {
+// -- Modelo de período: mensal/trimestral/semestral/anual, cada um sabe calcular seu
+// período anterior equivalente (o que vira comparativo em toda a apresentação).
+function periodBounds(type, year, index) {
+  const size = PERIOD_TYPE_SIZE[type]
+  const startMonth = type === 'anual' ? 1 : (index - 1) * size + 1
+  return { year, startMonth, endMonth: startMonth + size - 1 }
+}
+function previousPeriodBounds(type, year, index) {
+  if (type === 'anual') return { year: year - 1, startMonth: 1, endMonth: 12 }
+  if (index === 1) return periodBounds(type, year - 1, PERIOD_TYPE_COUNT[type])
+  return periodBounds(type, year, index - 1)
+}
+function boundsToRange(bounds) {
+  const start = new Date(bounds.year, bounds.startMonth - 1, 1)
+  const nominalEnd = new Date(bounds.year, bounds.endMonth, 0)
+  const today = new Date()
+  const end = today >= start && today <= nominalEnd ? today : nominalEnd
+  return { start, end, nominalEnd }
+}
+function periodLabel(type, bounds) {
+  if (type === 'mensal') return `${MONTHS_FULL[bounds.startMonth - 1][0].toUpperCase()}${MONTHS_FULL[bounds.startMonth - 1].slice(1)} ${bounds.year}`
+  if (type === 'trimestral') return `${Math.ceil(bounds.startMonth / 3)}º Trimestre ${bounds.year}`
+  if (type === 'semestral') return `${bounds.startMonth === 1 ? '1º' : '2º'} Semestre ${bounds.year}`
+  return `Ano ${bounds.year}`
+}
+function indexOptionsFor(type) {
+  if (type === 'mensal') return MONTHS_FULL.map((label, i) => ({ value: i + 1, label: label[0].toUpperCase() + label.slice(1) }))
+  if (type === 'trimestral') return [1, 2, 3, 4].map(i => ({ value: i, label: `${i}º Trimestre (${MONTHS[(i - 1) * 3]}-${MONTHS[(i - 1) * 3 + 2]})` }))
+  if (type === 'semestral') return [1, 2].map(i => ({ value: i, label: `${i}º Semestre (${i === 1 ? 'Jan-Jun' : 'Jul-Dez'})` }))
+  return [{ value: 1, label: 'Ano completo' }]
+}
+
+function Delta({ current, previous, suffix }) {
   const value = variation(current, previous)
   return <span className={value >= 0 ? 'deck-delta positive' : 'deck-delta negative'}>{value >= 0 ? '↗' : '↘'} {Math.abs(value).toFixed(1).replace('.', ',')}% {suffix}</span>
 }
@@ -37,13 +72,13 @@ function Brand({ page, total, dark = false }) {
   return <div className={`deck-brand ${dark ? 'dark' : ''}`}><img src={logo} alt="Nutrialle" /><span>{String(page).padStart(2, '0')} / {String(total).padStart(2, '0')}</span></div>
 }
 
-function Cover({ type, period, total }) {
+function Cover({ type, period, previousLabel, generatedAt, total }) {
   const commercial = type === 'comercial'
   return <article className="deck-slide deck-cover">
     <div className="deck-cover-glow" />
     <img className="deck-cover-logo" src={logo} alt="Nutrialle" />
-    <div className="deck-cover-copy"><span>FECHAMENTO {commercial ? 'COMERCIAL' : 'FINANCEIRO'}</span><h1>{period}</h1><p>{commercial ? 'Performance, mercado e direção para o próximo ciclo.' : 'Resultado, liquidez e decisões para sustentar o crescimento.'}</p></div>
-    <div className="deck-cover-foot"><i /> Gestão Nutrialle <b>•</b> confidencial</div>
+    <div className="deck-cover-copy"><span>FECHAMENTO {commercial ? 'COMERCIAL' : 'FINANCEIRO'}</span><h1>{period}</h1><p>{commercial ? 'Performance, mercado e direção para o próximo ciclo.' : 'Resultado, liquidez e decisões para sustentar o crescimento.'}</p><small>Comparado a {previousLabel}</small></div>
+    <div className="deck-cover-foot"><i /> Gestão Nutrialle <b>•</b> gerado automaticamente em {generatedAt} <b>•</b> confidencial</div>
     <Brand page={1} total={total} dark />
   </article>
 }
@@ -96,243 +131,352 @@ function BrazilSalesMap({ regions }) {
   return <div className="deck-brazil-map">{geo ? <svg ref={svgRef} aria-label="Mapa do faturamento líquido por estado" /> : <span>Mapa indisponível</span>}<div className="deck-map-scale"><i /><span>menor faturamento</span><b>maior faturamento</b></div></div>
 }
 
-function CommercialSlides({ data, period }) {
+function CommercialSlides({ data, period, previousLabel, generatedAt, comparisonNoun }) {
   const total = 8
-  const maxSeller = Math.max(...data.sellers.map(item => item.orders), 1)
-  const maxProduct = Math.max(...data.products.map(item => item.value), 1)
+  const { current: cur, previous: prev, trajectory, trajectoryDaily } = data
+  const maxSeller = Math.max(...cur.sellers.map(item => item.orders), 1)
+  const maxProduct = Math.max(...cur.products.map(item => item.value), 1)
+  const prevSellerByName = new Map(prev.sellers.map(row => [row.name, row]))
+  const leaderChanged = cur.regions[0]?.name && prev.regions[0]?.name && cur.regions[0].name !== prev.regions[0].name
   return [
-    <Cover key="cover" type="comercial" period={period} total={total} />,
-    <Slide key="month" page={2} total={total} tone="dark" className="deck-thesis">
+    <Cover key="cover" type="comercial" period={period} previousLabel={previousLabel} generatedAt={generatedAt} total={total} />,
+    <Slide key="summary" page={2} total={total} tone="dark" className="deck-thesis">
       <span className="deck-kicker">RESUMO EXECUTIVO</span>
-      <h2>{data.monthBilling >= data.previousBilling ? `Faturamento cresceu ${pct(Math.abs(variation(data.monthBilling, data.previousBilling)))} frente ao mês anterior.` : `Faturamento caiu ${pct(Math.abs(variation(data.monthBilling, data.previousBilling)))} frente ao mês anterior.`}</h2>
-      <div className="deck-thesis-metrics"><BigNumber label="Pedidos líquidos" value={shortMoney(data.monthOrders)} note={<Delta current={data.monthOrders} previous={data.previousOrders} />} /><BigNumber label="Faturamento líquido" value={shortMoney(data.monthBilling)} note={<Delta current={data.monthBilling} previous={data.previousBilling} />} accent /><BigNumber label="Carteira aberta" value={shortMoney(data.openPortfolio)} note={<small>potencial aguardando faturamento</small>} /></div>
-      <MetricStrip dark items={[{ label: 'Pedidos no mês', value: data.monthOrderCount, note: 'pedidos líquidos válidos' }, { label: 'Ticket médio', value: shortMoney(data.averageTicket), note: 'por pedido gerado' }, { label: 'Clientes faturados', value: data.billedClients, note: 'clientes únicos no mês' }, { label: 'Devoluções', value: shortMoney(data.returns), note: 'abatidas do faturamento' }]} />
+      <h2>{cur.billing >= prev.billing ? `Faturamento cresceu ${pct(Math.abs(variation(cur.billing, prev.billing)))} frente ao ${comparisonNoun}, para ${shortMoney(cur.billing)}.` : `Faturamento caiu ${pct(Math.abs(variation(cur.billing, prev.billing)))} frente ao ${comparisonNoun}, para ${shortMoney(cur.billing)}.`}</h2>
+      <div className="deck-thesis-metrics"><BigNumber label="Pedidos líquidos" value={shortMoney(cur.ordersValue)} note={<Delta current={cur.ordersValue} previous={prev.ordersValue} suffix={`vs. ${comparisonNoun}`} />} /><BigNumber label="Faturamento líquido" value={shortMoney(cur.billing)} note={<Delta current={cur.billing} previous={prev.billing} suffix={`vs. ${comparisonNoun}`} />} accent /><BigNumber label="Carteira aberta" value={shortMoney(cur.openPortfolio)} note={<small>potencial aguardando faturamento</small>} /></div>
+      <MetricStrip dark items={[
+        { label: 'Ticket médio', value: shortMoney(cur.averageTicket), note: `${comparisonNoun}: ${shortMoney(prev.averageTicket)}` },
+        { label: 'Clientes faturados', value: cur.billedClients, note: `${comparisonNoun}: ${prev.billedClients}` },
+        { label: 'Taxa de conversão', value: pct(cur.conversionRate), note: 'faturamento ÷ pedidos gerados' },
+        { label: 'Atingimento da meta', value: cur.goal ? pct(cur.attainment) : '—', note: prev.goal ? `${comparisonNoun}: ${pct(prev.attainment)}` : 'sem meta comparável' },
+      ]} />
     </Slide>,
     <Slide key="rhythm" page={3} total={total}>
-      <SlideTitle eyebrow="RITMO DO ANO" aside={`${data.validOrders} pedidos válidos no acumulado`}>Pedidos e faturamento acumulados até {MONTHS[data.month - 1]}.</SlideTitle>
-      <MetricStrip items={[{ label: 'Pedidos acumulados', value: shortMoney(data.ytdOrders) }, { label: 'Faturamento acumulado', value: shortMoney(data.ytdBilling) }, { label: 'Conversão do período', value: data.ytdOrders ? pct(data.ytdBilling / data.ytdOrders * 100) : '—', note: 'faturamento ÷ pedidos' }]} />
-      <div className="deck-chart-stage"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data.series} margin={{ top: 18, right: 18, left: 8, bottom: 0 }}><defs><linearGradient id="deckBilling" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#f47b20" stopOpacity=".28" /><stop offset="1" stopColor="#f47b20" stopOpacity="0" /></linearGradient></defs><CartesianGrid vertical={false} stroke="#e9e1da" strokeDasharray="3 7" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} /><Tooltip formatter={v => money(v)} /><Area type="monotone" dataKey="Faturamento" stroke="#f47b20" strokeWidth={4} fill="url(#deckBilling)" /><Area type="monotone" dataKey="Pedidos" stroke="#292623" strokeWidth={3} fill="transparent" /></AreaChart></ResponsiveContainer></div>
-      <div className="deck-chart-legend"><i className="orange" /> Faturamento líquido <i className="ink" /> Pedidos líquidos</div>
+      <SlideTitle eyebrow="RITMO DO PERÍODO" aside={`vs. ${comparisonNoun}`}>{cur.billing >= prev.billing ? 'O ritmo de faturamento está acima do período anterior.' : 'O ritmo de faturamento está abaixo do período anterior.'}</SlideTitle>
+      <MetricStrip items={[{ label: 'Faturamento do período', value: shortMoney(cur.billing) }, { label: `Faturamento — ${comparisonNoun}`, value: shortMoney(prev.billing) }, { label: 'Variação', value: `${variation(cur.billing, prev.billing) >= 0 ? '+' : ''}${pct(variation(cur.billing, prev.billing))}` }]} />
+      <div className="deck-chart-stage"><ResponsiveContainer width="100%" height="100%"><AreaChart data={trajectory} margin={{ top: 18, right: 18, left: 8, bottom: 0 }}><defs><linearGradient id="deckBilling" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#f47b20" stopOpacity=".28" /><stop offset="1" stopColor="#f47b20" stopOpacity="0" /></linearGradient></defs><CartesianGrid vertical={false} stroke="#e9e1da" strokeDasharray="3 7" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} /><Tooltip formatter={v => money(v)} /><Area type="monotone" dataKey="Período atual" stroke="#f47b20" strokeWidth={4} fill="url(#deckBilling)" /><Line type="monotone" dataKey="Período anterior" stroke="#292623" strokeWidth={2.5} strokeDasharray="5 5" dot={false} /></AreaChart></ResponsiveContainer></div>
+      <div className="deck-chart-legend"><i className="orange" /> {trajectoryDaily ? 'Faturamento acumulado no mês' : 'Faturamento por mês'} <i className="ink" /> {comparisonNoun[0].toUpperCase() + comparisonNoun.slice(1)}</div>
     </Slide>,
     <Slide key="goal" page={4} total={total} className="deck-goal-slide">
-      <SlideTitle eyebrow="EXECUÇÃO CONTRA META" aside={`${MONTHS[data.month - 1]} / ${data.year}`}>Vendas geradas atingiram {data.ytdGoal ? pct(data.ytdOrders / data.ytdGoal * 100) : '—'} da meta acumulada.</SlideTitle>
-      <div className="deck-goal-main"><div><span>ATINGIMENTO ACUMULADO</span><strong>{data.ytdGoal ? pct(data.ytdOrders / data.ytdGoal * 100) : '—'}</strong><p>{data.ytdGoal ? `${shortMoney(Math.max(data.ytdGoal - data.ytdOrders, 0))} ainda separam o realizado da meta do ano até aqui.` : 'Metas ainda não cadastradas para o período.'}</p></div><div className="deck-goal-ring" style={{ '--progress': `${Math.min(data.ytdGoal ? data.ytdOrders / data.ytdGoal * 100 : 0, 100)}%` }}><span>{shortMoney(data.ytdOrders)}</span><small>vendidos</small></div></div>
-      <div className="deck-goal-track"><i style={{ width: `${Math.min(data.ytdGoal ? data.ytdOrders / data.ytdGoal * 100 : 0, 100)}%` }} /><span>0</span><b>Meta {shortMoney(data.ytdGoal)}</b></div>
-      <MetricStrip items={[{ label: 'Venda no mês', value: shortMoney(data.monthOrders) }, { label: 'Meta do mês', value: shortMoney(data.monthGoal) }, { label: 'Saldo do mês', value: shortMoney(data.monthOrders - data.monthGoal), note: data.monthOrders >= data.monthGoal ? 'acima da meta' : 'abaixo da meta' }]} />
+      <SlideTitle eyebrow="EXECUÇÃO CONTRA META" aside={period}>Vendas geradas atingiram {cur.goal ? pct(cur.attainment) : '—'} da meta do período.</SlideTitle>
+      <div className="deck-goal-main"><div><span>ATINGIMENTO DO PERÍODO</span><strong>{cur.goal ? pct(cur.attainment) : '—'}</strong><p>{cur.goal ? `${shortMoney(Math.max(cur.goal - cur.ordersValue, 0))} ainda separam o realizado da meta deste período.` : 'Meta ainda não cadastrada para o período.'}</p></div><div className="deck-goal-ring" style={{ '--progress': `${Math.min(cur.goal ? cur.attainment : 0, 100)}%` }}><span>{shortMoney(cur.ordersValue)}</span><small>vendidos</small></div></div>
+      <div className="deck-goal-track"><i style={{ width: `${Math.min(cur.goal ? cur.attainment : 0, 100)}%` }} /><span>0</span><b>Meta {shortMoney(cur.goal)}</b></div>
+      <MetricStrip items={[{ label: 'Atingimento do período', value: cur.goal ? pct(cur.attainment) : '—' }, { label: `Atingimento — ${comparisonNoun}`, value: prev.goal ? pct(prev.attainment) : '—' }, { label: 'Meta do período', value: shortMoney(cur.goal) }, { label: 'Saldo até a meta', value: shortMoney(Math.max(cur.goal - cur.ordersValue, 0)) }]} />
     </Slide>,
     <Slide key="sellers" page={5} total={total}>
-      <SlideTitle eyebrow="EQUIPE COMERCIAL" aside="pedidos líquidos do mês">Ranking de vendas geradas e atingimento da meta mensal.</SlideTitle>
-      <div className="deck-ranking-head"><span>Vendedor</span><span>Venda gerada</span><span>Meta / faturamento</span></div>
-      <div className="deck-ranking">{data.sellers.slice(0, 6).map((seller, index) => <div key={seller.key}><b>{String(index + 1).padStart(2, '0')}</b><span><strong>{seller.name}</strong><i><em style={{ width: `${seller.orders / maxSeller * 100}%` }} /></i></span><strong>{shortMoney(seller.orders)}</strong><small>{seller.goal ? `${pct(seller.orders / seller.goal * 100)} da meta` : shortMoney(seller.billing) + ' faturados'}</small></div>)}</div>
+      <SlideTitle eyebrow="EQUIPE COMERCIAL" aside={`pedidos líquidos · vs. ${comparisonNoun}`}>Ranking de vendas geradas e variação frente ao período anterior.</SlideTitle>
+      <div className="deck-ranking-head"><span>Vendedor</span><span>Venda gerada</span><span>Meta / variação</span></div>
+      <div className="deck-ranking">{cur.sellers.slice(0, 6).map((seller, index) => {
+        const previousSeller = prevSellerByName.get(seller.name)
+        return <div key={seller.key}><b>{String(index + 1).padStart(2, '0')}</b><span><strong>{seller.name}</strong><i><em style={{ width: `${seller.orders / maxSeller * 100}%` }} /></i></span><strong>{shortMoney(seller.orders)}</strong><small>{seller.goal ? `${pct(seller.orders / seller.goal * 100)} da meta` : previousSeller ? <Delta current={seller.orders} previous={previousSeller.orders} suffix="" /> : shortMoney(seller.billing) + ' faturados'}</small></div>
+      })}</div>
     </Slide>,
     <Slide key="products" page={6} total={total} tone="dark">
-      <SlideTitle eyebrow="MIX DE PRODUTOS" aside="faturamento líquido" >Produtos que formaram o faturamento líquido do mês.</SlideTitle>
-      <div className="deck-products"><div className="deck-product-hero"><span>PRODUTO LÍDER</span><h3>{data.products[0]?.name || 'Sem faturamento'}</h3><strong>{shortMoney(data.products[0]?.value)}</strong><small>{data.monthBilling ? pct((data.products[0]?.value || 0) / data.monthBilling * 100) : '0%'} do faturamento</small></div><div className="deck-product-bars">{data.products.slice(1, 6).map((product, index) => <div key={product.name}><span>{product.name}</span><i><em style={{ width: `${product.value / maxProduct * 100}%`, background: COLORS[index + 1] }} /></i><strong>{shortMoney(product.value)}</strong></div>)}</div></div>
+      <SlideTitle eyebrow="MIX DE PRODUTOS" aside="faturamento líquido" >Produtos que formaram o faturamento líquido do período.</SlideTitle>
+      <div className="deck-products"><div className="deck-product-hero"><span>PRODUTO LÍDER</span><h3>{cur.products[0]?.name || 'Sem faturamento'}</h3><strong>{shortMoney(cur.products[0]?.value)}</strong><small>{cur.billing ? pct((cur.products[0]?.value || 0) / cur.billing * 100) : '0%'} do faturamento{prev.products[0]?.name === cur.products[0]?.name ? ' · mesmo líder do período anterior' : ''}</small></div><div className="deck-product-bars">{cur.products.slice(1, 6).map((product, index) => <div key={product.name}><span>{product.name}</span><i><em style={{ width: `${product.value / maxProduct * 100}%`, background: COLORS[index + 1] }} /></i><strong>{shortMoney(product.value)}</strong></div>)}</div></div>
     </Slide>,
     <Slide key="regions" page={7} total={total}>
-      <SlideTitle eyebrow="PRESENÇA DE MERCADO" aside={`${data.activeClients} clientes ativos`}>Distribuição do faturamento líquido por estado.</SlideTitle>
-      <MetricStrip items={[{ label: 'Estado líder', value: data.regions[0]?.name || '—', note: shortMoney(data.regions[0]?.value) }, { label: 'Participação do líder', value: data.monthBilling ? pct((data.regions[0]?.value || 0) / data.monthBilling * 100) : '—' }, { label: 'Estados faturados', value: data.regions.length }]} />
-      <div className="deck-region-layout map"><BrazilSalesMap regions={data.regions} /><div className="deck-region-list">{data.regions.slice(0, 6).map((region, index) => <div key={region.name}><i style={{ background: COLORS[index % COLORS.length] }} /><strong>{region.name}</strong><span>{shortMoney(region.value)}</span><small>{data.monthBilling ? pct(region.value / data.monthBilling * 100) : '0%'}</small></div>)}</div></div>
+      <SlideTitle eyebrow="PRESENÇA DE MERCADO" aside={`${cur.activeClients} clientes ativos`}>Distribuição do faturamento líquido por estado{leaderChanged ? ' — liderança mudou no período' : ''}.</SlideTitle>
+      <MetricStrip items={[{ label: 'Estado líder', value: cur.regions[0]?.name || '—', note: shortMoney(cur.regions[0]?.value) }, { label: 'Participação do líder', value: cur.billing ? pct((cur.regions[0]?.value || 0) / cur.billing * 100) : '—' }, { label: `Líder — ${comparisonNoun}`, value: prev.regions[0]?.name || '—' }, { label: 'Estados faturados', value: cur.regions.length }]} />
+      <div className="deck-region-layout map"><BrazilSalesMap regions={cur.regions} /><div className="deck-region-list">{cur.regions.slice(0, 6).map((region, index) => <div key={region.name}><i style={{ background: COLORS[index % COLORS.length] }} /><strong>{region.name}</strong><span>{shortMoney(region.value)}</span><small>{cur.billing ? pct(region.value / cur.billing * 100) : '0%'}</small></div>)}</div></div>
     </Slide>,
     <Slide key="close" page={8} total={total} tone="dark" className="deck-close">
-      <span>PRIORIDADES COMERCIAIS</span><h2>{data.openPortfolio > 0 ? `Faturar a carteira de ${shortMoney(data.openPortfolio)} e recuperar o saldo de meta.` : 'Recompor a carteira de pedidos do próximo mês.'}</h2><p>1. Priorizar pedidos liberados e próximos do faturamento. 2. Atacar o saldo de {shortMoney(Math.max(data.ytdGoal - data.ytdOrders, 0))} da meta acumulada. 3. Replicar o mix e a execução dos vendedores líderes.</p><div><i /> decisão requerida da gestão</div>
+      <span>PRIORIDADES COMERCIAIS</span><h2>{cur.billing < prev.billing ? `Recuperar o ritmo: faturamento ${pct(Math.abs(variation(cur.billing, prev.billing)))} abaixo do ${comparisonNoun}.` : cur.openPortfolio > 0 ? `Faturar a carteira de ${shortMoney(cur.openPortfolio)} e sustentar o ritmo.` : 'Recompor a carteira de pedidos do próximo período.'}</h2><p>1. Priorizar pedidos liberados e próximos do faturamento. 2. Atacar o saldo de {shortMoney(Math.max(cur.goal - cur.ordersValue, 0))} da meta do período. 3. Replicar o mix e a execução dos vendedores líderes ({cur.sellers[0]?.name || '—'}).</p><div><i /> decisão requerida da gestão</div>
     </Slide>,
   ]
 }
 
-function FinancialSlides({ data, period }) {
-  const total = 8
-  const maxCost = Math.max(...data.costs.map(item => item.value), 1)
+function FinancialSlides({ data, period, previousLabel, generatedAt, comparisonNoun }) {
+  const total = 9
+  const { current: cur, previous: prev, series, hasData, previousHasData } = data
+  const maxCost = Math.max(...cur.costs.map(item => item.value), 1)
+  const pos = cur.position
+  const prevPos = prev.position && prev.position.date !== cur.position?.date ? prev.position : null
   return [
-    <Cover key="cover" type="financeiro" period={period} total={total} />,
+    <Cover key="cover" type="financeiro" period={period} previousLabel={previousLabel} generatedAt={generatedAt} total={total} />,
     <Slide key="result" page={2} total={total} tone="dark" className="deck-thesis">
       <span className="deck-kicker">RESUMO EXECUTIVO</span>
-      <h2>{data.result >= 0 ? `Resultado positivo de ${shortMoney(data.result)}, com margem líquida de ${pct(data.netMargin)}.` : `Prejuízo de ${shortMoney(Math.abs(data.result))}, com receita abaixo da estrutura de custos.`}</h2>
-      <div className="deck-thesis-metrics"><BigNumber label="Receita" value={shortMoney(data.revenue)} note={<Delta current={data.revenue} previous={data.previousRevenue} />} /><BigNumber label="Resultado líquido" value={shortMoney(data.result)} note={<span className={data.result >= 0 ? 'deck-delta positive' : 'deck-delta negative'}>{pct(data.netMargin)} de margem líquida</span>} accent /><BigNumber label="Ponto de equilíbrio" value={shortMoney(data.breakEven)} note={<small>{data.revenue >= data.breakEven ? 'receita acima do mínimo operacional' : 'receita abaixo do mínimo operacional'}</small>} /></div>
-      <MetricStrip dark items={[{ label: 'Margem de contribuição', value: pct(data.contributionMargin), note: shortMoney(data.contribution) }, { label: 'Distância do equilíbrio', value: shortMoney(data.breakEvenGap), note: data.breakEvenGap >= 0 ? 'acima do ponto de equilíbrio' : 'abaixo do ponto de equilíbrio' }, { label: 'Custos fixos', value: shortMoney(data.fixedCosts) }, { label: 'Custos variáveis', value: shortMoney(data.variableCosts) }]} />
+      <h2>{!hasData ? 'Fechamento contábil do período ainda não carregado.' : cur.result >= 0 ? `Resultado positivo de ${shortMoney(cur.result)}, ${previousHasData ? (cur.result >= prev.result ? 'melhor' : 'abaixo') : ''} ${previousHasData ? `que ${comparisonNoun}` : ''}.` : `Prejuízo de ${shortMoney(Math.abs(cur.result))} no período${previousHasData ? `, ${cur.result >= prev.result ? 'melhor' : 'pior'} que ${comparisonNoun}` : ''}.`}</h2>
+      <div className="deck-thesis-metrics"><BigNumber label="Receita" value={shortMoney(cur.revenue)} note={<Delta current={cur.revenue} previous={prev.revenue} suffix={`vs. ${comparisonNoun}`} />} /><BigNumber label="Resultado líquido" value={shortMoney(cur.result)} note={<span className={cur.result >= 0 ? 'deck-delta positive' : 'deck-delta negative'}>{pct(cur.netMargin)} de margem líquida</span>} accent /><BigNumber label="Ponto de equilíbrio" value={shortMoney(cur.breakEven)} note={<small>{cur.revenue >= cur.breakEven ? 'receita acima do mínimo operacional' : 'receita abaixo do mínimo operacional'}</small>} /></div>
+      <MetricStrip dark items={[
+        { label: 'Margem de contribuição', value: pct(cur.contributionMargin), note: `${comparisonNoun}: ${pct(prev.contributionMargin)}` },
+        { label: 'Margem líquida', value: pct(cur.netMargin), note: `${comparisonNoun}: ${pct(prev.netMargin)}` },
+        { label: 'Custos fixos', value: shortMoney(cur.fixedCosts), note: `${comparisonNoun}: ${shortMoney(prev.fixedCosts)}` },
+        { label: 'Custos variáveis', value: shortMoney(cur.variableCosts), note: `${comparisonNoun}: ${shortMoney(prev.variableCosts)}` },
+      ]} />
     </Slide>,
     <Slide key="dre" page={3} total={total}>
-      <SlideTitle eyebrow="DRE DO MÊS" aside="regime de competência">Receita, custos, margens e resultado do período.</SlideTitle>
-      <MetricStrip items={[{ label: 'Margem de contribuição', value: pct(data.contributionMargin) }, { label: 'Margem líquida', value: pct(data.netMargin) }, { label: 'Ponto de equilíbrio', value: shortMoney(data.breakEven) }, { label: 'Folga / falta de receita', value: shortMoney(data.breakEvenGap) }]} />
+      <SlideTitle eyebrow="DRE DO PERÍODO" aside="regime de competência">Receita, custos, margens e resultado — comparado ao {comparisonNoun}.</SlideTitle>
       <div className="deck-dre-flow">{[
-        ['Receita', data.revenue, 100],
-        ['Custos variáveis', -Math.abs(data.variableCosts), data.revenue ? data.variableCosts / data.revenue * 100 : 0],
-        ['Margem de contribuição', data.contribution, data.revenue ? data.contribution / data.revenue * 100 : 0],
-        ['Custos fixos', -Math.abs(data.fixedCosts), data.revenue ? data.fixedCosts / data.revenue * 100 : 0],
-        ['Resultado líquido', data.result, data.netMargin],
-      ].map(([label, value, share], index) => <div key={label} className={index === 4 ? (value >= 0 ? 'result positive' : 'result negative') : ''}><span>{label}</span><i><em style={{ width: `${Math.min(Math.abs(share), 100)}%` }} /></i><strong>{shortMoney(value)}</strong><small>{pct(share)}</small></div>)}</div>
+        ['Receita', cur.revenue, 100, prev.revenue],
+        ['Custos variáveis', -Math.abs(cur.variableCosts), cur.revenue ? cur.variableCosts / cur.revenue * 100 : 0, -Math.abs(prev.variableCosts)],
+        ['Margem de contribuição', cur.contribution, cur.revenue ? cur.contribution / cur.revenue * 100 : 0, prev.contribution],
+        ['Custos fixos', -Math.abs(cur.fixedCosts), cur.revenue ? cur.fixedCosts / cur.revenue * 100 : 0, -Math.abs(prev.fixedCosts)],
+        ['Resultado líquido', cur.result, cur.netMargin, prev.result],
+      ].map(([label, value, share, previousValue], index) => <div key={label} className={index === 4 ? (value >= 0 ? 'result positive' : 'result negative') : ''}><span>{label}</span><i><em style={{ width: `${Math.min(Math.abs(share), 100)}%` }} /></i><strong>{shortMoney(value)}</strong><small>{previousHasData ? `${comparisonNoun}: ${shortMoney(previousValue)}` : pct(share)}</small></div>)}</div>
     </Slide>,
     <Slide key="evolution" page={4} total={total}>
-      <SlideTitle eyebrow="TRAJETÓRIA DO ANO" aside={`${data.monthsAboveBreakEven} meses acima do equilíbrio`}>Evolução mensal de receita e resultado líquido.</SlideTitle>
-      <MetricStrip items={[{ label: 'Receita acumulada', value: shortMoney(data.ytdRevenue) }, { label: 'Resultado acumulado', value: shortMoney(data.ytdResult) }, { label: 'Margem líquida acumulada', value: data.ytdRevenue ? pct(data.ytdResult / data.ytdRevenue * 100) : '—' }]} />
-      <div className="deck-chart-stage"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.series} margin={{ top: 18, right: 18, left: 8, bottom: 0 }}><CartesianGrid vertical={false} stroke="#e9e1da" strokeDasharray="3 7" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} /><Tooltip formatter={v => money(v)} /><Bar dataKey="Receita" fill="#292623" radius={[7, 7, 0, 0]} /><Bar dataKey="Resultado" fill="#f47b20" radius={[7, 7, 0, 0]} /></BarChart></ResponsiveContainer></div><div className="deck-chart-legend"><i className="ink" /> Receita <i className="orange" /> Resultado líquido</div>
+      <SlideTitle eyebrow="TRAJETÓRIA" aside={`${cur.monthsAboveBreakEven} de ${cur.monthCount || 1} meses acima do equilíbrio`}>Evolução mensal de receita e resultado líquido no período comparativo.</SlideTitle>
+      <MetricStrip items={[{ label: 'Receita do período', value: shortMoney(cur.revenue) }, { label: `Receita — ${comparisonNoun}`, value: shortMoney(prev.revenue) }, { label: 'Resultado do período', value: shortMoney(cur.result) }, { label: `Resultado — ${comparisonNoun}`, value: shortMoney(prev.result) }]} />
+      <div className="deck-chart-stage"><ResponsiveContainer width="100%" height="100%"><BarChart data={series} margin={{ top: 18, right: 18, left: 8, bottom: 0 }}><CartesianGrid vertical={false} stroke="#e9e1da" strokeDasharray="3 7" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} /><Tooltip formatter={v => money(v)} /><Bar dataKey="Receita" fill="#292623" radius={[7, 7, 0, 0]} /><Bar dataKey="Resultado" fill="#f47b20" radius={[7, 7, 0, 0]} /></BarChart></ResponsiveContainer></div><div className="deck-chart-legend"><i className="ink" /> Receita <i className="orange" /> Resultado líquido</div>
     </Slide>,
     <Slide key="costs" page={5} total={total} tone="dark">
-      <SlideTitle eyebrow="ESTRUTURA DE CUSTOS" aside="acumulado até o mês">Composição dos custos acumulados e participação sobre a receita.</SlideTitle>
-      <div className="deck-cost-layout"><div><span>CUSTOS TOTAIS ACUMULADOS</span><strong>{shortMoney(data.ytdCosts)}</strong><p>{data.ytdRevenue ? pct(data.ytdCosts / data.ytdRevenue * 100) : '0%'} da receita acumulada.</p></div><div className="deck-cost-bars">{data.costs.slice(0, 6).map((cost, index) => <div key={cost.name}><span>{cost.name}</span><i><em style={{ width: `${cost.value / maxCost * 100}%`, background: COLORS[index % COLORS.length] }} /></i><strong>{shortMoney(cost.value)}</strong></div>)}</div></div>
+      <SlideTitle eyebrow="ESTRUTURA DE CUSTOS" aside="acumulado no período">Composição dos custos e participação sobre a receita.</SlideTitle>
+      <div className="deck-cost-layout"><div><span>CUSTOS TOTAIS DO PERÍODO</span><strong>{shortMoney(cur.variableCosts + cur.fixedCosts)}</strong><p>{cur.revenue ? pct((cur.variableCosts + cur.fixedCosts) / cur.revenue * 100) : '0%'} da receita do período{previousHasData ? ` (${comparisonNoun}: ${shortMoney(prev.variableCosts + prev.fixedCosts)})` : ''}.</p></div><div className="deck-cost-bars">{cur.costs.slice(0, 6).map((cost, index) => <div key={cost.name}><span>{cost.name}</span><i><em style={{ width: `${cost.value / maxCost * 100}%`, background: COLORS[index % COLORS.length] }} /></i><strong>{shortMoney(cost.value)}</strong></div>)}</div></div>
     </Slide>,
-    <Slide key="liquidity" page={6} total={total}>
-      <SlideTitle eyebrow="SAÚDE FINANCEIRA" aside={data.balanceDate ? `posição em ${new Date(`${data.balanceDate}T12:00:00`).toLocaleDateString('pt-BR')}` : 'posição não carregada'}>Capacidade de pagar obrigações e financiar a operação.</SlideTitle>
-      <div className="deck-liquidity"><div className="deck-liquidity-main"><span>LIQUIDEZ CORRENTE</span><strong>{data.currentRatio ? `${data.currentRatio.toFixed(2).replace('.', ',')}x` : '—'}</strong><p>{data.currentRatio >= 1 ? 'O ativo circulante cobre os compromissos operacionais.' : 'Os compromissos de curto prazo superam os recursos circulantes.'}</p></div><div><BigNumber label="Capital de giro" value={shortMoney(data.workingCapital)} note={<small>ativo circulante − passivo circulante</small>} /><BigNumber label="Disponibilidades" value={shortMoney(data.cash)} note={<small>caixa e bancos</small>} /><BigNumber label="Endividamento" value={pct(data.debtRatio)} note={<small>contas a pagar ajustadas ÷ ativo</small>} /></div></div>
+    <Slide key="efficiency" page={6} total={total}>
+      <SlideTitle eyebrow="EFICIÊNCIA OPERACIONAL" aside="índices reais do ERP, ponderados no período">Prazos de recebimento, pagamento e ciclo de caixa.</SlideTitle>
+      <MetricStrip items={[
+        { label: 'Prazo médio de recebimento', value: `${cur.pmrv.toFixed(0)} dias`, note: `${comparisonNoun}: ${prev.pmrv.toFixed(0)} dias` },
+        { label: 'Prazo médio de estoque', value: `${cur.pmre.toFixed(0)} dias`, note: `${comparisonNoun}: ${prev.pmre.toFixed(0)} dias` },
+        { label: 'Prazo médio de pagamento', value: `${cur.pmpf.toFixed(0)} dias`, note: `${comparisonNoun}: ${prev.pmpf.toFixed(0)} dias` },
+        { label: 'Ciclo de caixa', value: `${cur.cicloCaixa.toFixed(0)} dias`, note: `${comparisonNoun}: ${prev.cicloCaixa.toFixed(0)} dias` },
+      ]} />
+      <div className="deck-cost-layout"><div><span>LEITURA DO CICLO</span><strong>{cur.cicloCaixa < 0 ? 'Financiado por fornecedores' : 'Financia a própria operação'}</strong><p>{cur.cicloCaixa < 0 ? `Recebe de clientes e gira estoque ${Math.abs(cur.cicloCaixa).toFixed(0)} dias mais rápido do que paga fornecedores — alivia caixa no curto prazo.` : `A operação precisa financiar ${cur.cicloCaixa.toFixed(0)} dias de atividade com capital próprio ou de terceiros antes de recuperar em caixa.`}</p></div><div className="deck-cost-bars">{[{ name: 'Recebimento (PMRV)', value: cur.pmrv }, { name: 'Estoque (PMRE)', value: cur.pmre }, { name: 'Pagamento (PMPF)', value: cur.pmpf }].map((row, index) => <div key={row.name}><span>{row.name}</span><i><em style={{ width: `${Math.min(row.value / Math.max(cur.pmrv, cur.pmre, cur.pmpf, 1) * 100, 100)}%`, background: COLORS[index % COLORS.length] }} /></i><strong>{row.value.toFixed(0)}d</strong></div>)}</div></div>
     </Slide>,
-    <Slide key="maturity" page={7} total={total}>
-      <SlideTitle eyebrow="PRESSÃO DE CAIXA" aside="posição por vencimento">Contas a receber, contas a pagar e déficit por faixa de prazo.</SlideTitle>
-      <MetricStrip items={[{ label: 'Total a receber', value: shortMoney(data.totalReceivable) }, { label: 'Total a pagar ajustado', value: shortMoney(data.totalPayable) }, { label: 'Saldo financeiro', value: shortMoney(data.cashGap), note: data.cashGap >= 0 ? 'sobra de recebíveis' : 'falta de recebíveis' }, { label: 'Pressão vencida', value: shortMoney(data.overdueGap), note: data.overdueGap >= 0 ? 'saldo vencido favorável' : 'déficit vencido' }]} />
-      <div className="deck-maturity-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.maturity} margin={{ top: 18, right: 18, left: 8, bottom: 0 }}><CartesianGrid vertical={false} stroke="#e9e1da" strokeDasharray="3 7" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} /><Tooltip formatter={v => money(v)} /><Bar dataKey="A receber" fill="#f47b20" radius={[7, 7, 0, 0]} /><Bar dataKey="A pagar" fill="#292623" radius={[7, 7, 0, 0]} /></BarChart></ResponsiveContainer></div><div className="deck-chart-legend"><i className="orange" /> A receber <i className="ink" /> A pagar</div>
+    <Slide key="liquidity" page={7} total={total}>
+      <SlideTitle eyebrow="SAÚDE FINANCEIRA" aside={pos ? `posição em ${new Date(`${pos.date}T12:00:00`).toLocaleDateString('pt-BR')}` : 'posição não carregada'}>Capacidade de pagar obrigações e financiar a operação.</SlideTitle>
+      <div className="deck-liquidity"><div className="deck-liquidity-main"><span>LIQUIDEZ CORRENTE</span><strong>{pos?.currentRatio ? `${pos.currentRatio.toFixed(2).replace('.', ',')}x` : '—'}</strong><p>{!pos ? 'Nenhuma posição financeira carregada ainda.' : pos.currentRatio >= 1 ? 'O ativo circulante cobre os compromissos operacionais.' : 'Os compromissos de curto prazo superam os recursos circulantes.'} {prevPos ? `${comparisonNoun === 'ano anterior' ? 'No' : 'No'} ${comparisonNoun}: ${prevPos.currentRatio.toFixed(2).replace('.', ',')}x.` : 'Comparação com o período anterior ainda não disponível — depende de um novo fechamento.'}</p></div><div><BigNumber label="Capital de giro" value={shortMoney(pos?.workingCapital)} note={<small>ativo circulante − passivo circulante</small>} /><BigNumber label="Disponibilidades" value={shortMoney(pos?.cash)} note={<small>caixa e bancos</small>} /><BigNumber label="Endividamento" value={pct(pos?.debtRatio)} note={<small>contas a pagar ajustadas ÷ ativo</small>} /></div></div>
     </Slide>,
-    <Slide key="close" page={8} total={total} tone="dark" className="deck-close">
-      <span>PRIORIDADES FINANCEIRAS</span><h2>{data.currentRatio < 1 ? `Cobrir o déficit de capital de giro de ${shortMoney(Math.abs(data.workingCapital))}.` : `Preservar a liquidez de ${data.currentRatio.toFixed(2).replace('.', ',')}x e a margem operacional.`}</h2><p>{data.result < 0 ? `1. Gerar ${shortMoney(Math.abs(data.breakEvenGap))} adicionais para alcançar o equilíbrio. 2. Reduzir os grupos de custo com maior peso. 3. Reprogramar pagamentos onde os recebíveis não cobrem os vencimentos.` : `1. Converter resultado em caixa. 2. Cobrir o saldo financeiro de ${shortMoney(Math.abs(Math.min(data.cashGap, 0)))}. 3. Manter custos fixos abaixo de ${shortMoney(data.fixedCosts)} por mês.`}</p><div><i /> decisão requerida da gestão</div>
+    <Slide key="maturity" page={8} total={total} tone="dark">
+      <SlideTitle eyebrow="PRESSÃO DE CAIXA" aside="posição por vencimento">Onde o caixa aperta primeiro — contas a receber vs. a pagar, faixa a faixa.</SlideTitle>
+      <MetricStrip dark items={[{ label: 'Total a receber', value: shortMoney(pos?.totalReceivable) }, { label: 'Total a pagar ajustado', value: shortMoney(pos?.totalPayable) }, { label: 'Saldo financeiro', value: shortMoney(pos ? pos.totalReceivable - pos.totalPayable : 0), note: pos && pos.totalReceivable >= pos.totalPayable ? 'sobra de recebíveis' : 'falta de recebíveis' }, { label: 'Pressão vencida', value: shortMoney(pos ? pos.overdueReceivable - pos.overduePayable : 0), note: pos && pos.overdueReceivable >= pos.overduePayable ? 'saldo vencido favorável' : 'déficit vencido' }]} />
+      <div className="deck-chart-stage"><ResponsiveContainer width="100%" height="100%"><BarChart data={pos?.maturity || []} margin={{ top: 18, right: 18, left: 8, bottom: 0 }}><CartesianGrid vertical={false} stroke="rgba(255,255,255,.12)" strokeDasharray="3 7" /><XAxis dataKey="label" axisLine={false} tickLine={false} stroke="#aaa199" /><YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} stroke="#aaa199" /><Tooltip formatter={v => money(v)} /><Bar dataKey="A receber" fill="#f47b20" radius={[7, 7, 0, 0]} /><Bar dataKey="A pagar" fill="#e4ddd6" radius={[7, 7, 0, 0]} /></BarChart></ResponsiveContainer></div><div className="deck-chart-legend"><i className="orange" /> A receber <i style={{ background: '#e4ddd6' }} /> A pagar</div>
+    </Slide>,
+    <Slide key="close" page={9} total={total} tone="dark" className="deck-close">
+      <span>PRIORIDADES FINANCEIRAS</span><h2>{pos && pos.currentRatio < 1 ? `Cobrir o déficit de capital de giro de ${shortMoney(Math.abs(pos.workingCapital))}.` : pos ? `Preservar a liquidez de ${pos.currentRatio.toFixed(2).replace('.', ',')}x e a margem operacional.` : 'Carregar o próximo fechamento contábil para acompanhar a posição.'}</h2><p>{cur.result < 0 ? `1. Gerar ${shortMoney(Math.abs(cur.breakEvenGap))} adicionais para alcançar o equilíbrio. 2. Reduzir os grupos de custo com maior peso. 3. Reprogramar pagamentos onde os recebíveis não cobrem os vencimentos.` : `1. Converter resultado em caixa. 2. Monitorar a faixa de vencimento com maior descoberto. 3. Manter custos fixos abaixo de ${shortMoney(cur.fixedCosts)} por período.`}</p><div><i /> decisão requerida da gestão</div>
     </Slide>,
   ]
 }
 
-function useClosingData(year, month) {
+function aggregateCommercialPeriod(bounds, range, ctx) {
+  const startIso = iso(range.start)
+  const endIso = iso(range.end)
+  const periodOrders = ctx.orders.filter(row => row.sale_date && row.sale_date >= startIso && row.sale_date <= endIso && hasNetOrderValue(row))
+  const periodDocs = ctx.docs.filter(row => row.issue_date && row.issue_date >= startIso && row.issue_date <= endIso)
+  const periodGoals = ctx.goals.filter(row => row.ano === bounds.year && row.mes >= bounds.startMonth && row.mes <= bounds.endMonth)
+  const ordersValue = periodOrders.reduce((sum, row) => sum + netOrderValue(row), 0)
+  const billing = periodDocs.reduce((sum, row) => sum + fiscalDocumentValue(row), 0)
+  const goal = periodGoals.reduce((sum, row) => sum + number(row.meta_fat), 0)
+  const returns = Math.abs(periodDocs.filter(row => fiscalDocumentValue(row) < 0).reduce((sum, row) => sum + fiscalDocumentValue(row), 0))
+  const billedClients = new Set(periodDocs.filter(row => fiscalDocumentValue(row) > 0).map(row => row.partner_id).filter(Boolean)).size
+
+  const sellerMap = new Map()
+  periodOrders.forEach(row => {
+    const key = row.seller_id || `ultra:${row.ultra_salesman_id || 0}`
+    const profile = ctx.profileById.get(row.seller_id) || ctx.profileByUltra.get(number(row.ultra_salesman_id))
+    const entry = sellerMap.get(key) || { key, name: profile?.name || row.ultra_salesman_name || 'Sem vendedor', orders: 0, billing: 0, goal: 0 }
+    entry.orders += netOrderValue(row)
+    sellerMap.set(key, entry)
+  })
+  periodDocs.forEach(row => {
+    const key = row.seller_id || `ultra:${row.ultra_salesman_id || 0}`
+    const profile = ctx.profileById.get(row.seller_id) || ctx.profileByUltra.get(number(row.ultra_salesman_id))
+    const entry = sellerMap.get(key) || { key, name: profile?.name || row.salesman_name || 'Sem vendedor', orders: 0, billing: 0, goal: 0 }
+    entry.billing += fiscalDocumentValue(row)
+    sellerMap.set(key, entry)
+  })
+  periodGoals.forEach(goalRow => {
+    const key = goalRow.seller_id
+    const entry = sellerMap.get(key) || { key, name: ctx.profileById.get(key)?.name || 'Vendedor', orders: 0, billing: 0, goal: 0 }
+    entry.goal += number(goalRow.meta_fat)
+    sellerMap.set(key, entry)
+  })
+
+  const productMap = new Map()
+  periodDocs.forEach(doc => (doc.fiscal_document_items || []).forEach(item => {
+    const name = item.product_name || 'Produto não identificado'
+    const sign = Math.sign(fiscalDocumentValue(doc))
+    productMap.set(name, (productMap.get(name) || 0) + Math.abs(number(item.product_total)) * sign)
+  }))
+
+  const regionMap = new Map()
+  periodDocs.forEach(doc => {
+    const stateName = ctx.farmByPartner.get(number(doc.partner_id))?.state || 'Sem UF'
+    regionMap.set(stateName, (regionMap.get(stateName) || 0) + fiscalDocumentValue(doc))
+  })
+
+  return {
+    ordersValue, billing, goal, returns, billedClients,
+    orderCount: periodOrders.length,
+    averageTicket: periodOrders.length ? ordersValue / periodOrders.length : 0,
+    attainment: goal ? ordersValue / goal * 100 : 0,
+    conversionRate: ordersValue ? billing / ordersValue * 100 : 0,
+    openPortfolio: ctx.openPortfolio,
+    activeClients: ctx.activeClients,
+    sellers: [...sellerMap.values()].sort((a, b) => b.orders - a.orders),
+    products: [...productMap.entries()].map(([name, value]) => ({ name, value })).filter(row => row.value > 0).sort((a, b) => b.value - a.value),
+    regions: [...regionMap.entries()].map(([name, value]) => ({ name, value })).filter(row => row.value > 0).sort((a, b) => b.value - a.value),
+  }
+}
+
+function buildCommercialTrajectory(type, currentBounds, currentRange, previousBounds, docs) {
+  if (type === 'mensal') {
+    const daysInMonth = currentRange.nominalEnd.getDate()
+    const prevDaysInMonth = new Date(previousBounds.year, previousBounds.startMonth, 0).getDate()
+    let curAcc = 0
+    let prevAcc = 0
+    const series = []
+    for (let day = 1; day <= daysInMonth; day++) {
+      const curDate = `${currentBounds.year}-${String(currentBounds.startMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      curAcc += docs.filter(row => row.issue_date === curDate).reduce((sum, row) => sum + fiscalDocumentValue(row), 0)
+      let prevValue = null
+      if (day <= prevDaysInMonth) {
+        const prevDate = `${previousBounds.year}-${String(previousBounds.startMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+        prevAcc += docs.filter(row => row.issue_date === prevDate).reduce((sum, row) => sum + fiscalDocumentValue(row), 0)
+        prevValue = prevAcc
+      }
+      series.push({ label: String(day), 'Período atual': curAcc, 'Período anterior': prevValue })
+    }
+    return { series, daily: true }
+  }
+  const size = currentBounds.endMonth - currentBounds.startMonth + 1
+  const series = Array.from({ length: size }, (_, i) => {
+    const curMonth = currentBounds.startMonth + i
+    const prevMonth = previousBounds.startMonth + i
+    const curKey = `${currentBounds.year}-${String(curMonth).padStart(2, '0')}`
+    const prevKey = `${previousBounds.year}-${String(prevMonth).padStart(2, '0')}`
+    return {
+      label: MONTHS[curMonth - 1],
+      'Período atual': docs.filter(row => row.issue_date?.startsWith(curKey)).reduce((sum, row) => sum + fiscalDocumentValue(row), 0),
+      'Período anterior': docs.filter(row => row.issue_date?.startsWith(prevKey)).reduce((sum, row) => sum + fiscalDocumentValue(row), 0),
+    }
+  })
+  return { series, daily: false }
+}
+
+function aggregateFinancialPeriod(bounds, range, ctx) {
+  const periodDre = ctx.dreRows.filter(row => row.ano === bounds.year && row.mes >= bounds.startMonth && row.mes <= bounds.endMonth)
+  const revenue = periodDre.reduce((sum, row) => sum + number(row.receitas), 0)
+  const variableCosts = periodDre.reduce((sum, row) => sum + number(row.custos_variaveis), 0)
+  const contribution = periodDre.reduce((sum, row) => sum + number(row.margem_contribuicao), 0)
+  const fixedCosts = periodDre.reduce((sum, row) => sum + number(row.custos_fixos), 0)
+  const result = periodDre.reduce((sum, row) => sum + number(row.resultado_liquido), 0)
+  const contributionMargin = revenue ? contribution / revenue * 100 : 0
+  const netMargin = revenue ? result / revenue * 100 : 0
+  const breakEven = contributionMargin ? fixedCosts / (contributionMargin / 100) : 0
+
+  const periodAccounts = ctx.dreAccounts.filter(row => row.ano === bounds.year && row.mes >= bounds.startMonth && row.mes <= bounds.endMonth)
+  const costMap = new Map()
+  periodAccounts.forEach(row => {
+    if (!['custos_variaveis', 'custos_fixos'].includes(String(row.secao).toLowerCase())) return
+    const name = row.grupo || row.conta || 'Outros'
+    costMap.set(name, (costMap.get(name) || 0) + Math.abs(number(row.valor)))
+  })
+
+  const periodManagerial = ctx.managerialRows.filter(row => row.ano === bounds.year && row.mes >= bounds.startMonth && row.mes <= bounds.endMonth)
+  const weightedAvg = (valueKey, weightKey) => {
+    const totalWeight = periodManagerial.reduce((sum, row) => sum + number(row[weightKey]), 0)
+    if (!totalWeight) return 0
+    return periodManagerial.reduce((sum, row) => sum + number(row[valueKey]) * number(row[weightKey]), 0) / totalWeight
+  }
+  const pmrv = weightedAvg('pmrv', 'vendas_total')
+  const pmpf = weightedAvg('pmpf', 'ap_geradas_mes')
+  const pmre = weightedAvg('pmre', 'compras_valor')
+
+  const endIso = iso(range.end)
+  const balance = [...ctx.balanceRows].filter(row => row.competencia_date <= endIso).sort((a, b) => b.competencia_date.localeCompare(a.competencia_date))[0] || null
+  let position = null
+  if (balance) {
+    const aporteADevolver = number(balance.contas_pagar_aporte_a_devolver)
+    const cpTotalAjustado = number(balance.contas_pagar_total) - aporteADevolver
+    const cpMedioAjustado = number(balance.contas_pagar_a_vencer_medio) - aporteADevolver
+    const currentAssets = number(balance.disponibilidades) + number(balance.contas_receber_total) + number(balance.estoque)
+    const currentLiabilities = number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio) + number(balance.contas_pagar_a_vencer_curto) + Math.max(cpMedioAjustado, 0)
+    position = {
+      date: balance.competencia_date,
+      cash: number(balance.disponibilidades),
+      workingCapital: currentAssets - currentLiabilities,
+      currentRatio: currentLiabilities ? currentAssets / currentLiabilities : 0,
+      debtRatio: number(balance.ativo_total) ? cpTotalAjustado / number(balance.ativo_total) * 100 : 0,
+      totalReceivable: number(balance.contas_receber_total),
+      totalPayable: Math.max(cpTotalAjustado, 0),
+      overdueReceivable: number(balance.contas_receber_vencido),
+      overduePayable: number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio),
+      maturity: [
+        { label: 'Vencido', 'A receber': number(balance.contas_receber_vencido), 'A pagar': number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio) },
+        { label: 'Até 90 dias', 'A receber': number(balance.contas_receber_a_vencer_curto), 'A pagar': number(balance.contas_pagar_a_vencer_curto) },
+        { label: 'Até 360 dias', 'A receber': number(balance.contas_receber_a_vencer_medio), 'A pagar': Math.max(cpMedioAjustado, 0) },
+        { label: 'Longo prazo', 'A receber': 0, 'A pagar': number(balance.contas_pagar_a_vencer_longo) },
+      ],
+    }
+  }
+
+  return {
+    revenue, variableCosts, contribution, fixedCosts, result,
+    contributionMargin, netMargin, breakEven, breakEvenGap: revenue - breakEven,
+    costs: [...costMap.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
+    pmrv, pmpf, pmre, cicloCaixa: pmrv + pmre - pmpf,
+    monthsAboveBreakEven: periodDre.filter(row => number(row.receitas) >= number(row.ponto_equilibrio)).length,
+    monthCount: periodDre.length,
+    hasData: periodDre.length > 0,
+    position,
+  }
+}
+
+function useClosingData(type, year, index) {
   const [state, setState] = useState({ loading: true, error: '', commercial: null, financial: null })
 
   useEffect(() => {
     let active = true
     async function load() {
       setState(prev => ({ ...prev, loading: true, error: '' }))
-      const range = monthRange(year, month)
-      const previous = previousPeriod(year, month)
-      const previousRange = monthRange(previous.year, previous.month)
-      const yearStart = `${year}-01-01`
+      const currentBounds = periodBounds(type, year, index)
+      const previousBounds = previousPeriodBounds(type, year, index)
+      const currentRange = boundsToRange(currentBounds)
+      const previousRange = boundsToRange(previousBounds)
+      const fetchStartIso = iso(previousRange.start)
+      const fetchEndIso = iso(currentRange.end)
+      const years = [...new Set([currentBounds.year, previousBounds.year])]
       try {
-        const [ordersRes, previousOrdersRes, docsRes, previousDocsRes, goalsRes, portfolioRes, farmsRes, profilesRes, dreRes, dreAccountsRes, balanceRes, managerialRes] = await Promise.all([
-          supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', yearStart).lte('sale_date', range.end),
-          supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', previousRange.start).lte('sale_date', previousRange.end),
-          supabaseAdmin.from('fiscal_documents').select('ultra_document_id,issue_date,document_total,movement_type,partner_id,partner_name,seller_id,ultra_salesman_id,salesman_name,fiscal_document_items(product_name,product_total)').gte('issue_date', yearStart).lte('issue_date', range.end),
-          supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type').gte('issue_date', previousRange.start).lte('issue_date', previousRange.end),
-          supabaseAdmin.from('goals').select('*').eq('ano', year).lte('mes', month),
+        const [ordersRes, docsRes, goalsRes, portfolioRes, farmsRes, profilesRes, dreRes, dreAccountsRes, balanceRes, managerialRes] = await Promise.all([
+          supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', fetchStartIso).lte('sale_date', fetchEndIso),
+          supabaseAdmin.from('fiscal_documents').select('ultra_document_id,issue_date,document_total,movement_type,partner_id,partner_name,seller_id,ultra_salesman_id,salesman_name,fiscal_document_items(product_name,product_total)').gte('issue_date', fetchStartIso).lte('issue_date', fetchEndIso),
+          supabaseAdmin.from('goals').select('*').in('ano', years),
           supabaseAdmin.from('management_open_order_portfolio').select('open_value'),
           supabaseAdmin.from('farms').select('id,state,ultra_partner_id,status'),
           supabaseAdmin.from('profiles').select('id,name,ultra_salesman_id'),
-          supabaseAdmin.from('finance_dre_monthly').select('*').eq('ano', year).lte('mes', month).order('mes'),
-          supabaseAdmin.from('finance_dre_accounts').select('*').eq('ano', year).lte('mes', month),
-          supabaseAdmin.from('finance_balanco').select('*').lte('competencia_date', range.end).order('competencia_date', { ascending: false }).limit(1),
-          supabaseAdmin.from('finance_managerial_monthly').select('*').eq('ano', year).lte('mes', month).order('mes'),
+          supabaseAdmin.from('finance_dre_monthly').select('*').in('ano', years).order('ano').order('mes'),
+          supabaseAdmin.from('finance_dre_accounts').select('*').in('ano', years),
+          supabaseAdmin.from('finance_balanco').select('*').order('competencia_date', { ascending: false }),
+          supabaseAdmin.from('finance_managerial_monthly').select('*').in('ano', years),
         ])
-        const failure = [ordersRes, previousOrdersRes, docsRes, previousDocsRes, goalsRes, portfolioRes, farmsRes, profilesRes, dreRes, dreAccountsRes, balanceRes, managerialRes].find(result => result.error)
+        const failure = [ordersRes, docsRes, goalsRes, portfolioRes, farmsRes, profilesRes, dreRes, dreAccountsRes, balanceRes, managerialRes].find(result => result.error)
         if (failure?.error) throw failure.error
 
         const orders = ordersRes.data || []
-        const previousOrders = previousOrdersRes.data || []
         const docs = docsRes.data || []
-        const previousDocs = previousDocsRes.data || []
         const goals = goalsRes.data || []
         const farms = farmsRes.data || []
         const profiles = profilesRes.data || []
-        const monthPrefix = monthKey(year, month)
-        const monthOrdersRows = orders.filter(row => row.sale_date?.startsWith(monthPrefix) && hasNetOrderValue(row))
-        const monthDocs = docs.filter(row => row.issue_date?.startsWith(monthPrefix))
-        const monthOrders = monthOrdersRows.reduce((sum, row) => sum + netOrderValue(row), 0)
-        const previousOrdersValue = previousOrders.filter(hasNetOrderValue).reduce((sum, row) => sum + netOrderValue(row), 0)
-        const monthBilling = monthDocs.reduce((sum, row) => sum + fiscalDocumentValue(row), 0)
-        const previousBilling = previousDocs.reduce((sum, row) => sum + fiscalDocumentValue(row), 0)
-        const ytdOrders = orders.filter(hasNetOrderValue).reduce((sum, row) => sum + netOrderValue(row), 0)
-        const ytdBilling = docs.reduce((sum, row) => sum + fiscalDocumentValue(row), 0)
-        const ytdGoal = goals.reduce((sum, row) => sum + number(row.meta_fat), 0)
-        const monthGoal = goals.filter(row => row.mes === month).reduce((sum, row) => sum + number(row.meta_fat), 0)
         const profileById = new Map(profiles.map(row => [row.id, row]))
         const profileByUltra = new Map(profiles.filter(row => row.ultra_salesman_id).map(row => [number(row.ultra_salesman_id), row]))
-        const sellerMap = new Map()
-        monthOrdersRows.forEach(row => {
-          const key = row.seller_id || `ultra:${row.ultra_salesman_id || 0}`
-          const profile = profileById.get(row.seller_id) || profileByUltra.get(number(row.ultra_salesman_id))
-          const current = sellerMap.get(key) || { key, name: profile?.name || row.ultra_salesman_name || 'Sem vendedor', orders: 0, billing: 0, goal: 0 }
-          current.orders += netOrderValue(row)
-          sellerMap.set(key, current)
-        })
-        monthDocs.forEach(row => {
-          const key = row.seller_id || `ultra:${row.ultra_salesman_id || 0}`
-          const profile = profileById.get(row.seller_id) || profileByUltra.get(number(row.ultra_salesman_id))
-          const current = sellerMap.get(key) || { key, name: profile?.name || row.salesman_name || 'Sem vendedor', orders: 0, billing: 0, goal: 0 }
-          current.billing += fiscalDocumentValue(row)
-          sellerMap.set(key, current)
-        })
-        goals.filter(row => row.mes === month).forEach(goal => {
-          const key = goal.seller_id
-          const current = sellerMap.get(key) || { key, name: profileById.get(key)?.name || 'Vendedor', orders: 0, billing: 0, goal: 0 }
-          current.goal += number(goal.meta_fat)
-          sellerMap.set(key, current)
-        })
-        const productMap = new Map()
-        monthDocs.forEach(doc => (doc.fiscal_document_items || []).forEach(item => {
-          const name = item.product_name || 'Produto não identificado'
-          const sign = Math.sign(fiscalDocumentValue(doc))
-          productMap.set(name, (productMap.get(name) || 0) + Math.abs(number(item.product_total)) * sign)
-        }))
         const farmByPartner = new Map(farms.filter(row => row.ultra_partner_id).map(row => [number(row.ultra_partner_id), row]))
-        const regionMap = new Map()
-        monthDocs.forEach(doc => {
-          const stateName = farmByPartner.get(number(doc.partner_id))?.state || 'Sem UF'
-          regionMap.set(stateName, (regionMap.get(stateName) || 0) + fiscalDocumentValue(doc))
-        })
-        const commercialSeries = Array.from({ length: month }, (_, index) => {
-          const key = monthKey(year, index + 1)
-          return { label: MONTHS[index], Pedidos: orders.filter(row => row.sale_date?.startsWith(key) && hasNetOrderValue(row)).reduce((sum, row) => sum + netOrderValue(row), 0), Faturamento: docs.filter(row => row.issue_date?.startsWith(key)).reduce((sum, row) => sum + fiscalDocumentValue(row), 0) }
-        })
-        const commercial = {
-          year, month, monthOrders, previousOrders: previousOrdersValue, monthBilling, previousBilling, ytdOrders, ytdGoal,
-          ytdBilling, monthGoal, monthOrderCount: monthOrdersRows.length,
-          averageTicket: monthOrdersRows.length ? monthOrders / monthOrdersRows.length : 0,
-          billedClients: new Set(monthDocs.filter(row => fiscalDocumentValue(row) > 0).map(row => row.partner_id).filter(Boolean)).size,
-          returns: Math.abs(monthDocs.filter(row => fiscalDocumentValue(row) < 0).reduce((sum, row) => sum + fiscalDocumentValue(row), 0)),
+        const ctx = {
+          orders, docs, goals, profileById, profileByUltra, farmByPartner,
           openPortfolio: (portfolioRes.data || []).reduce((sum, row) => sum + number(row.open_value), 0),
-          validOrders: orders.filter(hasNetOrderValue).length,
           activeClients: farms.filter(row => row.status === 'ativo').length,
-          series: commercialSeries,
-          sellers: [...sellerMap.values()].sort((a, b) => b.orders - a.orders),
-          products: [...productMap.entries()].map(([name, value]) => ({ name, value })).filter(row => row.value > 0).sort((a, b) => b.value - a.value),
-          regions: [...regionMap.entries()].map(([name, value]) => ({ name, value })).filter(row => row.value > 0).sort((a, b) => b.value - a.value),
+        }
+        const commercialCurrent = aggregateCommercialPeriod(currentBounds, currentRange, ctx)
+        const commercialPrevious = aggregateCommercialPeriod(previousBounds, previousRange, ctx)
+        const trajectory = buildCommercialTrajectory(type, currentBounds, currentRange, previousBounds, docs)
+        const commercial = {
+          current: commercialCurrent, previous: commercialPrevious,
+          trajectory: trajectory.series, trajectoryDaily: trajectory.daily,
         }
 
-        const dreRows = dreRes.data || []
-        const currentDre = dreRows.find(row => row.mes === month) || dreRows.at(-1) || {}
-        const previousDre = dreRows.find(row => row.mes === month - 1) || {}
-        const balance = (balanceRes.data || [])[0] || {}
-        const accounts = dreAccountsRes.data || []
-        const costMap = new Map()
-        accounts.forEach(row => {
-          if (!['custos_variaveis', 'custos_fixos'].includes(String(row.secao).toLowerCase())) return
-          const name = row.grupo || row.conta || 'Outros'
-          costMap.set(name, (costMap.get(name) || 0) + Math.abs(number(row.valor)))
-        })
-        const cpAdjusted = number(balance.contas_pagar_total) - number(balance.contas_pagar_aporte_a_devolver)
-        const cpMediumAdjusted = number(balance.contas_pagar_a_vencer_medio) - number(balance.contas_pagar_aporte_a_devolver)
-        const currentAssets = number(balance.disponibilidades) + number(balance.contas_receber_total) + number(balance.estoque)
-        const currentLiabilities = number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio) + number(balance.contas_pagar_a_vencer_curto) + cpMediumAdjusted
-        const financialSeries = dreRows.map(row => ({ label: MONTHS[row.mes - 1], Receita: number(row.receitas), Resultado: number(row.resultado_liquido) }))
-        const totalReceivable = number(balance.contas_receber_total)
-        const totalPayable = Math.max(cpAdjusted, 0)
-        const overdueReceivable = number(balance.contas_receber_vencido)
-        const overduePayable = number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio)
-        const financial = {
-          revenue: number(currentDre.receitas), previousRevenue: number(previousDre.receitas), result: number(currentDre.resultado_liquido),
-          variableCosts: number(currentDre.custos_variaveis), contribution: number(currentDre.margem_contribuicao), fixedCosts: number(currentDre.custos_fixos), breakEven: number(currentDre.ponto_equilibrio),
-          netMargin: number(currentDre.receitas) ? number(currentDre.resultado_liquido) / number(currentDre.receitas) * 100 : 0,
-          contributionMargin: number(currentDre.receitas) ? number(currentDre.margem_contribuicao) / number(currentDre.receitas) * 100 : 0,
-          breakEvenGap: number(currentDre.receitas) - number(currentDre.ponto_equilibrio),
-          ytdRevenue: dreRows.reduce((sum, row) => sum + number(row.receitas), 0),
-          ytdResult: dreRows.reduce((sum, row) => sum + number(row.resultado_liquido), 0),
-          ytdCosts: dreRows.reduce((sum, row) => sum + Math.abs(number(row.custos_variaveis)) + Math.abs(number(row.custos_fixos)), 0),
-          monthsAboveBreakEven: dreRows.filter(row => number(row.receitas) >= number(row.ponto_equilibrio)).length,
-          series: financialSeries,
-          costs: [...costMap.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
-          balanceDate: balance.competencia_date,
-          cash: number(balance.disponibilidades), workingCapital: currentAssets - currentLiabilities,
-          currentRatio: currentLiabilities ? currentAssets / currentLiabilities : 0,
-          debtRatio: number(balance.ativo_total) ? cpAdjusted / number(balance.ativo_total) * 100 : 0,
-          totalReceivable, totalPayable, cashGap: totalReceivable - totalPayable,
-          overdueGap: overdueReceivable - overduePayable,
-          maturity: [
-            { label: 'Vencido', 'A receber': number(balance.contas_receber_vencido), 'A pagar': number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio) },
-            { label: 'Até 90 dias', 'A receber': number(balance.contas_receber_a_vencer_curto), 'A pagar': number(balance.contas_pagar_a_vencer_curto) },
-            { label: 'Até 360 dias', 'A receber': number(balance.contas_receber_a_vencer_medio), 'A pagar': Math.max(cpMediumAdjusted, 0) },
-            { label: 'Longo prazo', 'A receber': 0, 'A pagar': number(balance.contas_pagar_a_vencer_longo) },
-          ],
-          managerial: managerialRes.data || [],
+        const finCtx = {
+          dreRows: dreRes.data || [], dreAccounts: dreAccountsRes.data || [],
+          balanceRows: balanceRes.data || [], managerialRows: managerialRes.data || [],
         }
+        const financialCurrent = aggregateFinancialPeriod(currentBounds, currentRange, finCtx)
+        const financialPrevious = aggregateFinancialPeriod(previousBounds, previousRange, finCtx)
+        const series = [...finCtx.dreRows].sort((a, b) => a.ano - b.ano || a.mes - b.mes).map(row => ({ label: `${MONTHS[row.mes - 1]}/${String(row.ano).slice(2)}`, Receita: number(row.receitas), Resultado: number(row.resultado_liquido) }))
+        const financial = {
+          current: financialCurrent, previous: financialPrevious, series,
+          hasData: financialCurrent.hasData, previousHasData: financialPrevious.hasData,
+        }
+
         if (active) setState({ loading: false, error: '', commercial, financial })
       } catch (error) {
         console.error('Erro ao preparar apresentações:', error)
@@ -341,27 +485,37 @@ function useClosingData(year, month) {
     }
     load()
     return () => { active = false }
-  }, [year, month])
+  }, [type, year, index])
 
   return state
 }
 
 export default function Fechamentos() {
   const now = new Date()
+  const [periodType, setPeriodType] = useState('mensal')
   const [year, setYear] = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth() + 1)
+  const [index, setIndex] = useState(now.getMonth() + 1)
   const [type, setType] = useState(() => new URLSearchParams(window.location.search).get('type') === 'financeiro' ? 'financeiro' : 'comercial')
   const [activeSlide, setActiveSlide] = useState(0)
   const [exporting, setExporting] = useState('')
   const slideRefs = useRef([])
   const stageRef = useRef(null)
   const [slideScale, setSlideScale] = useState(1)
-  const data = useClosingData(year, month)
-  const period = `${MONTHS_FULL[month - 1][0].toUpperCase()}${MONTHS_FULL[month - 1].slice(1)} ${year}`
+  const data = useClosingData(periodType, year, index)
+
+  const currentBounds = useMemo(() => periodBounds(periodType, year, index), [periodType, year, index])
+  const previousBounds = useMemo(() => previousPeriodBounds(periodType, year, index), [periodType, year, index])
+  const period = periodLabel(periodType, currentBounds)
+  const previousLabelText = periodLabel(periodType, previousBounds)
+  const comparisonNoun = COMPARISON_NOUN[periodType]
+  const generatedAt = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+
   const slides = useMemo(() => {
     if (!data.commercial || !data.financial) return []
-    return type === 'comercial' ? CommercialSlides({ data: data.commercial, period }) : FinancialSlides({ data: data.financial, period })
-  }, [data.commercial, data.financial, type, period])
+    return type === 'comercial'
+      ? CommercialSlides({ data: data.commercial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun })
+      : FinancialSlides({ data: data.financial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun })
+  }, [data.commercial, data.financial, type, period, previousLabelText, generatedAt, comparisonNoun])
 
   useEffect(() => {
     if (!stageRef.current) return undefined
@@ -389,7 +543,7 @@ export default function Fechamentos() {
     try {
       const images = await renderSlides()
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [338.667, 190.5], compress: true })
-      images.forEach((image, index) => { if (index) pdf.addPage([338.667, 190.5], 'landscape'); pdf.addImage(image, 'PNG', 0, 0, 338.667, 190.5, undefined, 'FAST') })
+      images.forEach((image, i) => { if (i) pdf.addPage([338.667, 190.5], 'landscape'); pdf.addImage(image, 'PNG', 0, 0, 338.667, 190.5, undefined, 'FAST') })
       pdf.save(`nutrialle-fechamento-${type}-${sanitizeName(period)}.pdf`)
     } finally { setExporting('') }
   }
@@ -410,17 +564,24 @@ export default function Fechamentos() {
     } finally { setExporting('') }
   }
 
+  const financialMissing = type === 'financeiro' && !data.loading && data.financial && !data.financial.hasData
+
   return <div className="closing-shell">
     <Topbar title="Fechamento mensal" subtitle="Apresentações comerciais e financeiras geradas com dados do Gestão" />
     <main className="closing-page">
       <section className="closing-command">
         <div className="closing-type-switch"><button className={type === 'comercial' ? 'active' : ''} onClick={() => { setType('comercial'); setActiveSlide(0) }}>Comercial</button><button className={type === 'financeiro' ? 'active' : ''} onClick={() => { setType('financeiro'); setActiveSlide(0) }}>Financeira</button></div>
-        <div className="closing-period"><select value={month} onChange={event => { setMonth(Number(event.target.value)); setActiveSlide(0) }}>{MONTHS_FULL.map((label, index) => <option key={label} value={index + 1}>{label[0].toUpperCase() + label.slice(1)}</option>)}</select><select value={year} onChange={event => { setYear(Number(event.target.value)); setActiveSlide(0) }}>{[year - 1, year, year + 1].map(value => <option key={value}>{value}</option>)}</select></div>
+        <div className="closing-period">
+          <select value={periodType} onChange={event => { setPeriodType(event.target.value); setIndex(1); setActiveSlide(0) }}>{Object.entries(PERIOD_TYPE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+          {periodType !== 'anual' && <select value={index} onChange={event => { setIndex(Number(event.target.value)); setActiveSlide(0) }}>{indexOptionsFor(periodType).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>}
+          <select value={year} onChange={event => { setYear(Number(event.target.value)); setActiveSlide(0) }}>{[year - 1, year, year + 1].map(value => <option key={value}>{value}</option>)}</select>
+        </div>
         <div className="closing-actions"><button className="btn btn-ghost" onClick={() => window.location.reload()}><IconRefresh size={17} /> Atualizar dados</button><button className="btn btn-ghost" disabled={data.loading || !!exporting} onClick={exportPDF}><IconFileTypePdf size={17} /> {exporting === 'pdf' ? 'Gerando…' : 'Baixar PDF'}</button><button className="btn btn-primary" disabled={data.loading || !!exporting} onClick={exportPPTX}><IconDownload size={17} /> {exporting === 'pptx' ? 'Gerando…' : 'Baixar PowerPoint'}</button></div>
       </section>
+      {financialMissing && <div className="closing-warning">Nenhum fechamento contábil carregado para <b>{period}</b> ainda — a apresentação financeira vai mostrar zeros até o próximo fechamento ser lançado no Financeiro.</div>}
       {data.loading ? <div className="closing-state"><IconPresentation size={30} /><strong>Preparando o fechamento…</strong><span>Cruzando pedidos, faturamento, metas e dados financeiros.</span></div> : data.error ? <div className="closing-state error"><strong>Não foi possível montar a apresentação</strong><span>{data.error}</span></div> : <>
-        <section className="closing-viewer"><div className="closing-stage" ref={stageRef}>{slides.map((slide, index) => <div key={index} className={`closing-slide-frame ${activeSlide === index ? 'active' : ''}`} style={{ transform: `scale(${slideScale})` }} ref={node => { slideRefs.current[index] = node }}>{slide}</div>)}</div><div className="closing-nav"><button disabled={!activeSlide} onClick={() => setActiveSlide(value => value - 1)}><IconArrowLeft size={18} /></button><span>{activeSlide + 1} de {slides.length}</span><button disabled={activeSlide === slides.length - 1} onClick={() => setActiveSlide(value => value + 1)}><IconArrowRight size={18} /></button></div></section>
-        <section className="closing-filmstrip">{slides.map((slide, index) => <button key={index} className={activeSlide === index ? 'active' : ''} onClick={() => setActiveSlide(index)}><span>{slide}</span><b>{String(index + 1).padStart(2, '0')}</b></button>)}</section>
+        <section className="closing-viewer"><div className="closing-stage" ref={stageRef}>{slides.map((slide, i) => <div key={i} className={`closing-slide-frame ${activeSlide === i ? 'active' : ''}`} style={{ transform: `scale(${slideScale})` }} ref={node => { slideRefs.current[i] = node }}>{slide}</div>)}</div><div className="closing-nav"><button disabled={!activeSlide} onClick={() => setActiveSlide(value => value - 1)}><IconArrowLeft size={18} /></button><span>{activeSlide + 1} de {slides.length}</span><button disabled={activeSlide === slides.length - 1} onClick={() => setActiveSlide(value => value + 1)}><IconArrowRight size={18} /></button></div></section>
+        <section className="closing-filmstrip">{slides.map((slide, i) => <button key={i} className={activeSlide === i ? 'active' : ''} onClick={() => setActiveSlide(i)}><span>{slide}</span><b>{String(i + 1).padStart(2, '0')}</b></button>)}</section>
       </>}
     </main>
   </div>
