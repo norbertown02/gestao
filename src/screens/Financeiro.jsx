@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom'
 import {
   IconAlertTriangle, IconArrowRight, IconBuildingBank,
   IconClockDollar, IconCoins, IconCreditCard, IconInvoice, IconPackage, IconPercentage,
-  IconScale, IconUsers, IconWallet,
+  IconReceipt2, IconScale, IconTicket, IconUserPlus, IconUsers, IconWallet,
 } from '@tabler/icons-react'
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
+import { CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import Topbar from '../components/Topbar'
 import { supabaseAdmin } from '../lib/supabase'
 
@@ -51,20 +51,23 @@ export default function Financeiro() {
   const [balancos, setBalancos] = useState([])
   const [contas, setContas] = useState([])
   const [closings, setClosings] = useState([])
+  const [managerial, setManagerial] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const [dreRes, balancoRes, contasRes, closingsRes] = await Promise.all([
+      const [dreRes, balancoRes, contasRes, closingsRes, managerialRes] = await Promise.all([
         supabaseAdmin.from('finance_dre_monthly').select('*').order('ano').order('mes'),
         supabaseAdmin.from('finance_balanco').select('*').order('competencia_date', { ascending: false }),
         supabaseAdmin.from('finance_balancete_accounts').select('*'),
         supabaseAdmin.from('finance_closings').select('*').order('competencia_date', { ascending: false }),
+        supabaseAdmin.from('finance_managerial_monthly').select('*').order('ano').order('mes'),
       ])
       setDre(dreRes.data || [])
       setBalancos(balancoRes.data || [])
       setContas(contasRes.data || [])
       setClosings(closingsRes.data || [])
+      setManagerial(managerialRes.data || [])
       setLoading(false)
     }
     load()
@@ -106,8 +109,6 @@ export default function Financeiro() {
     const totalMargem = months.reduce((s, m) => s + m.MargemContribuicao, 0)
     const totalCustosFixos = months.reduce((s, m) => s + m.CustosFixos, 0)
     const totalResultadoLiquido = months.reduce((s, m) => s + m['Resultado Líquido'], 0)
-    const mediaReceitaMensal = totalReceitas / months.length
-    const mediaCmvMensal = dre.reduce((s, r) => s + Number(r.custos_variaveis_detail?.cmv || 0), 0) / months.length
 
     // Ponto de equilíbrio médio (custo fixo médio ÷ margem de contribuição agregada) em vez da
     // média simples mês a mês -- um único mês com margem quase nula (ex.: fevereiro) faz o PE
@@ -131,20 +132,23 @@ export default function Financeiro() {
       const liquidezCorrente = passivoCirculante ? ativoCirculante / passivoCirculante : 0
       const liquidezSeca = passivoCirculante ? (ativoCirculante - Number(balanco.estoque)) / passivoCirculante : 0
       const endividamento = Number(balanco.ativo_total) ? Number(balanco.contas_pagar_total) / Number(balanco.ativo_total) * 100 : 0
-      const dso = mediaReceitaMensal ? Number(balanco.contas_receber_total) / mediaReceitaMensal * 30 : 0
-      const dio = mediaCmvMensal ? Number(balanco.estoque) / mediaCmvMensal * 30 : 0
-      const dpo = mediaCmvMensal ? Number(balanco.contas_pagar_total) / mediaCmvMensal * 30 : 0
       const arVencidoPct = Number(balanco.contas_receber_total) ? Number(balanco.contas_receber_vencido) / Number(balanco.contas_receber_total) * 100 : 0
       const apVencidoTotal = Number(balanco.contas_pagar_vencido_curto) + Number(balanco.contas_pagar_vencido_medio)
       const apVencidoPct = Number(balanco.contas_pagar_total) ? apVencidoTotal / Number(balanco.contas_pagar_total) * 100 : 0
       const apLongoPct = Number(balanco.contas_pagar_total) ? passivoNaoCirculante / Number(balanco.contas_pagar_total) * 100 : 0
       balanceMetrics = {
         ativoCirculante, passivoCirculante, passivoNaoCirculante, liquidezCorrente, liquidezSeca, endividamento,
-        dso, dio, dpo, cicloFinanceiro: dso + dio - dpo, arVencidoPct, apVencidoPct, apVencidoTotal, apLongoPct,
+        arVencidoPct, apVencidoPct, apVencidoTotal, apLongoPct,
         patrimonioLiquido: Number(balanco.lucro_prejuizo_acumulado),
         capitalGiroLiquido: ativoCirculante - passivoCirculante,
       }
     }
+
+    // Prazos médios reais do Relatório Gerencial do Ultra (PMRV/PMPF/PMRE), calculados
+    // fatura a fatura pelo próprio ERP -- muito mais confiáveis que estimar por saldo de balanço.
+    const mgrMonths = managerial.map(row => ({ ...row, label: MESES[row.mes] }))
+    const mgrLast = mgrMonths[mgrMonths.length - 1] || null
+    const mgrFirst = mgrMonths[0] || null
 
     const grupoTotais = new Map()
     let receitaCaixaOperacional = 0
@@ -170,8 +174,9 @@ export default function Financeiro() {
       peMedio, mesesAcimaPE, concentracaoTop2Pct, top2Labels,
       payrollTotal, payrollPct: totalReceitas ? payrollTotal / totalReceitas * 100 : 0,
       custoFinanceiro,
+      mgrMonths, mgrLast, mgrFirst,
     }
-  }, [dre, balancos, contas, closings])
+  }, [dre, balancos, contas, closings, managerial])
 
   const insights = useMemo(() => {
     if (!data?.balanceMetrics) return []
@@ -180,7 +185,11 @@ export default function Financeiro() {
     if (bm.patrimonioLiquido < 0) list.push({ tone: 'risk', title: `Patrimônio líquido negativo: ${shortMoney(bm.patrimonioLiquido)}`, text: 'O prejuízo acumulado supera o capital social — sob a ótica contábil a empresa opera com passivo a descoberto, financiada essencialmente por fornecedores e terceiros.' })
     if (bm.liquidezCorrente < 1) list.push({ tone: 'risk', title: `Liquidez corrente de ${bm.liquidezCorrente.toFixed(2)}x`, text: `Para cada R$ 1,00 de contas a pagar até 360 dias, a empresa tem R$ ${bm.liquidezCorrente.toFixed(2)} em caixa, recebíveis e estoque. O descoberto é de ${shortMoney(bm.passivoCirculante - bm.ativoCirculante)}.` })
     if (bm.apVencidoTotal > 0) list.push({ tone: bm.apVencidoPct > 5 ? 'risk' : 'warn', title: `${shortMoney(bm.apVencidoTotal)} em contas a pagar vencidas`, text: `Equivale a ${pct(bm.apVencidoPct)} do total a pagar, contra apenas ${pct(bm.arVencidoPct)} de inadimplência nos recebíveis — a empresa está mais atrasada com fornecedores do que seus clientes estão com ela.` })
-    if (bm.cicloFinanceiro < 0) list.push({ tone: 'ok', title: `Ciclo financeiro negativo (${Math.round(bm.cicloFinanceiro)} dias)`, text: `Estimativa: recebe de clientes e gira estoque bem mais rápido do que paga fornecedores, o que alivia caixa no curto prazo. Mas ${pct(bm.apLongoPct)} das contas a pagar só vencem em prazo longo — há concentração de dívida à frente.` })
+    if (data.mgrLast) {
+      const { pmrv, pmpf, ciclo_caixa: cicloCaixa } = data.mgrLast
+      if (data.mgrFirst && pmrv !== data.mgrFirst.pmrv) list.push({ tone: pmrv > data.mgrFirst.pmrv ? 'warn' : 'ok', title: `Prazo de recebimento ${pmrv > data.mgrFirst.pmrv ? 'subiu' : 'caiu'} de ${data.mgrFirst.pmrv} para ${pmrv} dias`, text: `PMRV (Relatório Gerencial do Ultra) foi de ${data.mgrFirst.pmrv} dias em ${data.mgrFirst.label}/26 para ${pmrv} dias em ${data.mgrLast.label}/26. ${pmrv > data.mgrFirst.pmrv ? 'A empresa está demorando mais para receber dos clientes.' : 'A empresa está recebendo mais rápido dos clientes.'}` })
+      list.push({ tone: cicloCaixa < 0 ? 'ok' : 'warn', title: `Ciclo de caixa de ${cicloCaixa} dias em ${data.mgrLast.label}/26`, text: `PMRV ${pmrv} dias + PMRE ${data.mgrLast.pmre} dias − PMPF ${pmpf} dias. ${cicloCaixa < 0 ? 'Recebe e gira estoque mais rápido do que paga fornecedores.' : 'Precisa financiar esse número de dias de operação com capital próprio ou de terceiros.'}` })
+    }
     if (prev && last.ResultadoOperacional > 0 && prev.ResultadoOperacional <= 0) list.push({ tone: 'ok', title: `${last.label}/26 fechou com resultado operacional positivo`, text: `Depois de meses no vermelho, a operação voltou a superar o ponto de equilíbrio (${shortMoney(last['Ponto de Equilíbrio'])}) com margem de contribuição de ${pct(last.margemPct)}.` })
     if (totalResultadoLiquido < 0 && last['Resultado Líquido'] > 0) list.push({ tone: 'warn', title: 'Resultado acumulado ainda negativo', text: `Mesmo com ${last.label}/26 positivo, o acumulado do período segue em ${shortMoney(totalResultadoLiquido)}. A recuperação de um mês ainda não compensa os anteriores.` })
     if (data.concentracaoTop2Pct > 50) list.push({ tone: 'warn', title: `${data.top2Labels} concentram ${pct(data.concentracaoTop2Pct)} da receita`, text: 'Dois meses puxam a maior parte do faturamento do período — indício de vendas pontuais (grandes pedidos) em vez de um ritmo comercial recorrente. Vale entender se dá pra reproduzir isso todo mês.' })
@@ -227,15 +236,34 @@ export default function Financeiro() {
         <Kpi icon={IconCreditCard} label="Endividamento" value={pct(bm.endividamento)} note="contas a pagar ÷ ativo total" tone={bm.endividamento > 100 ? 'risk' : ''} />
       </section>
 
-      <div className="macro-section-title macro-section-title-compact"><div><span>Ciclo de caixa</span><h3>Prazos médios (estimados) e inadimplência</h3></div></div>
-      <section className="dash-kpi-row">
-        <Kpi icon={IconInvoice} label="Prazo médio de recebimento" value={`${Math.round(bm.dso)} dias`} note="PMR · contas a receber ÷ receita média diária" />
-        <Kpi icon={IconPackage} label="Prazo médio de estoque" value={`${Math.round(bm.dio)} dias`} note="PME · estoque ÷ CMV médio diário" />
-        <Kpi icon={IconCreditCard} label="Prazo médio de pagamento" value={`${Math.round(bm.dpo)} dias`} note="PMP · contas a pagar ÷ CMV médio diário" />
-        <Kpi icon={IconClockDollar} label="Ciclo financeiro" value={`${Math.round(bm.cicloFinanceiro)} dias`} note="PMR + PME − PMP" tone={bm.cicloFinanceiro < 0 ? 'ok' : ''} />
+      <div className="macro-section-title macro-section-title-compact"><div><span>Ciclo de caixa</span><h3>Prazos médios reais (Relatório Gerencial do Ultra) e inadimplência</h3></div>{data.mgrLast && <small>{data.mgrLast.label}/26 · calculado fatura a fatura pelo Ultra</small>}</div>
+      {data.mgrLast ? <>
+        <section className="dash-kpi-row">
+          <Kpi icon={IconInvoice} label="Prazo médio de recebimento" value={`${data.mgrLast.pmrv} dias`} note="PMRV · faturas de venda" />
+          <Kpi icon={IconPackage} label="Prazo médio de estoque" value={`${data.mgrLast.pmre} dias`} note="PMRE · giro de estoque" />
+          <Kpi icon={IconCreditCard} label="Prazo médio de pagamento" value={`${data.mgrLast.pmpf} dias`} note="PMPF · faturas de fornecedor" />
+          <Kpi icon={IconClockDollar} label="Ciclo de caixa" value={`${data.mgrLast.ciclo_caixa} dias`} note={`ciclo operacional de ${data.mgrLast.ciclo_operacional} dias`} tone={data.mgrLast.ciclo_caixa < 0 ? 'ok' : ''} />
+          <Kpi icon={IconInvoice} label="Recebíveis vencidos" value={pct(bm.arVencidoPct)} note={`${money(balanco.contas_receber_vencido)} em atraso`} />
+          <Kpi icon={IconCreditCard} label="Contas a pagar vencidas" value={pct(bm.apVencidoPct)} note={`${money(bm.apVencidoTotal)} em atraso`} tone={bm.apVencidoPct > 5 ? 'risk' : ''} />
+        </section>
+        <section className="chart-card">
+          <div className="chart-head"><div><span className="chart-title">Evolução dos prazos e do ciclo de caixa</span><div className="chart-subtitle">PMRV, PMPF e ciclo de caixa mês a mês — dados reais do Ultra</div></div></div>
+          <ResponsiveContainer width="100%" height={230}>
+            <LineChart data={data.mgrMonths} margin={{ top: 10, right: 18, left: 4, bottom: 4 }}>
+              <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} />
+              <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${value}d`} width={40} />
+              <Tooltip formatter={(value, name) => [`${value} dias`, name]} />
+              <Line type="monotone" dataKey="pmrv" name="PMRV (recebimento)" stroke="#E87722" strokeWidth={2.4} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="pmpf" name="PMPF (pagamento)" stroke="#426A8C" strokeWidth={2.4} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="ciclo_caixa" name="Ciclo de caixa" stroke="#23864A" strokeWidth={2.4} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </section>
+      </> : <section className="dash-kpi-row">
         <Kpi icon={IconInvoice} label="Recebíveis vencidos" value={pct(bm.arVencidoPct)} note={`${money(balanco.contas_receber_vencido)} em atraso`} />
         <Kpi icon={IconCreditCard} label="Contas a pagar vencidas" value={pct(bm.apVencidoPct)} note={`${money(bm.apVencidoTotal)} em atraso`} tone={bm.apVencidoPct > 5 ? 'risk' : ''} />
-      </section>
+      </section>}
 
       <div className="macro-section-title macro-section-title-compact"><div><span>Estrutura de custos</span><h3>Rentabilidade e peso da folha</h3></div></div>
       <section className="dash-kpi-row">
@@ -244,6 +272,16 @@ export default function Financeiro() {
         <Kpi icon={IconUsers} label="Folha sobre receita" value={pct(data.payrollPct)} note={`${shortMoney(data.payrollTotal)} acumulado no período`} tone={data.payrollPct > 25 ? 'risk' : ''} />
         <Kpi icon={IconCoins} label="Custo financeiro acumulado" value={shortMoney(data.custoFinanceiro)} note="juros, IOF e tarifas bancárias" />
       </section>
+
+      {data.mgrLast && <>
+        <div className="macro-section-title macro-section-title-compact"><div><span>Comercial</span><h3>Ticket, novos clientes e caixa — {data.mgrLast.label}/26</h3></div></div>
+        <section className="dash-kpi-row">
+          <Kpi icon={IconTicket} label="Ticket médio por venda" value={shortMoney(data.mgrLast.ticket_medio_venda)} note={`${data.mgrLast.qtd_vendas} vendas no mês`} />
+          <Kpi icon={IconUserPlus} label="Novos clientes" value={data.mgrLast.qtd_novos_clientes} note={`${data.mgrLast.qtd_clientes} clientes ativos no mês`} />
+          <Kpi icon={IconReceipt2} label="Recebimentos de caixa" value={shortMoney(data.mgrLast.caixa_recebimentos)} note={`pagamentos: ${shortMoney(data.mgrLast.caixa_pagamentos)}`} />
+          <Kpi icon={IconBuildingBank} label="Saldo em bancos" value={shortMoney(data.mgrLast.bancos_saldo)} note={data.mgrFirst ? `${data.mgrFirst.label}/26 estava em ${shortMoney(data.mgrFirst.bancos_saldo)}` : 'posição no fim do mês'} tone={data.mgrLast.bancos_saldo >= (data.mgrFirst?.bancos_saldo || 0) ? 'ok' : 'risk'} />
+        </section>
+      </>}
 
       <div className="macro-section-title macro-section-title-compact"><div><span>Despesas</span><h3>Regime de caixa, acumulado do período</h3></div><Link to="/dre" className="btn btn-ghost btn-sm">Ver DRE mês a mês →</Link></div>
       <section className="dash-main-grid">
