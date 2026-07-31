@@ -80,6 +80,14 @@ export default function Financeiro() {
     const competencia = balanco?.competencia_date
     const contasPeriodo = contas.filter(row => row.competencia_date === competencia)
 
+    // Aporte de sócios e sua devolução são movimentação de capital (bancam o capital de giro),
+    // não resultado operacional -- mas o Ultra lança os dois como receita/despesa no balancete,
+    // o que contamina o "lucro/prejuízo acumulado" oficial do balanço como se fosse prejuízo.
+    // Isolamos aqui pra tirar esse efeito de qualquer indicador de análise operacional.
+    const aporteRecebido = contasPeriodo.filter(row => row.conta === 'APORTE SOCIOS').reduce((s, row) => s + Number(row.debito), 0)
+    const devolucaoAporte = contasPeriodo.filter(row => row.conta === 'DEVOLUÇÃO DE APORTE AOS SÓCIOS').reduce((s, row) => s + Number(row.credito), 0)
+    const netAporteMovimento = aporteRecebido - devolucaoAporte
+
     const months = dre.map(row => {
       const receitas = Number(row.receitas)
       const resultadoLiquido = Number(row.resultado_liquido)
@@ -149,10 +157,12 @@ export default function Financeiro() {
       ].map(b => ({ ...b, gap: b.ar - b.ap }))
       const piorFaixa = buckets.reduce((worst, b) => b.gap < worst.gap ? b : worst, buckets[0])
 
+      const patrimonioLiquidoReportado = Number(balanco.lucro_prejuizo_acumulado)
       balanceMetrics = {
         ativoCirculante, passivoCirculante, passivoNaoCirculante, liquidezCorrente, liquidezSeca, endividamento,
         arVencidoPct, apVencidoPct, apVencidoTotal, apLongoPct, buckets, piorFaixa,
-        patrimonioLiquido: Number(balanco.lucro_prejuizo_acumulado),
+        patrimonioLiquidoReportado,
+        patrimonioLiquido: patrimonioLiquidoReportado - netAporteMovimento,
         capitalGiroLiquido: ativoCirculante - passivoCirculante,
       }
     }
@@ -206,6 +216,7 @@ export default function Financeiro() {
       payrollTotal, payrollPct: totalReceitas ? payrollTotal / totalReceitas * 100 : 0,
       custoFinanceiro,
       mgrMonths, mgrLast, mgrFirst, mgrWeighted,
+      aporteRecebido, devolucaoAporte, netAporteMovimento,
     }
   }, [dre, balancos, contas, closings, managerial])
 
@@ -214,7 +225,7 @@ export default function Financeiro() {
     const { balanceMetrics: bm, last, prev, totalResultadoLiquido } = data
     const list = []
     if (bm.piorFaixa && bm.piorFaixa.gap < 0) list.push({ tone: 'risk', title: `Aperto concentrado em "${bm.piorFaixa.label}": faltam ${shortMoney(Math.abs(bm.piorFaixa.gap))}`, text: `Nessa faixa de vencimento a empresa tem ${shortMoney(bm.piorFaixa.ar)} a receber contra ${shortMoney(bm.piorFaixa.ap)} a pagar. É aqui que o caixa vai apertar primeiro, mesmo que a liquidez total pareça administrável.` })
-    if (bm.patrimonioLiquido < 0) list.push({ tone: 'risk', title: `Patrimônio líquido negativo: ${shortMoney(bm.patrimonioLiquido)}`, text: 'O prejuízo acumulado supera o capital social — sob a ótica contábil a empresa opera com passivo a descoberto, financiada essencialmente por fornecedores e terceiros.' })
+    if (bm.patrimonioLiquido < 0) list.push({ tone: 'risk', title: `Patrimônio líquido negativo: ${shortMoney(bm.patrimonioLiquido)}`, text: 'Já sem o efeito de aporte/devolução de sócios (movimentação de capital, não resultado). O prejuízo acumulado operacional supera o capital social — a empresa está sendo financiada essencialmente por fornecedores e terceiros.' })
     if (bm.liquidezCorrente < 1) list.push({ tone: 'risk', title: `Liquidez corrente de ${bm.liquidezCorrente.toFixed(2)}x`, text: `Para cada R$ 1,00 de contas a pagar até 360 dias, a empresa tem R$ ${bm.liquidezCorrente.toFixed(2)} em caixa, recebíveis e estoque. O descoberto é de ${shortMoney(bm.passivoCirculante - bm.ativoCirculante)}.` })
     if (bm.apVencidoTotal > 0) list.push({ tone: bm.apVencidoPct > 5 ? 'risk' : 'warn', title: `${shortMoney(bm.apVencidoTotal)} em contas a pagar vencidas`, text: `Equivale a ${pct(bm.apVencidoPct)} do total a pagar, contra apenas ${pct(bm.arVencidoPct)} de inadimplência nos recebíveis — a empresa está mais atrasada com fornecedores do que seus clientes estão com ela.` })
     if (data.mgrLast) {
@@ -264,9 +275,17 @@ export default function Financeiro() {
         <Kpi icon={IconScale} label="Liquidez corrente" value={`${bm.liquidezCorrente.toFixed(2)}x`} note="ativo circulante ÷ passivo até 360 dias" tone={bm.liquidezCorrente < 1 ? 'risk' : 'ok'} />
         <Kpi icon={IconScale} label="Liquidez seca" value={`${bm.liquidezSeca.toFixed(2)}x`} note="sem contar estoque" tone={bm.liquidezSeca < 1 ? 'risk' : 'ok'} />
         <Kpi icon={IconWallet} label="Capital de giro líquido" value={shortMoney(bm.capitalGiroLiquido)} note="ativo circulante − passivo até 360 dias" tone={bm.capitalGiroLiquido < 0 ? 'risk' : 'ok'} />
-        <Kpi icon={IconBuildingBank} label="Patrimônio líquido" value={shortMoney(bm.patrimonioLiquido)} note="lucro/prejuízo acumulado" tone={bm.patrimonioLiquido < 0 ? 'risk' : 'ok'} />
+        <Kpi icon={IconBuildingBank} label="Patrimônio líquido" value={shortMoney(bm.patrimonioLiquido)} note="lucro/prejuízo acumulado, sem aporte de sócios" tone={bm.patrimonioLiquido < 0 ? 'risk' : 'ok'} />
         <Kpi icon={IconCreditCard} label="Endividamento" value={pct(bm.endividamento)} note="contas a pagar ÷ ativo total" tone={bm.endividamento > 100 ? 'risk' : ''} />
       </section>
+
+      {data.netAporteMovimento !== 0 && <div className="dash-note-banner">
+        <IconWallet size={17} />
+        <div>
+          <strong>Aporte de sócios não entra nos indicadores acima</strong>
+          <span>São movimentações de capital pra bancar o capital de giro, não resultado operacional — por isso tiramos o efeito do patrimônio líquido e de todas as outras análises. No período carregado: {money(data.aporteRecebido)} recebido de aporte e {money(data.devolucaoAporte)} devolvido aos sócios, líquido de {data.netAporteMovimento >= 0 ? '+' : ''}{money(data.netAporteMovimento)}. Isso é só a movimentação do período — não sei quanto ainda falta devolver no total, porque não tenho o saldo histórico de aporte anterior a este fechamento.</span>
+        </div>
+      </div>}
 
       <div className="macro-section-title macro-section-title-compact"><div><span>Ciclo de caixa</span><h3>Prazos médios reais (Relatório Gerencial do Ultra) e inadimplência</h3></div>{data.mgrLast && <small>média ponderada do período · {data.mgrLast.label}/26 no detalhe</small>}</div>
       {data.mgrWeighted ? <>
