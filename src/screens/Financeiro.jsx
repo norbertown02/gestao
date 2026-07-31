@@ -248,6 +248,56 @@ export default function Financeiro() {
     return list
   }, [data])
 
+  // Resumo executivo: 4 lentes (operação, caixa realizado, posição/compromissos, eficiência) --
+  // cada uma vem de um relatório diferente do Ultra, respondendo uma pergunta diferente. O
+  // veredito junta os sinais numa leitura de 10 segundos, antes de entrar no detalhe da página.
+  const resumoExecutivo = useMemo(() => {
+    if (!data?.balanceMetrics) return null
+    const { balanceMetrics: bm, last, prev, mgrWeighted } = data
+    const lentes = [
+      {
+        key: 'operacao', sub: 'DRE · regime de competência', label: 'Operação',
+        value: shortMoney(data.totalResultadoLiquido), tone: data.totalResultadoLiquido >= 0 ? 'ok' : 'risk',
+        note: `receita ${shortMoney(data.totalReceitas)} · margem de contribuição ${pct(data.avgMargemPct)}`,
+      },
+      {
+        key: 'caixa', sub: 'Balancete · regime de caixa', label: 'Caixa realizado',
+        value: shortMoney(data.resultadoCaixaOperacional), tone: data.resultadoCaixaOperacional >= 0 ? 'ok' : 'risk',
+        note: `entradas ${shortMoney(data.receitaCaixaOperacional)} · saídas ${shortMoney(data.despesaCaixaOperacional)}`,
+      },
+      {
+        key: 'posicao', sub: 'Balanço + previsão financeira', label: 'Posição e compromissos',
+        value: shortMoney(bm.capitalGiroLiquido), tone: bm.capitalGiroLiquido >= 0 ? 'ok' : 'risk',
+        note: `liquidez corrente ${bm.liquidezCorrente.toFixed(2)}x · pior faixa: ${bm.piorFaixa.label} (${bm.piorFaixa.gap >= 0 ? '+' : ''}${shortMoney(bm.piorFaixa.gap)})`,
+      },
+      {
+        key: 'eficiencia', sub: 'Relatório gerencial · índices reais', label: 'Eficiência',
+        value: mgrWeighted ? `${mgrWeighted.cicloCaixa.toFixed(0)} dias` : '—', tone: mgrWeighted && mgrWeighted.cicloCaixa < 0 ? 'ok' : '',
+        note: mgrWeighted ? `recebe em ${mgrWeighted.pmrv.toFixed(0)}d · paga em ${mgrWeighted.pmpf.toFixed(0)}d` : 'sem dados no período',
+      },
+    ]
+
+    const operacaoPositiva = data.totalResultadoLiquido >= 0
+    const virada = !operacaoPositiva && last['Resultado Líquido'] > 0 && prev && prev['Resultado Líquido'] <= 0
+    const posicaoSaudavel = bm.capitalGiroLiquido >= 0 && bm.liquidezCorrente >= 1
+    const apertoFuturo = bm.piorFaixa.gap < 0
+
+    let verdict = operacaoPositiva
+      ? `A operação está dando lucro no acumulado (${shortMoney(data.totalResultadoLiquido)}). `
+      : virada
+        ? `A operação ainda está no vermelho no acumulado (${shortMoney(data.totalResultadoLiquido)}), mas ${last.label}/26 fechou no azul depois de meses seguidos de prejuízo — sinal de virada, ainda não confirmado. `
+        : `A operação segue no vermelho no acumulado (${shortMoney(data.totalResultadoLiquido)}), sem sinal de virada no último mês. `
+
+    verdict += posicaoSaudavel
+      ? `A posição financeira hoje tem colchão (capital de giro de ${shortMoney(bm.capitalGiroLiquido)}, liquidez de ${bm.liquidezCorrente.toFixed(2)}x)`
+      : `A posição financeira está apertada (capital de giro de ${shortMoney(bm.capitalGiroLiquido)})`
+    verdict += apertoFuturo
+      ? `, mas a faixa "${bm.piorFaixa.label}" já mostra um descoberto de ${shortMoney(Math.abs(bm.piorFaixa.gap))} pela frente — é para onde a atenção deveria ir agora.`
+      : ` e nenhuma faixa de vencimento mostra descoberto relevante no momento.`
+
+    return { lentes, verdict }
+  }, [data])
+
   if (loading) return <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><Topbar title="Financeiro" subtitle="Fechamento contábil, DRE, balanço e liquidez" /><div className="page"><div className="empty">Carregando dados do fechamento...</div></div></div>
 
   if (!data) return <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><Topbar title="Financeiro" subtitle="Fechamento contábil, DRE, balanço e liquidez" /><div className="page"><div className="empty">Nenhum fechamento carregado ainda. Envie o Balanço, o Balancete e o DRE do período para carregarmos o painel.</div></div></div>
@@ -257,6 +307,19 @@ export default function Financeiro() {
   return <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
     <Topbar title="Financeiro" subtitle="Fechamento contábil, DRE, balanço e liquidez — dados enviados manualmente do ERP Ultra" />
     <div className="page macro-page" style={{ overflowY: 'auto' }}>
+
+      {resumoExecutivo && <section className="resumo-executivo">
+        <div className="resumo-executivo-head"><span>Resumo executivo</span><h2>Leitura em 10 segundos</h2></div>
+        <p className="resumo-executivo-verdict">{resumoExecutivo.verdict}</p>
+        <div className="resumo-executivo-grid">
+          {resumoExecutivo.lentes.map(l => <div key={l.key} className={`resumo-lente ${l.tone}`}>
+            <span className="resumo-lente-sub">{l.sub}</span>
+            <strong className="resumo-lente-label">{l.label}</strong>
+            <div className="resumo-lente-value">{l.value}</div>
+            <small>{l.note}</small>
+          </div>)}
+        </div>
+      </section>}
 
       <section className="macro-toolbar">
         <div><span className="pill pill-orange">Fechamento de {dateBR(data.competencia)}</span></div>

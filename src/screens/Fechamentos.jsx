@@ -1,0 +1,366 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { IconArrowLeft, IconArrowRight, IconDownload, IconFileTypePdf, IconPresentation, IconRefresh } from '@tabler/icons-react'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
+import Topbar from '../components/Topbar'
+import logo from '../assets/logo-nutrialle.png'
+import { supabaseAdmin } from '../lib/supabase'
+import { fiscalDocumentValue, hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
+
+const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+const MONTHS_FULL = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+const COLORS = ['#f47b20', '#ffb067', '#3b3835', '#81776f', '#c8bdb3', '#f3e7dc']
+
+const number = value => Number(value || 0)
+const money = value => number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const shortMoney = value => {
+  const n = number(value)
+  if (Math.abs(n) >= 1000000) return `R$ ${(n / 1000000).toFixed(2).replace('.', ',')} mi`
+  if (Math.abs(n) >= 1000) return `R$ ${(n / 1000).toFixed(0)} mil`
+  return money(n)
+}
+const pct = value => `${number(value).toFixed(1).replace('.', ',')}%`
+const variation = (current, previous) => previous ? (current - previous) / Math.abs(previous) * 100 : current ? 100 : 0
+const monthKey = (year, month) => `${year}-${String(month).padStart(2, '0')}`
+const monthRange = (year, month) => ({ start: `${monthKey(year, month)}-01`, end: new Date(year, month, 0).toISOString().slice(0, 10) })
+const previousPeriod = (year, month) => month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 }
+const sanitizeName = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-|-$/g, '').toLowerCase()
+
+function Delta({ current, previous, suffix = 'vs. mês anterior' }) {
+  const value = variation(current, previous)
+  return <span className={value >= 0 ? 'deck-delta positive' : 'deck-delta negative'}>{value >= 0 ? '↗' : '↘'} {Math.abs(value).toFixed(1).replace('.', ',')}% {suffix}</span>
+}
+
+function Brand({ page, total, dark = false }) {
+  return <div className={`deck-brand ${dark ? 'dark' : ''}`}><img src={logo} alt="Nutrialle" /><span>{String(page).padStart(2, '0')} / {String(total).padStart(2, '0')}</span></div>
+}
+
+function Cover({ type, period, total }) {
+  const commercial = type === 'comercial'
+  return <article className="deck-slide deck-cover">
+    <div className="deck-cover-glow" />
+    <img className="deck-cover-logo" src={logo} alt="Nutrialle" />
+    <div className="deck-cover-copy"><span>FECHAMENTO {commercial ? 'COMERCIAL' : 'FINANCEIRO'}</span><h1>{period}</h1><p>{commercial ? 'Performance, mercado e direção para o próximo ciclo.' : 'Resultado, liquidez e decisões para sustentar o crescimento.'}</p></div>
+    <div className="deck-cover-foot"><i /> Gestão Nutrialle <b>•</b> confidencial</div>
+    <Brand page={1} total={total} dark />
+  </article>
+}
+
+function Slide({ children, page, total, tone = 'light', className = '' }) {
+  return <article className={`deck-slide deck-${tone} ${className}`}>{children}<Brand page={page} total={total} dark={tone === 'dark'} /></article>
+}
+
+function SlideTitle({ eyebrow, children, aside }) {
+  return <header className="deck-title"><div><span>{eyebrow}</span><h2>{children}</h2></div>{aside && <small>{aside}</small>}</header>
+}
+
+function BigNumber({ label, value, note, accent = false }) {
+  return <div className={`deck-big-number ${accent ? 'accent' : ''}`}><span>{label}</span><strong>{value}</strong>{note}</div>
+}
+
+function CommercialSlides({ data, period }) {
+  const total = 8
+  const maxSeller = Math.max(...data.sellers.map(item => item.orders), 1)
+  const maxProduct = Math.max(...data.products.map(item => item.value), 1)
+  return [
+    <Cover key="cover" type="comercial" period={period} total={total} />,
+    <Slide key="month" page={2} total={total} tone="dark" className="deck-thesis">
+      <span className="deck-kicker">O MÊS EM UMA FRASE</span>
+      <h2>{data.monthBilling >= data.previousBilling ? 'O faturamento avançou e transformou o ritmo comercial em receita.' : 'O mês exige conversão: pedidos existem, mas o faturamento perdeu ritmo.'}</h2>
+      <div className="deck-thesis-metrics"><BigNumber label="Pedidos líquidos" value={shortMoney(data.monthOrders)} note={<Delta current={data.monthOrders} previous={data.previousOrders} />} /><BigNumber label="Faturamento líquido" value={shortMoney(data.monthBilling)} note={<Delta current={data.monthBilling} previous={data.previousBilling} />} accent /><BigNumber label="Carteira aberta" value={shortMoney(data.openPortfolio)} note={<small>potencial aguardando faturamento</small>} /></div>
+    </Slide>,
+    <Slide key="rhythm" page={3} total={total}>
+      <SlideTitle eyebrow="RITMO DO ANO" aside={`${data.validOrders} pedidos válidos no acumulado`}>Pedido abre o caminho. Faturamento confirma a entrega.</SlideTitle>
+      <div className="deck-chart-stage"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data.series} margin={{ top: 18, right: 18, left: 8, bottom: 0 }}><defs><linearGradient id="deckBilling" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#f47b20" stopOpacity=".28" /><stop offset="1" stopColor="#f47b20" stopOpacity="0" /></linearGradient></defs><CartesianGrid vertical={false} stroke="#e9e1da" strokeDasharray="3 7" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} /><Tooltip formatter={v => money(v)} /><Area type="monotone" dataKey="Faturamento" stroke="#f47b20" strokeWidth={4} fill="url(#deckBilling)" /><Area type="monotone" dataKey="Pedidos" stroke="#292623" strokeWidth={3} fill="transparent" /></AreaChart></ResponsiveContainer></div>
+      <div className="deck-chart-legend"><i className="orange" /> Faturamento líquido <i className="ink" /> Pedidos líquidos</div>
+    </Slide>,
+    <Slide key="goal" page={4} total={total} className="deck-goal-slide">
+      <SlideTitle eyebrow="EXECUÇÃO CONTRA META" aside={`${MONTHS[data.month - 1]} / ${data.year}`}>A meta mede venda gerada — e mostra o tamanho da próxima ação.</SlideTitle>
+      <div className="deck-goal-main"><div><span>ATINGIMENTO ACUMULADO</span><strong>{data.ytdGoal ? pct(data.ytdOrders / data.ytdGoal * 100) : '—'}</strong><p>{data.ytdGoal ? `${shortMoney(Math.max(data.ytdGoal - data.ytdOrders, 0))} ainda separam o realizado da meta do ano até aqui.` : 'Metas ainda não cadastradas para o período.'}</p></div><div className="deck-goal-ring" style={{ '--progress': `${Math.min(data.ytdGoal ? data.ytdOrders / data.ytdGoal * 100 : 0, 100)}%` }}><span>{shortMoney(data.ytdOrders)}</span><small>vendidos</small></div></div>
+      <div className="deck-goal-track"><i style={{ width: `${Math.min(data.ytdGoal ? data.ytdOrders / data.ytdGoal * 100 : 0, 100)}%` }} /><span>0</span><b>Meta {shortMoney(data.ytdGoal)}</b></div>
+    </Slide>,
+    <Slide key="sellers" page={5} total={total}>
+      <SlideTitle eyebrow="EQUIPE COMERCIAL" aside="pedidos líquidos do mês">A concentração de performance revela onde replicar o que funciona.</SlideTitle>
+      <div className="deck-ranking">{data.sellers.slice(0, 6).map((seller, index) => <div key={seller.key}><b>{String(index + 1).padStart(2, '0')}</b><span><strong>{seller.name}</strong><i><em style={{ width: `${seller.orders / maxSeller * 100}%` }} /></i></span><strong>{shortMoney(seller.orders)}</strong><small>{seller.goal ? `${pct(seller.orders / seller.goal * 100)} da meta` : shortMoney(seller.billing) + ' faturados'}</small></div>)}</div>
+    </Slide>,
+    <Slide key="products" page={6} total={total} tone="dark">
+      <SlideTitle eyebrow="MIX DE PRODUTOS" aside="faturamento líquido" >Poucos produtos sustentam a maior parte da receita do mês.</SlideTitle>
+      <div className="deck-products"><div className="deck-product-hero"><span>PRODUTO LÍDER</span><h3>{data.products[0]?.name || 'Sem faturamento'}</h3><strong>{shortMoney(data.products[0]?.value)}</strong><small>{data.monthBilling ? pct((data.products[0]?.value || 0) / data.monthBilling * 100) : '0%'} do faturamento</small></div><div className="deck-product-bars">{data.products.slice(1, 6).map((product, index) => <div key={product.name}><span>{product.name}</span><i><em style={{ width: `${product.value / maxProduct * 100}%`, background: COLORS[index + 1] }} /></i><strong>{shortMoney(product.value)}</strong></div>)}</div></div>
+    </Slide>,
+    <Slide key="regions" page={7} total={total}>
+      <SlideTitle eyebrow="PRESENÇA DE MERCADO" aside={`${data.activeClients} clientes ativos`}>A receita mostra onde já somos fortes — e onde ainda há espaço.</SlideTitle>
+      <div className="deck-region-layout"><div className="deck-donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data.regions} dataKey="value" innerRadius={92} outerRadius={145} paddingAngle={2} stroke="none">{data.regions.map((entry, index) => <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />)}</Pie><Tooltip formatter={v => money(v)} /></PieChart></ResponsiveContainer><div><strong>{data.regions[0]?.name || '—'}</strong><span>estado líder</span></div></div><div className="deck-region-list">{data.regions.slice(0, 6).map((region, index) => <div key={region.name}><i style={{ background: COLORS[index % COLORS.length] }} /><strong>{region.name}</strong><span>{shortMoney(region.value)}</span><small>{data.monthBilling ? pct(region.value / data.monthBilling * 100) : '0%'}</small></div>)}</div></div>
+    </Slide>,
+    <Slide key="close" page={8} total={total} tone="dark" className="deck-close">
+      <span>PRÓXIMO CICLO</span><h2>{data.openPortfolio > 0 ? `Converter ${shortMoney(data.openPortfolio)} de carteira aberta sem perder margem.` : 'Criar a próxima onda de pedidos com qualidade de margem.'}</h2><p>Prioridade: acelerar os pedidos mais próximos do faturamento, proteger o mix rentável e levar o padrão dos líderes para toda a equipe.</p><div><i /> decisão comercial do mês</div>
+    </Slide>,
+  ]
+}
+
+function FinancialSlides({ data, period }) {
+  const total = 8
+  const maxCost = Math.max(...data.costs.map(item => item.value), 1)
+  return [
+    <Cover key="cover" type="financeiro" period={period} total={total} />,
+    <Slide key="result" page={2} total={total} tone="dark" className="deck-thesis">
+      <span className="deck-kicker">RESULTADO DO MÊS</span>
+      <h2>{data.result >= 0 ? 'A operação fechou positiva — agora o foco é transformar resultado em caixa.' : 'O mês fechou abaixo do equilíbrio e pede disciplina imediata sobre custos.'}</h2>
+      <div className="deck-thesis-metrics"><BigNumber label="Receita" value={shortMoney(data.revenue)} note={<Delta current={data.revenue} previous={data.previousRevenue} />} /><BigNumber label="Resultado líquido" value={shortMoney(data.result)} note={<span className={data.result >= 0 ? 'deck-delta positive' : 'deck-delta negative'}>{pct(data.netMargin)} de margem líquida</span>} accent /><BigNumber label="Ponto de equilíbrio" value={shortMoney(data.breakEven)} note={<small>{data.revenue >= data.breakEven ? 'receita acima do mínimo operacional' : 'receita abaixo do mínimo operacional'}</small>} /></div>
+    </Slide>,
+    <Slide key="dre" page={3} total={total}>
+      <SlideTitle eyebrow="DRE DO MÊS" aside="regime de competência">Cada real de receita percorre uma estrutura que precisa gerar resultado.</SlideTitle>
+      <div className="deck-dre-flow">{[
+        ['Receita', data.revenue, 100],
+        ['Custos variáveis', -Math.abs(data.variableCosts), data.revenue ? data.variableCosts / data.revenue * 100 : 0],
+        ['Margem de contribuição', data.contribution, data.revenue ? data.contribution / data.revenue * 100 : 0],
+        ['Custos fixos', -Math.abs(data.fixedCosts), data.revenue ? data.fixedCosts / data.revenue * 100 : 0],
+        ['Resultado líquido', data.result, data.netMargin],
+      ].map(([label, value, share], index) => <div key={label} className={index === 4 ? (value >= 0 ? 'result positive' : 'result negative') : ''}><span>{label}</span><i><em style={{ width: `${Math.min(Math.abs(share), 100)}%` }} /></i><strong>{shortMoney(value)}</strong><small>{pct(share)}</small></div>)}</div>
+    </Slide>,
+    <Slide key="evolution" page={4} total={total}>
+      <SlideTitle eyebrow="TRAJETÓRIA DO ANO" aside={`${data.monthsAboveBreakEven} meses acima do equilíbrio`}>Crescer receita só cria valor quando o resultado acompanha.</SlideTitle>
+      <div className="deck-chart-stage"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.series} margin={{ top: 18, right: 18, left: 8, bottom: 0 }}><CartesianGrid vertical={false} stroke="#e9e1da" strokeDasharray="3 7" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} /><Tooltip formatter={v => money(v)} /><Bar dataKey="Receita" fill="#292623" radius={[7, 7, 0, 0]} /><Bar dataKey="Resultado" fill="#f47b20" radius={[7, 7, 0, 0]} /></BarChart></ResponsiveContainer></div><div className="deck-chart-legend"><i className="ink" /> Receita <i className="orange" /> Resultado líquido</div>
+    </Slide>,
+    <Slide key="costs" page={5} total={total} tone="dark">
+      <SlideTitle eyebrow="ESTRUTURA DE CUSTOS" aside="acumulado até o mês">O peso está concentrado — e isso torna a prioridade mais clara.</SlideTitle>
+      <div className="deck-cost-layout"><div><span>CUSTOS TOTAIS ACUMULADOS</span><strong>{shortMoney(data.ytdCosts)}</strong><p>{data.ytdRevenue ? pct(data.ytdCosts / data.ytdRevenue * 100) : '0%'} da receita acumulada.</p></div><div className="deck-cost-bars">{data.costs.slice(0, 6).map((cost, index) => <div key={cost.name}><span>{cost.name}</span><i><em style={{ width: `${cost.value / maxCost * 100}%`, background: COLORS[index % COLORS.length] }} /></i><strong>{shortMoney(cost.value)}</strong></div>)}</div></div>
+    </Slide>,
+    <Slide key="liquidity" page={6} total={total}>
+      <SlideTitle eyebrow="SAÚDE FINANCEIRA" aside={data.balanceDate ? `posição em ${new Date(`${data.balanceDate}T12:00:00`).toLocaleDateString('pt-BR')}` : 'posição não carregada'}>Resultado explica o mês. Liquidez determina o fôlego.</SlideTitle>
+      <div className="deck-liquidity"><div className="deck-liquidity-main"><span>LIQUIDEZ CORRENTE</span><strong>{data.currentRatio ? `${data.currentRatio.toFixed(2).replace('.', ',')}x` : '—'}</strong><p>{data.currentRatio >= 1 ? 'O ativo circulante cobre os compromissos operacionais.' : 'Os compromissos de curto prazo superam os recursos circulantes.'}</p></div><div><BigNumber label="Capital de giro" value={shortMoney(data.workingCapital)} note={<small>ativo circulante − passivo circulante</small>} /><BigNumber label="Disponibilidades" value={shortMoney(data.cash)} note={<small>caixa e bancos</small>} /><BigNumber label="Endividamento" value={pct(data.debtRatio)} note={<small>contas a pagar ajustadas ÷ ativo</small>} /></div></div>
+    </Slide>,
+    <Slide key="maturity" page={7} total={total}>
+      <SlideTitle eyebrow="PRESSÃO DE CAIXA" aside="posição por vencimento">Receber antes de pagar é a diferença entre crescer e financiar o crescimento.</SlideTitle>
+      <div className="deck-maturity-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.maturity} margin={{ top: 18, right: 18, left: 8, bottom: 0 }}><CartesianGrid vertical={false} stroke="#e9e1da" strokeDasharray="3 7" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} /><Tooltip formatter={v => money(v)} /><Bar dataKey="A receber" fill="#f47b20" radius={[7, 7, 0, 0]} /><Bar dataKey="A pagar" fill="#292623" radius={[7, 7, 0, 0]} /></BarChart></ResponsiveContainer></div><div className="deck-chart-legend"><i className="orange" /> A receber <i className="ink" /> A pagar</div>
+    </Slide>,
+    <Slide key="close" page={8} total={total} tone="dark" className="deck-close">
+      <span>DECISÃO DO PRÓXIMO CICLO</span><h2>{data.currentRatio < 1 ? 'Proteger caixa antes de acelerar novas despesas.' : 'Usar o fôlego financeiro para crescer sem perder disciplina.'}</h2><p>{data.result < 0 ? 'Prioridade: recuperar o ponto de equilíbrio, atacar os custos de maior peso e encurtar o ciclo de caixa.' : 'Prioridade: preservar margem, antecipar recebimentos e manter o capital de giro positivo.'}</p><div><i /> fechamento financeiro do mês</div>
+    </Slide>,
+  ]
+}
+
+function useClosingData(year, month) {
+  const [state, setState] = useState({ loading: true, error: '', commercial: null, financial: null })
+
+  useEffect(() => {
+    let active = true
+    async function load() {
+      setState(prev => ({ ...prev, loading: true, error: '' }))
+      const range = monthRange(year, month)
+      const previous = previousPeriod(year, month)
+      const previousRange = monthRange(previous.year, previous.month)
+      const yearStart = `${year}-01-01`
+      try {
+        const [ordersRes, previousOrdersRes, docsRes, previousDocsRes, goalsRes, portfolioRes, farmsRes, profilesRes, dreRes, dreAccountsRes, balanceRes, managerialRes] = await Promise.all([
+          supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', yearStart).lte('sale_date', range.end),
+          supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', previousRange.start).lte('sale_date', previousRange.end),
+          supabaseAdmin.from('fiscal_documents').select('ultra_document_id,issue_date,document_total,movement_type,partner_id,partner_name,seller_id,ultra_salesman_id,salesman_name,fiscal_document_items(product_name,product_total)').gte('issue_date', yearStart).lte('issue_date', range.end),
+          supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type').gte('issue_date', previousRange.start).lte('issue_date', previousRange.end),
+          supabaseAdmin.from('goals').select('*').eq('ano', year).lte('mes', month),
+          supabaseAdmin.from('management_open_order_portfolio').select('open_value'),
+          supabaseAdmin.from('farms').select('id,state,ultra_partner_id,status'),
+          supabaseAdmin.from('profiles').select('id,name,ultra_salesman_id'),
+          supabaseAdmin.from('finance_dre_monthly').select('*').eq('ano', year).lte('mes', month).order('mes'),
+          supabaseAdmin.from('finance_dre_accounts').select('*').eq('ano', year).lte('mes', month),
+          supabaseAdmin.from('finance_balanco').select('*').lte('competencia_date', range.end).order('competencia_date', { ascending: false }).limit(1),
+          supabaseAdmin.from('finance_managerial_monthly').select('*').eq('ano', year).lte('mes', month).order('mes'),
+        ])
+        const failure = [ordersRes, previousOrdersRes, docsRes, previousDocsRes, goalsRes, portfolioRes, farmsRes, profilesRes, dreRes, dreAccountsRes, balanceRes, managerialRes].find(result => result.error)
+        if (failure?.error) throw failure.error
+
+        const orders = ordersRes.data || []
+        const previousOrders = previousOrdersRes.data || []
+        const docs = docsRes.data || []
+        const previousDocs = previousDocsRes.data || []
+        const goals = goalsRes.data || []
+        const farms = farmsRes.data || []
+        const profiles = profilesRes.data || []
+        const monthPrefix = monthKey(year, month)
+        const monthOrdersRows = orders.filter(row => row.sale_date?.startsWith(monthPrefix) && hasNetOrderValue(row))
+        const monthDocs = docs.filter(row => row.issue_date?.startsWith(monthPrefix))
+        const monthOrders = monthOrdersRows.reduce((sum, row) => sum + netOrderValue(row), 0)
+        const previousOrdersValue = previousOrders.filter(hasNetOrderValue).reduce((sum, row) => sum + netOrderValue(row), 0)
+        const monthBilling = monthDocs.reduce((sum, row) => sum + fiscalDocumentValue(row), 0)
+        const previousBilling = previousDocs.reduce((sum, row) => sum + fiscalDocumentValue(row), 0)
+        const ytdOrders = orders.filter(hasNetOrderValue).reduce((sum, row) => sum + netOrderValue(row), 0)
+        const ytdGoal = goals.reduce((sum, row) => sum + number(row.meta_fat), 0)
+        const profileById = new Map(profiles.map(row => [row.id, row]))
+        const profileByUltra = new Map(profiles.filter(row => row.ultra_salesman_id).map(row => [number(row.ultra_salesman_id), row]))
+        const sellerMap = new Map()
+        monthOrdersRows.forEach(row => {
+          const key = row.seller_id || `ultra:${row.ultra_salesman_id || 0}`
+          const profile = profileById.get(row.seller_id) || profileByUltra.get(number(row.ultra_salesman_id))
+          const current = sellerMap.get(key) || { key, name: profile?.name || row.ultra_salesman_name || 'Sem vendedor', orders: 0, billing: 0, goal: 0 }
+          current.orders += netOrderValue(row)
+          sellerMap.set(key, current)
+        })
+        monthDocs.forEach(row => {
+          const key = row.seller_id || `ultra:${row.ultra_salesman_id || 0}`
+          const profile = profileById.get(row.seller_id) || profileByUltra.get(number(row.ultra_salesman_id))
+          const current = sellerMap.get(key) || { key, name: profile?.name || row.salesman_name || 'Sem vendedor', orders: 0, billing: 0, goal: 0 }
+          current.billing += fiscalDocumentValue(row)
+          sellerMap.set(key, current)
+        })
+        goals.filter(row => row.mes === month).forEach(goal => {
+          const key = goal.seller_id
+          const current = sellerMap.get(key) || { key, name: profileById.get(key)?.name || 'Vendedor', orders: 0, billing: 0, goal: 0 }
+          current.goal += number(goal.meta_fat)
+          sellerMap.set(key, current)
+        })
+        const productMap = new Map()
+        monthDocs.forEach(doc => (doc.fiscal_document_items || []).forEach(item => {
+          const name = item.product_name || 'Produto não identificado'
+          const sign = Math.sign(fiscalDocumentValue(doc))
+          productMap.set(name, (productMap.get(name) || 0) + Math.abs(number(item.product_total)) * sign)
+        }))
+        const farmByPartner = new Map(farms.filter(row => row.ultra_partner_id).map(row => [number(row.ultra_partner_id), row]))
+        const regionMap = new Map()
+        monthDocs.forEach(doc => {
+          const stateName = farmByPartner.get(number(doc.partner_id))?.state || 'Sem UF'
+          regionMap.set(stateName, (regionMap.get(stateName) || 0) + fiscalDocumentValue(doc))
+        })
+        const commercialSeries = Array.from({ length: month }, (_, index) => {
+          const key = monthKey(year, index + 1)
+          return { label: MONTHS[index], Pedidos: orders.filter(row => row.sale_date?.startsWith(key) && hasNetOrderValue(row)).reduce((sum, row) => sum + netOrderValue(row), 0), Faturamento: docs.filter(row => row.issue_date?.startsWith(key)).reduce((sum, row) => sum + fiscalDocumentValue(row), 0) }
+        })
+        const commercial = {
+          year, month, monthOrders, previousOrders: previousOrdersValue, monthBilling, previousBilling, ytdOrders, ytdGoal,
+          openPortfolio: (portfolioRes.data || []).reduce((sum, row) => sum + number(row.open_value), 0),
+          validOrders: orders.filter(hasNetOrderValue).length,
+          activeClients: farms.filter(row => row.status === 'ativo').length,
+          series: commercialSeries,
+          sellers: [...sellerMap.values()].sort((a, b) => b.orders - a.orders),
+          products: [...productMap.entries()].map(([name, value]) => ({ name, value })).filter(row => row.value > 0).sort((a, b) => b.value - a.value),
+          regions: [...regionMap.entries()].map(([name, value]) => ({ name, value })).filter(row => row.value > 0).sort((a, b) => b.value - a.value),
+        }
+
+        const dreRows = dreRes.data || []
+        const currentDre = dreRows.find(row => row.mes === month) || dreRows.at(-1) || {}
+        const previousDre = dreRows.find(row => row.mes === month - 1) || {}
+        const balance = (balanceRes.data || [])[0] || {}
+        const accounts = dreAccountsRes.data || []
+        const costMap = new Map()
+        accounts.forEach(row => {
+          if (!['custos_variaveis', 'custos_fixos'].includes(String(row.secao).toLowerCase())) return
+          const name = row.grupo || row.conta || 'Outros'
+          costMap.set(name, (costMap.get(name) || 0) + Math.abs(number(row.valor)))
+        })
+        const cpAdjusted = number(balance.contas_pagar_total) - number(balance.contas_pagar_aporte_a_devolver)
+        const cpMediumAdjusted = number(balance.contas_pagar_a_vencer_medio) - number(balance.contas_pagar_aporte_a_devolver)
+        const currentAssets = number(balance.disponibilidades) + number(balance.contas_receber_total) + number(balance.estoque)
+        const currentLiabilities = number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio) + number(balance.contas_pagar_a_vencer_curto) + cpMediumAdjusted
+        const financialSeries = dreRows.map(row => ({ label: MONTHS[row.mes - 1], Receita: number(row.receitas), Resultado: number(row.resultado_liquido) }))
+        const financial = {
+          revenue: number(currentDre.receitas), previousRevenue: number(previousDre.receitas), result: number(currentDre.resultado_liquido),
+          variableCosts: number(currentDre.custos_variaveis), contribution: number(currentDre.margem_contribuicao), fixedCosts: number(currentDre.custos_fixos), breakEven: number(currentDre.ponto_equilibrio),
+          netMargin: number(currentDre.receitas) ? number(currentDre.resultado_liquido) / number(currentDre.receitas) * 100 : 0,
+          ytdRevenue: dreRows.reduce((sum, row) => sum + number(row.receitas), 0),
+          ytdCosts: dreRows.reduce((sum, row) => sum + Math.abs(number(row.custos_variaveis)) + Math.abs(number(row.custos_fixos)), 0),
+          monthsAboveBreakEven: dreRows.filter(row => number(row.receitas) >= number(row.ponto_equilibrio)).length,
+          series: financialSeries,
+          costs: [...costMap.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
+          balanceDate: balance.competencia_date,
+          cash: number(balance.disponibilidades), workingCapital: currentAssets - currentLiabilities,
+          currentRatio: currentLiabilities ? currentAssets / currentLiabilities : 0,
+          debtRatio: number(balance.ativo_total) ? cpAdjusted / number(balance.ativo_total) * 100 : 0,
+          maturity: [
+            { label: 'Vencido', 'A receber': number(balance.contas_receber_vencido), 'A pagar': number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio) },
+            { label: 'Até 90 dias', 'A receber': number(balance.contas_receber_a_vencer_curto), 'A pagar': number(balance.contas_pagar_a_vencer_curto) },
+            { label: 'Até 360 dias', 'A receber': number(balance.contas_receber_a_vencer_medio), 'A pagar': Math.max(cpMediumAdjusted, 0) },
+            { label: 'Longo prazo', 'A receber': 0, 'A pagar': number(balance.contas_pagar_a_vencer_longo) },
+          ],
+          managerial: managerialRes.data || [],
+        }
+        if (active) setState({ loading: false, error: '', commercial, financial })
+      } catch (error) {
+        console.error('Erro ao preparar apresentações:', error)
+        if (active) setState({ loading: false, error: error.message || 'Não foi possível carregar os dados.', commercial: null, financial: null })
+      }
+    }
+    load()
+    return () => { active = false }
+  }, [year, month])
+
+  return state
+}
+
+export default function Fechamentos() {
+  const now = new Date()
+  const [year, setYear] = useState(now.getFullYear())
+  const [month, setMonth] = useState(now.getMonth() + 1)
+  const [type, setType] = useState(() => new URLSearchParams(window.location.search).get('type') === 'financeiro' ? 'financeiro' : 'comercial')
+  const [activeSlide, setActiveSlide] = useState(0)
+  const [exporting, setExporting] = useState('')
+  const slideRefs = useRef([])
+  const stageRef = useRef(null)
+  const [slideScale, setSlideScale] = useState(1)
+  const data = useClosingData(year, month)
+  const period = `${MONTHS_FULL[month - 1][0].toUpperCase()}${MONTHS_FULL[month - 1].slice(1)} ${year}`
+  const slides = useMemo(() => {
+    if (!data.commercial || !data.financial) return []
+    return type === 'comercial' ? CommercialSlides({ data: data.commercial, period }) : FinancialSlides({ data: data.financial, period })
+  }, [data.commercial, data.financial, type, period])
+
+  useEffect(() => {
+    if (!stageRef.current) return undefined
+    const resize = () => setSlideScale(stageRef.current ? stageRef.current.clientWidth / 1200 : 1)
+    resize()
+    const observer = new ResizeObserver(resize)
+    observer.observe(stageRef.current)
+    return () => observer.disconnect()
+  }, [data.loading])
+
+  async function renderSlides() {
+    const images = []
+    for (const node of slideRefs.current.slice(0, slides.length)) {
+      node.classList.add('capture')
+      await new Promise(resolve => requestAnimationFrame(resolve))
+      const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: '#f7f3ef', logging: false })
+      images.push(canvas.toDataURL('image/png', 1))
+      node.classList.remove('capture')
+    }
+    return images
+  }
+
+  async function exportPDF() {
+    setExporting('pdf')
+    try {
+      const images = await renderSlides()
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [338.667, 190.5], compress: true })
+      images.forEach((image, index) => { if (index) pdf.addPage([338.667, 190.5], 'landscape'); pdf.addImage(image, 'PNG', 0, 0, 338.667, 190.5, undefined, 'FAST') })
+      pdf.save(`nutrialle-fechamento-${type}-${sanitizeName(period)}.pdf`)
+    } finally { setExporting('') }
+  }
+
+  async function exportPPTX() {
+    setExporting('pptx')
+    try {
+      const images = await renderSlides()
+      const { default: PptxGenJS } = await import('pptxgenjs')
+      const pptx = new PptxGenJS()
+      pptx.layout = 'LAYOUT_WIDE'
+      pptx.author = 'Nutrialle Nutrição Animal'
+      pptx.subject = `Fechamento ${type} — ${period}`
+      pptx.title = `Nutrialle | Fechamento ${type} | ${period}`
+      pptx.company = 'Nutrialle Nutrição Animal'
+      images.forEach(image => { const slide = pptx.addSlide(); slide.background = { color: 'F7F3EF' }; slide.addImage({ data: image, x: 0, y: 0, w: 13.333, h: 7.5 }) })
+      await pptx.writeFile({ fileName: `nutrialle-fechamento-${type}-${sanitizeName(period)}.pptx` })
+    } finally { setExporting('') }
+  }
+
+  return <div className="closing-shell">
+    <Topbar title="Fechamento mensal" subtitle="Apresentações comerciais e financeiras geradas com dados do Gestão" />
+    <main className="closing-page">
+      <section className="closing-command">
+        <div className="closing-type-switch"><button className={type === 'comercial' ? 'active' : ''} onClick={() => { setType('comercial'); setActiveSlide(0) }}>Comercial</button><button className={type === 'financeiro' ? 'active' : ''} onClick={() => { setType('financeiro'); setActiveSlide(0) }}>Financeira</button></div>
+        <div className="closing-period"><select value={month} onChange={event => { setMonth(Number(event.target.value)); setActiveSlide(0) }}>{MONTHS_FULL.map((label, index) => <option key={label} value={index + 1}>{label[0].toUpperCase() + label.slice(1)}</option>)}</select><select value={year} onChange={event => { setYear(Number(event.target.value)); setActiveSlide(0) }}>{[year - 1, year, year + 1].map(value => <option key={value}>{value}</option>)}</select></div>
+        <div className="closing-actions"><button className="btn btn-ghost" onClick={() => window.location.reload()}><IconRefresh size={17} /> Atualizar dados</button><button className="btn btn-ghost" disabled={data.loading || !!exporting} onClick={exportPDF}><IconFileTypePdf size={17} /> {exporting === 'pdf' ? 'Gerando…' : 'Baixar PDF'}</button><button className="btn btn-primary" disabled={data.loading || !!exporting} onClick={exportPPTX}><IconDownload size={17} /> {exporting === 'pptx' ? 'Gerando…' : 'Baixar PowerPoint'}</button></div>
+      </section>
+      {data.loading ? <div className="closing-state"><IconPresentation size={30} /><strong>Preparando o fechamento…</strong><span>Cruzando pedidos, faturamento, metas e dados financeiros.</span></div> : data.error ? <div className="closing-state error"><strong>Não foi possível montar a apresentação</strong><span>{data.error}</span></div> : <>
+        <section className="closing-viewer"><div className="closing-stage" ref={stageRef}>{slides.map((slide, index) => <div key={index} className={`closing-slide-frame ${activeSlide === index ? 'active' : ''}`} style={{ transform: `scale(${slideScale})` }} ref={node => { slideRefs.current[index] = node }}>{slide}</div>)}</div><div className="closing-nav"><button disabled={!activeSlide} onClick={() => setActiveSlide(value => value - 1)}><IconArrowLeft size={18} /></button><span>{activeSlide + 1} de {slides.length}</span><button disabled={activeSlide === slides.length - 1} onClick={() => setActiveSlide(value => value + 1)}><IconArrowRight size={18} /></button></div></section>
+        <section className="closing-filmstrip">{slides.map((slide, index) => <button key={index} className={activeSlide === index ? 'active' : ''} onClick={() => setActiveSlide(index)}><span>{slide}</span><b>{String(index + 1).padStart(2, '0')}</b></button>)}</section>
+      </>}
+    </main>
+  </div>
+}
