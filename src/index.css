@@ -9246,3 +9246,7 @@ table td {
 
 @media(max-width:900px){.closing-command{align-items:stretch;flex-wrap:wrap}.closing-actions{width:100%;margin-left:0;overflow-x:auto}.closing-stage{width:100%}.closing-slide-frame{transform:scale(calc((100vw - 44px) / 1200))}.closing-filmstrip button{flex-basis:150px;height:85px}.closing-filmstrip button>span{transform:scale(.124)} }
 @media(prefers-reduced-motion:reduce){.closing-slide-frame{transition:none}}
+
+.deck-cover-copy>small{display:block;margin-top:18px;color:#f7a05f;font-size:12px;font-weight:750;letter-spacing:.03em}
+.closing-warning{display:flex;align-items:center;gap:10px;background:#fff4de;border:1px solid #f0d9a6;color:#8a651c;border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;line-height:1.5}
+.closing-warning b{font-weight:800}
