@@ -16,6 +16,8 @@ import {
   IconTarget,
   IconArrowLeft,
   IconBox,
+  IconReportMoney,
+  IconFileInvoice,
 } from '@tabler/icons-react'
 import { useAuth } from '../lib/useAuth'
 import { supabase } from '../lib/supabase'
@@ -55,6 +57,10 @@ const NAV = [
   { to: '/estoque', label: 'Estoque', Icon: IconBox },
   { to: '/relatorio', label: 'Relatório Executivo', Icon: IconFileText },
 
+  { section: 'Financeiro' },
+  { to: '/financeiro', label: 'Financeiro', Icon: IconReportMoney, roles: ['admin', 'gestor', 'gestor_comercial'] },
+  { to: '/dre', label: 'DRE', Icon: IconFileInvoice, roles: ['admin', 'gestor', 'gestor_comercial'] },
+
   { section: 'Execução em campo' },
   { to: '/carteira', label: 'Carteira de Clientes', Icon: IconChartBar },
   { to: '/visitas', label: 'Visitas', Icon: IconRoute },
@@ -75,8 +81,23 @@ function iniciais(nome, email) {
   return String(base).slice(0, 2).toUpperCase()
 }
 
+// Alguns itens (ex.: Financeiro) só valem pra quem tem `roles` batendo com o
+// papel do usuário; a seção só aparece se sobrar algum item visível nela.
+function navParaPerfil(role) {
+  const out = []
+  let pendingSection = null
+  NAV.forEach(item => {
+    if (item.section) { pendingSection = item; return }
+    if (item.roles && !item.roles.includes(role)) return
+    if (pendingSection) { out.push(pendingSection); pendingSection = null }
+    out.push(item)
+  })
+  return out
+}
+
 export default function Sidebar() {
   const { user, logout } = useAuth()
+  const nav = navParaPerfil(user?.role)
 
   return (
     <aside className="sidebar">
@@ -97,7 +118,7 @@ export default function Sidebar() {
       </button>
 
       <nav className="sidebar-nav">
-        {NAV.map((item, i) =>
+        {nav.map((item, i) =>
           item.section ? (
             <div key={`section-${i}`} className="sidebar-section">
               {item.section}
