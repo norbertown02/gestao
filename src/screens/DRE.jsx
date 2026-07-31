@@ -106,36 +106,46 @@ function orderedGrupos(bucket, secaoKey) {
   })
 }
 
-function SectionCard({ title, total, bucket, secaoKey, expanded, onToggle, negative }) {
+// Uma seção inteira (ex.: CUSTOS FIXOS) no fluxo único -- cabeçalho da seção,
+// seguido pelos grupos (colapsáveis) e, quando abertos, as contas.
+function SectionRows({ title, total, bucket, secaoKey, expanded, onToggle, negative, receitaTotal }) {
   const grupos = orderedGrupos(bucket, secaoKey)
-  return <div className="dre-card">
-    <div className="dre-card-head"><span>{title}</span><strong style={{ color: negative ? 'var(--red)' : 'var(--text)' }}>{money(total)}</strong></div>
-    <div className="dre-group-list">
-      {grupos.map(([grupo, data]) => {
-        const key = `${secaoKey}:${grupo}`
-        const isOpen = expanded.has(key)
-        const widthPct = total ? Math.min(100, Math.abs(data.total) / Math.abs(total) * 100) : 0
-        const contas = [...data.contas.entries()].sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
-        return <div key={key} className="dre-group">
-          <button type="button" className="dre-group-row" onClick={() => onToggle(key)}>
-            <IconChevronDown size={14} className={`dre-chevron ${isOpen ? 'open' : ''}`} />
-            <span>{GRUPO_LABEL[grupo] || grupo}</span>
-            <div className="dre-group-bar"><span style={{ width: `${widthPct}%` }} /></div>
-            <strong>{money(data.total)}</strong>
-          </button>
-          {isOpen && <div className="dre-account-list">
-            {contas.map(([conta, valor]) => <div key={conta} className="dre-account-row"><span>{conta}</span><span>{money(valor)}</span></div>)}
-          </div>}
-        </div>
-      })}
+  const secaoPct = receitaTotal ? Math.abs(total) / Math.abs(receitaTotal) * 100 : 0
+  return <>
+    <div className="dre-section-row">
+      <span>{title}</span>
+      <span className="dre-line-right"><span className="dre-line-pct">{pct(secaoPct)}</span><strong style={{ color: negative ? 'var(--red)' : 'var(--text)' }}>{money(total)}</strong></span>
     </div>
-  </div>
+    {grupos.map(([grupo, data]) => {
+      const key = `${secaoKey}:${grupo}`
+      const isOpen = expanded.has(key)
+      const barPct = total ? Math.min(100, Math.abs(data.total) / Math.abs(total) * 100) : 0
+      const grupoPct = receitaTotal ? Math.abs(data.total) / Math.abs(receitaTotal) * 100 : 0
+      const contas = [...data.contas.entries()].sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
+      return <div key={key} className="dre-group">
+        <button type="button" className="dre-group-row" onClick={() => onToggle(key)}>
+          <IconChevronDown size={14} className={`dre-chevron ${isOpen ? 'open' : ''}`} />
+          <span>{GRUPO_LABEL[grupo] || grupo}</span>
+          <div className="dre-group-bar"><span style={{ width: `${barPct}%` }} /></div>
+          <span className="dre-line-pct">{pct(grupoPct)}</span>
+          <strong>{money(data.total)}</strong>
+        </button>
+        {isOpen && <div className="dre-account-list">
+          {contas.map(([conta, valor]) => {
+            const contaPct = receitaTotal ? Math.abs(valor) / Math.abs(receitaTotal) * 100 : 0
+            return <div key={conta} className="dre-account-row"><span>{conta}</span><span className="dre-line-right"><span className="dre-line-pct">{pct(contaPct)}</span><span>{money(valor)}</span></span></div>
+          })}
+        </div>}
+      </div>
+    })}
+  </>
 }
 
-function Banner({ label, value, big }) {
-  return <div className={`dre-banner ${big ? 'dre-banner-big' : ''}`}>
+function SubtotalRow({ label, value, receitaTotal, big }) {
+  const linePct = receitaTotal ? Math.abs(value) / Math.abs(receitaTotal) * 100 : 0
+  return <div className={`dre-subtotal-row ${big ? 'dre-subtotal-row-big' : ''}`}>
     <span>{label}</span>
-    <strong style={{ color: big ? undefined : (value >= 0 ? 'var(--green)' : 'var(--red)') }}>{money(value)}</strong>
+    <span className="dre-line-right"><span className="dre-line-pct">{pct(linePct)}</span><strong style={{ color: big ? undefined : (value >= 0 ? 'var(--green)' : 'var(--red)') }}>{money(value)}</strong></span>
   </div>
 }
 
@@ -215,24 +225,17 @@ export default function DRE() {
         <Kpi icon={IconScale} label="Ponto de equilíbrio" value={shortMoney(current.pontoEquilibrio)} note={current.receitas >= current.pontoEquilibrio ? 'receita acima do PE do período' : 'receita abaixo do PE do período'} tone={current.receitas >= current.pontoEquilibrio ? 'ok' : 'risk'} />
       </section>
 
-      <div className="macro-section-title macro-section-title-compact"><div><span>Demonstrativo</span><h3>{periodLabel(type, year, index)}</h3></div><small>clique num grupo para abrir as contas</small></div>
+      <div className="macro-section-title macro-section-title-compact"><div><span>Demonstrativo</span><h3>{periodLabel(type, year, index)}</h3></div><small>clique num grupo para abrir as contas · % da receita do período</small></div>
 
-      <div className="dre-waterfall">
-        <div className="dre-grid-2">
-          <SectionCard title="RECEITAS" total={current.receitas} bucket={current.bySecao.receitas} secaoKey="receitas" expanded={expanded} onToggle={toggle} />
-          <SectionCard title="CUSTOS VARIÁVEIS" total={current.custos_variaveis} bucket={current.bySecao.custos_variaveis} secaoKey="custos_variaveis" expanded={expanded} onToggle={toggle} negative />
-        </div>
-
-        <Banner label="MARGEM DE CONTRIBUIÇÃO (1 − 2)" value={current.margem_contribuicao} />
-
-        <SectionCard title="CUSTOS FIXOS" total={current.custos_fixos} bucket={current.bySecao.custos_fixos} secaoKey="custos_fixos" expanded={expanded} onToggle={toggle} negative />
-
-        <Banner label="RESULTADO OPERACIONAL (3 − 4)" value={current.resultado_operacional} />
-
-        <SectionCard title="EXTRA OPERACIONAL" total={current.extra_operacional} bucket={current.bySecao.extra_operacional} secaoKey="extra_operacional" expanded={expanded} onToggle={toggle} negative />
-
-        <Banner label="RESULTADO LÍQUIDO (5 − 6)" value={current.resultado_liquido} big />
-        <Banner label="PONTO DE EQUILÍBRIO ((4:3) × 1)" value={current.pontoEquilibrio} />
+      <div className="dre-flow">
+        <SectionRows title="RECEITAS" total={current.receitas} bucket={current.bySecao.receitas} secaoKey="receitas" expanded={expanded} onToggle={toggle} receitaTotal={current.receitas} />
+        <SectionRows title="CUSTOS VARIÁVEIS" total={current.custos_variaveis} bucket={current.bySecao.custos_variaveis} secaoKey="custos_variaveis" expanded={expanded} onToggle={toggle} negative receitaTotal={current.receitas} />
+        <SubtotalRow label="MARGEM DE CONTRIBUIÇÃO (1 − 2)" value={current.margem_contribuicao} receitaTotal={current.receitas} />
+        <SectionRows title="CUSTOS FIXOS" total={current.custos_fixos} bucket={current.bySecao.custos_fixos} secaoKey="custos_fixos" expanded={expanded} onToggle={toggle} negative receitaTotal={current.receitas} />
+        <SubtotalRow label="RESULTADO OPERACIONAL (3 − 4)" value={current.resultado_operacional} receitaTotal={current.receitas} />
+        <SectionRows title="EXTRA OPERACIONAL" total={current.extra_operacional} bucket={current.bySecao.extra_operacional} secaoKey="extra_operacional" expanded={expanded} onToggle={toggle} negative receitaTotal={current.receitas} />
+        <SubtotalRow label="RESULTADO LÍQUIDO (5 − 6)" value={current.resultado_liquido} receitaTotal={current.receitas} big />
+        <SubtotalRow label="PONTO DE EQUILÍBRIO ((4:3) × 1)" value={current.pontoEquilibrio} receitaTotal={current.receitas} />
       </div>
 
     </div>

@@ -5,7 +5,7 @@ import {
   IconClockDollar, IconCoins, IconCreditCard, IconInvoice, IconPackage, IconPercentage,
   IconReceipt2, IconScale, IconTicket, IconUserPlus, IconUsers, IconWallet,
 } from '@tabler/icons-react'
-import { CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, CartesianGrid, Cell, ComposedChart, Legend, Line, LineChart, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import Topbar from '../components/Topbar'
 import { supabaseAdmin } from '../lib/supabase'
 
@@ -273,6 +273,41 @@ export default function Financeiro() {
         <Kpi icon={IconCoins} label="Custo financeiro acumulado" value={shortMoney(data.custoFinanceiro)} note="juros, IOF e tarifas bancárias" />
       </section>
 
+      <div className="macro-section-title macro-section-title-compact"><div><span>Evolução</span><h3>DRE mensal e margens</h3></div><small>{data.mesesAcimaPE} de {data.months.length} meses acima do ponto de equilíbrio</small></div>
+      <section className="chart-card">
+        <div className="chart-head"><div><span className="chart-title">DRE mensal</span><div className="chart-subtitle">Receita, custos totais e resultado líquido — regime de competência</div></div></div>
+        <ResponsiveContainer width="100%" height={310}>
+          <ComposedChart data={data.months} margin={{ top: 10, right: 18, left: 4, bottom: 4 }}>
+            <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} />
+            <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${Math.round(value / 1000)}k`} width={54} />
+            <Tooltip formatter={(value, name) => [money(value), name]} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Bar dataKey="Receita" fill="#E87722" radius={[6, 6, 0, 0]} barSize={26} />
+            <Bar dataKey="Custos" fill="#292623" radius={[6, 6, 0, 0]} barSize={26} />
+            <Line type="monotone" dataKey="Resultado Líquido" stroke="#23864A" strokeWidth={2.6} dot={{ r: 3.5 }} />
+            <ReferenceLine y={data.peMedio} stroke="#A79C92" strokeWidth={1.8} strokeDasharray="5 6" label={{ value: `PE médio: ${shortMoney(data.peMedio)}`, position: 'insideBottomRight', fill: '#8A8178', fontSize: 10.5, fontWeight: 600 }} />
+          </ComposedChart>
+        </ResponsiveContainer>
+        <p style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 8, lineHeight: 1.5 }}>Mostramos a <strong>média</strong> do ponto de equilíbrio (custo fixo médio ÷ margem de contribuição do período) em vez do valor mês a mês: em fevereiro a margem de contribuição foi quase nula, o que torna o ponto de equilíbrio individual daquele mês (R$ 15,05 mi) matematicamente extremo e inútil como referência visual.</p>
+      </section>
+      <section className="chart-card">
+        <div className="chart-head"><div><span className="chart-title">Margens ao longo do período</span><div className="chart-subtitle">Margem de contribuição, margem líquida e custos fixos sobre receita</div></div></div>
+        <ResponsiveContainer width="100%" height={260}>
+          <LineChart data={data.months.map(m => ({ label: m.label, 'Margem de contribuição': m.margemPct, 'Margem líquida': m.liquidaPct, 'Custos fixos / receita': m.Receita ? m.CustosFixos / m.Receita * 100 : 0 }))} margin={{ top: 10, right: 18, left: 4, bottom: 4 }}>
+            <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} />
+            <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${value}%`} width={44} />
+            <Tooltip formatter={value => `${Number(value).toFixed(1)}%`} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <ReferenceLine y={0} stroke="#C9BFB7" />
+            <Line type="monotone" dataKey="Margem de contribuição" stroke="#E87722" strokeWidth={2.6} dot={{ r: 3.5 }} />
+            <Line type="monotone" dataKey="Margem líquida" stroke="#23864A" strokeWidth={2.6} dot={{ r: 3.5 }} />
+            <Line type="monotone" dataKey="Custos fixos / receita" stroke="#426A8C" strokeWidth={1.8} strokeDasharray="4 5" dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </section>
+
       {data.mgrLast && <>
         <div className="macro-section-title macro-section-title-compact"><div><span>Comercial</span><h3>Ticket, novos clientes e caixa — {data.mgrLast.label}/26</h3></div></div>
         <section className="dash-kpi-row">
@@ -308,6 +343,24 @@ export default function Financeiro() {
           </div>
         </div>
       </section>
+
+      {data.mgrLast && <>
+        <div className="macro-section-title macro-section-title-compact"><div><span>Contas a receber e a pagar</span><h3>Saldo em aberto mês a mês</h3></div><small>gerado até o fim de cada mês · Relatório Gerencial do Ultra</small></div>
+        <section className="chart-card">
+          <div className="chart-head"><div><span className="chart-title">Evolução do saldo em aberto</span><div className="chart-subtitle">Quanto mais rápido o saldo a pagar cresce que o a receber, mais a operação depende de fornecedores</div></div></div>
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={data.mgrMonths} margin={{ top: 10, right: 18, left: 4, bottom: 4 }}>
+              <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} />
+              <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${Math.round(value / 1000)}k`} width={54} />
+              <Tooltip formatter={(value, name) => [money(value), name]} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Line type="monotone" dataKey="ar_geradas_ate" name="Contas a receber em aberto" stroke="#426A8C" strokeWidth={2.6} dot={{ r: 3.5 }} />
+              <Line type="monotone" dataKey="ap_geradas_ate" name="Contas a pagar em aberto" stroke="#C93A32" strokeWidth={2.6} dot={{ r: 3.5 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </section>
+      </>}
 
       <div className="macro-section-title macro-section-title-compact"><div><span>Balanço patrimonial</span><h3>Composição de ativo e passivo</h3></div></div>
       <section className="dash-bottom-grid">
