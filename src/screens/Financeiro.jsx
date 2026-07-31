@@ -177,7 +177,16 @@ export default function Financeiro() {
 
     // Prazos médios reais do Relatório Gerencial do Ultra (PMRV/PMPF/PMRE), calculados
     // fatura a fatura pelo próprio ERP -- muito mais confiáveis que estimar por saldo de balanço.
-    const mgrMonths = managerial.map(row => ({ ...row, label: MESES[row.mes] }))
+    // O aporte a devolver (R$ 882.921,28) só temos confirmado na foto de 30/07 (balanço) -- não
+    // sabemos desde quando ele está lançado como conta a pagar nesse relatório mês a mês, então
+    // subtraímos o mesmo valor fixo de todos os meses como aproximação (mais confiável em julho,
+    // onde bate com o balanço; nos meses anteriores é uma estimativa, não um dado confirmado).
+    const aporteADevolverAP = balanceMetrics?.aporteADevolverAP || 0
+    const mgrMonths = managerial.map(row => ({
+      ...row,
+      label: MESES[row.mes],
+      ap_geradas_ate_ajustado: Math.max(0, Number(row.ap_geradas_ate) - aporteADevolverAP),
+    }))
     const mgrLast = mgrMonths[mgrMonths.length - 1] || null
     const mgrFirst = mgrMonths[0] || null
 
@@ -410,9 +419,11 @@ export default function Financeiro() {
               <Tooltip formatter={(value, name) => [money(value), name]} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Line type="monotone" dataKey="ar_geradas_ate" name="Contas a receber em aberto" stroke="#426A8C" strokeWidth={2.6} dot={{ r: 3.5 }} />
-              <Line type="monotone" dataKey="ap_geradas_ate" name="Contas a pagar em aberto" stroke="#C93A32" strokeWidth={2.6} dot={{ r: 3.5 }} />
+              <Line type="monotone" dataKey="ap_geradas_ate" name="A pagar (reportado, com aporte)" stroke="#E0A199" strokeWidth={1.6} strokeDasharray="4 5" dot={false} />
+              <Line type="monotone" dataKey="ap_geradas_ate_ajustado" name="A pagar (sem aporte a devolver)" stroke="#C93A32" strokeWidth={2.6} dot={{ r: 3.5 }} />
             </LineChart>
           </ResponsiveContainer>
+          {bm.aporteADevolverAP > 0 && <p style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 8, lineHeight: 1.5 }}>A linha sólida já tira {money(bm.aporteADevolverAP)} de aporte a devolver aos sócios — só sabemos esse valor confirmado em 30/07 (balanço), então aplicamos o mesmo valor fixo em todos os meses como aproximação. É mais confiável em julho (bate com o balanço); nos meses anteriores pode não refletir exatamente quando esse valor entrou nas contas a pagar. A linha pontilhada é o número original, sem esse ajuste.</p>}
         </section>
       </>}
 
