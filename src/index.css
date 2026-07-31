@@ -8953,3 +8953,15 @@ table td {
     .checklists-hero, .commerce-story
   ) { padding: 18px; }
 }
+
+/* =========================================================
+   FINANCEIRO — DASHBOARD CFO
+========================================================= */
+
+.dash-kpi-card.risk svg { color: var(--red); }
+.dash-kpi-card.ok svg { color: var(--green); }
+
+.dash-insight.warn .dash-insight-icon { background: var(--amber-bg); color: var(--amber); }
+
+.macro-metric.danger::before { background: var(--red); }
+.macro-metric.danger > svg { color: var(--red); background: var(--red-bg); }
