@@ -18,6 +18,7 @@ import Cotacoes from './screens/Cotacoes'
 import DashboardTime from './screens/DashboardTime'
 import Metas from './screens/Metas'
 import Estoque from './screens/Estoque'
+import Fechamentos from './screens/Fechamentos'
 import Financeiro from './screens/Financeiro'
 import DRE from './screens/DRE'
 
@@ -45,6 +46,7 @@ function AppContent() {
           <Route path="/time" element={<DashboardTime />} />
           <Route path="/metas" element={<Metas />} />
           <Route path="/relatorio" element={<RelatorioMensal />} />
+          <Route path="/fechamentos" element={<Fechamentos />} />
           <Route path="/cotacoes" element={<Cotacoes />} />
           <Route path="/config"     element={<Config />} />
         </Routes>

@@ -16,6 +16,7 @@ import {
   IconTarget,
   IconArrowLeft,
   IconBox,
+  IconPresentation,
   IconReportMoney,
   IconFileInvoice,
 } from '@tabler/icons-react'
@@ -56,6 +57,7 @@ const NAV = [
   { to: '/produtos', label: 'Produtos', Icon: IconBuildingStore },
   { to: '/estoque', label: 'Estoque', Icon: IconBox },
   { to: '/relatorio', label: 'Relatório Executivo', Icon: IconFileText },
+  { to: '/fechamentos', label: 'Apresentações', Icon: IconPresentation, roles: ['admin', 'gestor', 'gestor_comercial'] },
 
   { section: 'Financeiro' },
   { to: '/financeiro', label: 'Financeiro', Icon: IconReportMoney, roles: ['admin', 'gestor', 'gestor_comercial'] },
