@@ -9205,3 +9205,35 @@ table td {
 .dre-subtotal-row-big > span:first-child { color: rgba(255, 255, 255, .55); }
 .dre-subtotal-row-big strong { font-size: 25px; color: #fff; }
 .dre-subtotal-row-big .dre-line-pct { color: rgba(255, 255, 255, .45); }
+
+/* =========================================================
+   RESUMO EXECUTIVO — 4 LENTES
+========================================================= */
+
+.resumo-executivo {
+  background: linear-gradient(135deg, #151311 0%, #211d1a 100%);
+  border-radius: 20px;
+  padding: 26px 28px;
+  color: #fff;
+  box-shadow: 0 18px 44px rgba(41, 25, 15, .16);
+}
+
+.resumo-executivo-head span { color: #c0b7af; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.resumo-executivo-head h2 { margin: 7px 0 14px; font-size: 22px; color: #fff; letter-spacing: -.02em; }
+
+.resumo-executivo-verdict { margin: 0 0 22px; max-width: 920px; color: #d8d0c8; font-size: 13.5px; line-height: 1.65; }
+
+.resumo-executivo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+@media (max-width: 1000px) { .resumo-executivo-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .resumo-executivo-grid { grid-template-columns: 1fr; } }
+
+.resumo-lente { padding: 16px; border-radius: 14px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .09); }
+
+.resumo-lente-sub { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #a79c92; margin-bottom: 6px; }
+.resumo-lente-label { display: block; font-size: 11.5px; font-weight: 700; color: #e8e2da; margin-bottom: 9px; }
+.resumo-lente-value { font-size: 20px; font-weight: 700; margin-bottom: 6px; color: #fff; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.resumo-lente small { display: block; color: #9c9289; font-size: 10.5px; line-height: 1.4; }
+
+.resumo-lente.ok .resumo-lente-value { color: #70DF97; }
+.resumo-lente.risk .resumo-lente-value { color: #FF8B82; }
