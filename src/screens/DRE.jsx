@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconArrowDownRight, IconArrowUpRight, IconCoins, IconPercentage, IconReceipt, IconScale, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react'
+import { IconArrowDownRight, IconArrowUpRight, IconChevronDown, IconCoins, IconPercentage, IconReceipt, IconScale, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react'
 import Topbar from '../components/Topbar'
 import { supabaseAdmin } from '../lib/supabase'
 
@@ -24,12 +24,12 @@ const GRUPO_ORDER = {
   extra_operacional: ['ADIANTAMENTOS', 'ADMINISTRATIVAS', 'BANCARIAS', 'COMPRAS', 'FUNCIONAMENTO', 'JUROS/MULTAS/DESCONTOS', 'TRIBUTARIAS'],
 }
 
-const SECOES = [
-  { key: 'receitas', label: 'RECEITAS', tone: 'total' },
-  { key: 'custos_variaveis', label: 'CUSTOS VARIÁVEIS', tone: 'negative' },
-  { key: 'custos_fixos', label: 'CUSTOS FIXOS', tone: 'negative' },
-  { key: 'extra_operacional', label: 'EXTRA OPERACIONAL', tone: 'negative' },
-]
+const GRUPO_LABEL = {
+  CUSTO: 'Custo (CMV)', IMPOSTOS: 'Impostos sobre venda', COMPRAS: 'Compras', FUNCIONAMENTO: 'Funcionamento',
+  FUNCIONARIOS: 'Pessoal', VENDAS: 'Vendas', ADMINISTRATIVAS: 'Administrativas', BANCARIAS: 'Bancárias',
+  'PROPAGANDA E PUBLICIDADE': 'Marketing', TRANSPORTE: 'Transporte', TRIBUTARIAS: 'Tributos', VEICULOS: 'Veículos',
+  ADIANTAMENTOS: 'Adiantamentos', 'JUROS/MULTAS/DESCONTOS': 'Juros, multas e descontos',
+}
 
 function monthRange(type, index) {
   if (type === 'mes') return [index, index]
@@ -81,7 +81,7 @@ function aggregate(monthly, accounts, year, start, end) {
   const pontoEquilibrio = margemPct ? totals.custos_fixos / margemPct : 0
 
   const bySecao = {}
-  SECOES.forEach(secao => { bySecao[secao.key] = { total: 0, grupos: new Map() } })
+  ;['receitas', 'custos_variaveis', 'custos_fixos', 'extra_operacional'].forEach(key => { bySecao[key] = { total: 0, grupos: new Map() } })
   accountsInRange.forEach(row => {
     const bucket = bySecao[row.secao]
     if (!bucket) return
@@ -92,7 +92,51 @@ function aggregate(monthly, accounts, year, start, end) {
     grupo.contas.set(row.conta, (grupo.contas.get(row.conta) || 0) + Number(row.valor))
   })
 
-  return { ...totals, margemPct, pontoEquilibrio, bySecao, monthCount: monthsInRange.length }
+  const cmv = bySecao.custos_variaveis.grupos.get('CUSTO')?.total || 0
+
+  return { ...totals, margemPct, pontoEquilibrio, bySecao, cmv, monthCount: monthsInRange.length }
+}
+
+function orderedGrupos(bucket, secaoKey) {
+  const order = GRUPO_ORDER[secaoKey] || []
+  return [...bucket.grupos.entries()].sort(([a], [b]) => {
+    const ia = order.indexOf(a), ib = order.indexOf(b)
+    if (ia !== -1 && ib !== -1) return ia - ib
+    return a.localeCompare(b, 'pt-BR')
+  })
+}
+
+function SectionCard({ title, total, bucket, secaoKey, expanded, onToggle, negative }) {
+  const grupos = orderedGrupos(bucket, secaoKey)
+  return <div className="dre-card">
+    <div className="dre-card-head"><span>{title}</span><strong style={{ color: negative ? 'var(--red)' : 'var(--text)' }}>{money(total)}</strong></div>
+    <div className="dre-group-list">
+      {grupos.map(([grupo, data]) => {
+        const key = `${secaoKey}:${grupo}`
+        const isOpen = expanded.has(key)
+        const widthPct = total ? Math.min(100, Math.abs(data.total) / Math.abs(total) * 100) : 0
+        const contas = [...data.contas.entries()].sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
+        return <div key={key} className="dre-group">
+          <button type="button" className="dre-group-row" onClick={() => onToggle(key)}>
+            <IconChevronDown size={14} className={`dre-chevron ${isOpen ? 'open' : ''}`} />
+            <span>{GRUPO_LABEL[grupo] || grupo}</span>
+            <div className="dre-group-bar"><span style={{ width: `${widthPct}%` }} /></div>
+            <strong>{money(data.total)}</strong>
+          </button>
+          {isOpen && <div className="dre-account-list">
+            {contas.map(([conta, valor]) => <div key={conta} className="dre-account-row"><span>{conta}</span><span>{money(valor)}</span></div>)}
+          </div>}
+        </div>
+      })}
+    </div>
+  </div>
+}
+
+function Banner({ label, value, big }) {
+  return <div className={`dre-banner ${big ? 'dre-banner-big' : ''}`}>
+    <span>{label}</span>
+    <strong style={{ color: big ? undefined : (value >= 0 ? 'var(--green)' : 'var(--red)') }}>{money(value)}</strong>
+  </div>
 }
 
 export default function DRE() {
@@ -102,6 +146,7 @@ export default function DRE() {
   const [type, setType] = useState('mes')
   const [year, setYear] = useState(null)
   const [index, setIndex] = useState(null)
+  const [expanded, setExpanded] = useState(() => new Set())
 
   useEffect(() => {
     async function load() {
@@ -123,11 +168,8 @@ export default function DRE() {
   }, [])
 
   const years = useMemo(() => [...new Set(monthly.map(row => row.ano))].sort((a, b) => b - a), [monthly])
-
   const range = useMemo(() => year ? monthRange(type, index) : [1, 1], [type, index, year])
-
   const current = useMemo(() => year ? aggregate(monthly, accounts, year, range[0], range[1]) : null, [monthly, accounts, year, range])
-
   const previous = useMemo(() => {
     if (!year) return null
     const size = range[1] - range[0] + 1
@@ -136,6 +178,14 @@ export default function DRE() {
     if (prevStart < 1) return null
     return aggregate(monthly, accounts, year, prevStart, prevEnd)
   }, [monthly, accounts, year, range])
+
+  function toggle(key) {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key); else next.add(key)
+      return next
+    })
+  }
 
   const counts = { mes: 12, bimestre: 6, trimestre: 4, ano: 1 }
   const labels = { mes: 'Mês', bimestre: 'Bimestre', trimestre: 'Trimestre', ano: 'Ano' }
@@ -157,64 +207,34 @@ export default function DRE() {
 
       <section className="dash-kpi-row">
         <Kpi icon={IconReceipt} label="Receita" value={shortMoney(current.receitas)} current={current.receitas} previous={previous?.receitas} />
+        <Kpi icon={IconCoins} label="CMV" value={shortMoney(current.cmv)} current={current.cmv} previous={previous?.cmv} />
+        <Kpi icon={IconCoins} label="Custos fixos" value={shortMoney(current.custos_fixos)} current={current.custos_fixos} previous={previous?.custos_fixos} />
         <Kpi icon={IconPercentage} label="Margem de contribuição" value={pct(current.margemPct * 100)} note={shortMoney(current.margem_contribuicao)} />
         <Kpi icon={current.resultado_operacional >= 0 ? IconTrendingUp : IconTrendingDown} label="Resultado operacional" value={shortMoney(current.resultado_operacional)} current={current.resultado_operacional} previous={previous?.resultado_operacional} tone={current.resultado_operacional >= 0 ? 'ok' : 'risk'} />
         <Kpi icon={current.resultado_liquido >= 0 ? IconTrendingUp : IconTrendingDown} label="Resultado líquido" value={shortMoney(current.resultado_liquido)} current={current.resultado_liquido} previous={previous?.resultado_liquido} tone={current.resultado_liquido >= 0 ? 'ok' : 'risk'} />
         <Kpi icon={IconScale} label="Ponto de equilíbrio" value={shortMoney(current.pontoEquilibrio)} note={current.receitas >= current.pontoEquilibrio ? 'receita acima do PE do período' : 'receita abaixo do PE do período'} tone={current.receitas >= current.pontoEquilibrio ? 'ok' : 'risk'} />
-        <Kpi icon={IconCoins} label="Custos totais" value={shortMoney(current.custos_variaveis + current.custos_fixos)} note="variáveis + fixos" />
       </section>
 
-      <div className="macro-section-title macro-section-title-compact"><div><span>Demonstrativo</span><h3>{periodLabel(type, year, index)}</h3></div><small>nível de conta</small></div>
-      <section className="table-wrap dre-table">
-        <table>
-          <thead><tr><th>Conta</th><th style={{ textAlign: 'right' }}>Valor</th></tr></thead>
-          <tbody>
-            <DreLine label="RECEITAS" value={current.receitas} level="section" />
-            {renderSecao(current.bySecao.receitas)}
+      <div className="macro-section-title macro-section-title-compact"><div><span>Demonstrativo</span><h3>{periodLabel(type, year, index)}</h3></div><small>clique num grupo para abrir as contas</small></div>
 
-            <DreLine label="CUSTOS VARIÁVEIS" value={current.custos_variaveis} level="section" negative />
-            {renderSecao(current.bySecao.custos_variaveis, true)}
+      <div className="dre-waterfall">
+        <div className="dre-grid-2">
+          <SectionCard title="RECEITAS" total={current.receitas} bucket={current.bySecao.receitas} secaoKey="receitas" expanded={expanded} onToggle={toggle} />
+          <SectionCard title="CUSTOS VARIÁVEIS" total={current.custos_variaveis} bucket={current.bySecao.custos_variaveis} secaoKey="custos_variaveis" expanded={expanded} onToggle={toggle} negative />
+        </div>
 
-            <DreLine label="MARGEM DE CONTRIBUIÇÃO (1 − 2)" value={current.margem_contribuicao} level="subtotal" />
+        <Banner label="MARGEM DE CONTRIBUIÇÃO (1 − 2)" value={current.margem_contribuicao} />
 
-            <DreLine label="CUSTOS FIXOS" value={current.custos_fixos} level="section" negative />
-            {renderSecao(current.bySecao.custos_fixos, true)}
+        <SectionCard title="CUSTOS FIXOS" total={current.custos_fixos} bucket={current.bySecao.custos_fixos} secaoKey="custos_fixos" expanded={expanded} onToggle={toggle} negative />
 
-            <DreLine label="RESULTADO OPERACIONAL (3 − 4)" value={current.resultado_operacional} level="subtotal" />
+        <Banner label="RESULTADO OPERACIONAL (3 − 4)" value={current.resultado_operacional} />
 
-            <DreLine label="EXTRA OPERACIONAL" value={current.extra_operacional} level="section" negative />
-            {renderSecao(current.bySecao.extra_operacional, true)}
+        <SectionCard title="EXTRA OPERACIONAL" total={current.extra_operacional} bucket={current.bySecao.extra_operacional} secaoKey="extra_operacional" expanded={expanded} onToggle={toggle} negative />
 
-            <DreLine label="RESULTADO LÍQUIDO (5 − 6)" value={current.resultado_liquido} level="total" />
-            <DreLine label="PONTO DE EQUILÍBRIO ((4:3) × 1)" value={current.pontoEquilibrio} level="subtotal" />
-          </tbody>
-        </table>
-      </section>
+        <Banner label="RESULTADO LÍQUIDO (5 − 6)" value={current.resultado_liquido} big />
+        <Banner label="PONTO DE EQUILÍBRIO ((4:3) × 1)" value={current.pontoEquilibrio} />
+      </div>
 
     </div>
   </div>
-}
-
-function renderSecao(bucket, negative = false) {
-  if (!bucket) return null
-  return [...bucket.grupos.entries()]
-    .sort(([a], [b]) => {
-      const known = Object.values(GRUPO_ORDER).flat()
-      const ia = known.indexOf(a), ib = known.indexOf(b)
-      if (ia !== -1 && ib !== -1) return ia - ib
-      return a.localeCompare(b, 'pt-BR')
-    })
-    .flatMap(([grupo, data]) => [
-      <DreLine key={`g-${grupo}`} label={grupo} value={data.total} level="group" negative={negative} />,
-      ...[...data.contas.entries()]
-        .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
-        .map(([conta, valor]) => <DreLine key={`c-${grupo}-${conta}`} label={conta} value={valor} level="account" negative={negative} />),
-    ])
-}
-
-function DreLine({ label, value, level, negative }) {
-  return <tr className={`dre-row dre-row-${level}`}>
-    <td>{label}</td>
-    <td style={{ textAlign: 'right', color: negative && value !== 0 ? 'var(--red)' : undefined }}>{money(value)}</td>
-  </tr>
 }

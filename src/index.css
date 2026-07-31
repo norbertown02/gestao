@@ -8967,23 +8967,115 @@ table td {
 .macro-metric.danger > svg { color: var(--red); background: var(--red-bg); }
 
 /* =========================================================
-   DRE — DEMONSTRATIVO POR PERÍODO
+   DRE — DEMONSTRATIVO POR PERÍODO (cards)
 ========================================================= */
 
-.dre-table table { font-variant-numeric: tabular-nums; }
-.dre-table td:first-child { white-space: normal; }
+.dre-waterfall { display: flex; flex-direction: column; gap: 14px; }
 
-.dre-row-section td { padding-top: 18px; font-size: 12px; font-weight: 800; letter-spacing: .04em; color: var(--text); background: #F5F1EC; }
-.dre-row-section:first-child td { padding-top: 13px; }
+.dre-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
 
-.dre-row-group td { font-weight: 700; color: var(--text); background: rgba(246, 243, 239, .6); }
-.dre-row-group td:first-child { padding-left: 30px; }
+@media (max-width: 900px) {
+  .dre-grid-2 { grid-template-columns: 1fr; }
+}
 
-.dre-row-account td { font-weight: 400; color: var(--text-dim); font-size: 12.5px; }
-.dre-row-account td:first-child { padding-left: 46px; }
+.dre-card {
+  background: rgba(255, 255, 255, .9);
+  border: 1px solid rgba(230, 223, 215, .82);
+  border-radius: 20px;
+  padding: 18px 18px 10px;
+  box-shadow: 0 12px 28px rgba(35, 25, 15, .045);
+}
 
-.dre-row-subtotal td { font-weight: 750; color: var(--text); background: var(--orange-bg); border-top: 1px solid rgba(232, 119, 34, .18); border-bottom: 1px solid rgba(232, 119, 34, .18); }
+.dre-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
 
-.dre-row-total td { font-weight: 800; font-size: 14px; color: #fff; background: #292623; }
-.dre-row-total td:first-child { border-radius: 10px 0 0 10px; }
-.dre-row-total td:last-child { border-radius: 0 10px 10px 0; }
+.dre-card-head span {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.dre-card-head strong {
+  font-size: 18px;
+  font-weight: 750;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.dre-group-list { display: flex; flex-direction: column; }
+
+.dre-group { border-bottom: 1px solid rgba(230, 223, 215, .6); }
+.dre-group:last-child { border-bottom: none; }
+
+.dre-group-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 16px minmax(120px, .95fr) minmax(70px, 1.1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.dre-group-row:hover { background: rgba(246, 243, 239, .6); border-radius: 10px; }
+
+.dre-chevron { color: var(--text-faint); transition: transform .15s ease; flex-shrink: 0; }
+.dre-chevron.open { transform: rotate(-180deg); color: var(--orange); }
+
+.dre-group-row span:nth-child(2) { font-size: 12.5px; font-weight: 620; color: var(--text); }
+
+.dre-group-bar { height: 5px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.dre-group-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--orange), var(--orange-2)); }
+
+.dre-group-row strong { font-size: 12.5px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.dre-account-list { padding: 2px 4px 10px 27px; display: flex; flex-direction: column; gap: 6px; }
+
+.dre-account-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 4px 10px;
+  background: rgba(246, 243, 239, .55);
+  border-radius: 8px;
+}
+
+.dre-account-row span:last-child { font-variant-numeric: tabular-nums; font-weight: 560; color: var(--text); }
+
+.dre-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 20px;
+  border-radius: 16px;
+  background: var(--orange-bg);
+  border: 1px solid rgba(232, 119, 34, .2);
+}
+
+.dre-banner span { font-size: 11.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #9b621f; }
+.dre-banner strong { font-size: 17px; font-weight: 780; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+
+.dre-banner-big {
+  padding: 22px 24px;
+  background: linear-gradient(135deg, #050505 0%, #151515 100%);
+  border-color: rgba(255, 255, 255, .08);
+}
+
+.dre-banner-big span { color: rgba(255, 255, 255, .55); }
+.dre-banner-big strong { font-size: 26px; color: #fff; }
