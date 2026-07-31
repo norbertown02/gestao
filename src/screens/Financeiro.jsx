@@ -150,6 +150,24 @@ export default function Financeiro() {
     const mgrLast = mgrMonths[mgrMonths.length - 1] || null
     const mgrFirst = mgrMonths[0] || null
 
+    // Média ponderada em vez de simples: cada índice varia muito mês a mês (ex.: PMRV de 33 a 49
+    // dias), então uma média simples trata um mês de R$ 24 mil em vendas igual a um de R$ 860 mil.
+    // Pondera cada índice pela base que efetivamente o gera -- PMRV pelo faturamento do mês, PMPF
+    // pelas contas a pagar geradas no mês, PMRE pelo valor comprado no mês -- e deriva o ciclo de
+    // caixa/operacional dos componentes ponderados (mais consistente do que ponderar o ciclo à parte).
+    let mgrWeighted = null
+    if (mgrMonths.length) {
+      const weightedAvg = (valueKey, weightKey) => {
+        const totalWeight = mgrMonths.reduce((s, m) => s + Number(m[weightKey] || 0), 0)
+        if (!totalWeight) return 0
+        return mgrMonths.reduce((s, m) => s + Number(m[valueKey] || 0) * Number(m[weightKey] || 0), 0) / totalWeight
+      }
+      const pmrv = weightedAvg('pmrv', 'vendas_total')
+      const pmpf = weightedAvg('pmpf', 'ap_geradas_mes')
+      const pmre = weightedAvg('pmre', 'compras_valor')
+      mgrWeighted = { pmrv, pmpf, pmre, cicloCaixa: pmrv + pmre - pmpf, cicloOperacional: pmrv + pmre }
+    }
+
     const grupoTotais = new Map()
     let receitaCaixaOperacional = 0
     let despesaCaixaOperacional = 0
@@ -174,7 +192,7 @@ export default function Financeiro() {
       peMedio, mesesAcimaPE, concentracaoTop2Pct, top2Labels,
       payrollTotal, payrollPct: totalReceitas ? payrollTotal / totalReceitas * 100 : 0,
       custoFinanceiro,
-      mgrMonths, mgrLast, mgrFirst,
+      mgrMonths, mgrLast, mgrFirst, mgrWeighted,
     }
   }, [dre, balancos, contas, closings, managerial])
 
@@ -236,16 +254,17 @@ export default function Financeiro() {
         <Kpi icon={IconCreditCard} label="Endividamento" value={pct(bm.endividamento)} note="contas a pagar ÷ ativo total" tone={bm.endividamento > 100 ? 'risk' : ''} />
       </section>
 
-      <div className="macro-section-title macro-section-title-compact"><div><span>Ciclo de caixa</span><h3>Prazos médios reais (Relatório Gerencial do Ultra) e inadimplência</h3></div>{data.mgrLast && <small>{data.mgrLast.label}/26 · calculado fatura a fatura pelo Ultra</small>}</div>
-      {data.mgrLast ? <>
+      <div className="macro-section-title macro-section-title-compact"><div><span>Ciclo de caixa</span><h3>Prazos médios reais (Relatório Gerencial do Ultra) e inadimplência</h3></div>{data.mgrLast && <small>média ponderada do período · {data.mgrLast.label}/26 no detalhe</small>}</div>
+      {data.mgrWeighted ? <>
         <section className="dash-kpi-row">
-          <Kpi icon={IconInvoice} label="Prazo médio de recebimento" value={`${data.mgrLast.pmrv} dias`} note="PMRV · faturas de venda" />
-          <Kpi icon={IconPackage} label="Prazo médio de estoque" value={`${data.mgrLast.pmre} dias`} note="PMRE · giro de estoque" />
-          <Kpi icon={IconCreditCard} label="Prazo médio de pagamento" value={`${data.mgrLast.pmpf} dias`} note="PMPF · faturas de fornecedor" />
-          <Kpi icon={IconClockDollar} label="Ciclo de caixa" value={`${data.mgrLast.ciclo_caixa} dias`} note={`ciclo operacional de ${data.mgrLast.ciclo_operacional} dias`} tone={data.mgrLast.ciclo_caixa < 0 ? 'ok' : ''} />
+          <Kpi icon={IconInvoice} label="Prazo médio de recebimento" value={`${data.mgrWeighted.pmrv.toFixed(0)} dias`} note={`PMRV ponderado pelo faturamento · ${data.mgrLast.label}/26 foi ${data.mgrLast.pmrv}`} />
+          <Kpi icon={IconPackage} label="Prazo médio de estoque" value={`${data.mgrWeighted.pmre.toFixed(0)} dias`} note={`PMRE ponderado pelas compras · ${data.mgrLast.label}/26 foi ${data.mgrLast.pmre}`} />
+          <Kpi icon={IconCreditCard} label="Prazo médio de pagamento" value={`${data.mgrWeighted.pmpf.toFixed(0)} dias`} note={`PMPF ponderado pelas contas geradas · ${data.mgrLast.label}/26 foi ${data.mgrLast.pmpf}`} />
+          <Kpi icon={IconClockDollar} label="Ciclo de caixa" value={`${data.mgrWeighted.cicloCaixa.toFixed(0)} dias`} note={`ciclo operacional de ${data.mgrWeighted.cicloOperacional.toFixed(0)} dias · médias ponderadas`} tone={data.mgrWeighted.cicloCaixa < 0 ? 'ok' : ''} />
           <Kpi icon={IconInvoice} label="Recebíveis vencidos" value={pct(bm.arVencidoPct)} note={`${money(balanco.contas_receber_vencido)} em atraso`} />
           <Kpi icon={IconCreditCard} label="Contas a pagar vencidas" value={pct(bm.apVencidoPct)} note={`${money(bm.apVencidoTotal)} em atraso`} tone={bm.apVencidoPct > 5 ? 'risk' : ''} />
         </section>
+        <p style={{ fontSize: 11.5, color: 'var(--text-faint)', margin: '-4px 2px 0', lineHeight: 1.5 }}>Média ponderada, não simples: cada índice pesa mais nos meses em que a base que o gera foi maior (PMRV pelo faturamento, PMPF pelas contas a pagar geradas, PMRE pelo valor comprado no mês) — assim um mês de R$ 24 mil em vendas não pesa igual a um de R$ 860 mil.</p>
         <section className="chart-card">
           <div className="chart-head"><div><span className="chart-title">Evolução dos prazos e do ciclo de caixa</span><div className="chart-subtitle">PMRV, PMPF e ciclo de caixa mês a mês — dados reais do Ultra</div></div></div>
           <ResponsiveContainer width="100%" height={230}>
@@ -271,6 +290,7 @@ export default function Financeiro() {
         <Kpi icon={IconPercentage} label="Margem líquida" value={pct(data.totalReceitas ? data.totalResultadoLiquido / data.totalReceitas * 100 : 0)} note={`acumulado do ano · ${shortMoney(data.totalResultadoLiquido)}`} tone={data.totalResultadoLiquido >= 0 ? 'ok' : 'risk'} />
         <Kpi icon={IconUsers} label="Folha sobre receita" value={pct(data.payrollPct)} note={`${shortMoney(data.payrollTotal)} acumulado no período`} tone={data.payrollPct > 25 ? 'risk' : ''} />
         <Kpi icon={IconCoins} label="Custo financeiro acumulado" value={shortMoney(data.custoFinanceiro)} note="juros, IOF e tarifas bancárias" />
+        <Kpi icon={IconScale} label="Ponto de equilíbrio médio" value={shortMoney(data.peMedio)} note="custo fixo médio ÷ margem de contribuição do período" tone={data.mesesAcimaPE >= data.months.length / 2 ? 'ok' : 'risk'} />
       </section>
 
       <div className="macro-section-title macro-section-title-compact"><div><span>Evolução</span><h3>DRE mensal e margens</h3></div><small>{data.mesesAcimaPE} de {data.months.length} meses acima do ponto de equilíbrio</small></div>
@@ -291,22 +311,25 @@ export default function Financeiro() {
         </ResponsiveContainer>
         <p style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 8, lineHeight: 1.5 }}>Mostramos a <strong>média</strong> do ponto de equilíbrio (custo fixo médio ÷ margem de contribuição do período) em vez do valor mês a mês: em fevereiro a margem de contribuição foi quase nula, o que torna o ponto de equilíbrio individual daquele mês (R$ 15,05 mi) matematicamente extremo e inútil como referência visual.</p>
       </section>
-      <section className="chart-card">
-        <div className="chart-head"><div><span className="chart-title">Margens ao longo do período</span><div className="chart-subtitle">Margem de contribuição, margem líquida e custos fixos sobre receita</div></div></div>
-        <ResponsiveContainer width="100%" height={260}>
-          <LineChart data={data.months.map(m => ({ label: m.label, 'Margem de contribuição': m.margemPct, 'Margem líquida': m.liquidaPct, 'Custos fixos / receita': m.Receita ? m.CustosFixos / m.Receita * 100 : 0 }))} margin={{ top: 10, right: 18, left: 4, bottom: 4 }}>
-            <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} />
-            <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${value}%`} width={44} />
-            <Tooltip formatter={value => `${Number(value).toFixed(1)}%`} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <ReferenceLine y={0} stroke="#C9BFB7" />
-            <Line type="monotone" dataKey="Margem de contribuição" stroke="#E87722" strokeWidth={2.6} dot={{ r: 3.5 }} />
-            <Line type="monotone" dataKey="Margem líquida" stroke="#23864A" strokeWidth={2.6} dot={{ r: 3.5 }} />
-            <Line type="monotone" dataKey="Custos fixos / receita" stroke="#426A8C" strokeWidth={1.8} strokeDasharray="4 5" dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </section>
+      <div className="dash-chart-trio">
+        {[
+          { key: 'margemPct', title: 'Margem de contribuição', color: '#E87722' },
+          { key: 'liquidaPct', title: 'Margem líquida', color: '#23864A' },
+          { key: 'custosFixosPct', title: 'Custos fixos / receita', color: '#426A8C' },
+        ].map(serie => <section className="chart-card" key={serie.key}>
+          <div className="chart-head"><div><span className="chart-title">{serie.title}</span><div className="chart-subtitle">% da receita, mês a mês</div></div></div>
+          <ResponsiveContainer width="100%" height={190}>
+            <LineChart data={data.months.map(m => ({ label: m.label, value: serie.key === 'custosFixosPct' ? (m.Receita ? m.CustosFixos / m.Receita * 100 : 0) : m[serie.key] }))} margin={{ top: 6, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10.5 }} />
+              <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${Math.round(value)}%`} width={38} />
+              <Tooltip formatter={value => `${Number(value).toFixed(1)}%`} />
+              <ReferenceLine y={0} stroke="#C9BFB7" />
+              <Line type="monotone" dataKey="value" stroke={serie.color} strokeWidth={2.6} dot={{ r: 3.5 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </section>)}
+      </div>
 
       <div className="macro-section-title macro-section-title-compact"><div><span>Despesas</span><h3>Regime de caixa, acumulado do período</h3></div><Link to="/dre" className="btn btn-ghost btn-sm">Ver DRE mês a mês →</Link></div>
       <section className="dash-main-grid">

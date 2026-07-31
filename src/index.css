@@ -1857,6 +1857,16 @@ td,
   gap: 18px;
 }
 
+.dash-chart-trio {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .dash-chart-trio { grid-template-columns: 1fr; }
+}
+
 .dash-chart-large {
   min-height: 380px;
 }
