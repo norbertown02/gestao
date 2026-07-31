@@ -80,6 +80,14 @@ export default function Financeiro() {
     const competencia = balanco?.competencia_date
     const contasPeriodo = contas.filter(row => row.competencia_date === competencia)
 
+    // Aporte de sócios e sua devolução são movimentação de capital (bancam o capital de giro),
+    // não resultado operacional -- mas o Ultra lança os dois como receita/despesa no balancete,
+    // o que contamina o "lucro/prejuízo acumulado" oficial do balanço como se fosse prejuízo.
+    // Isolamos aqui pra tirar esse efeito de qualquer indicador de análise operacional.
+    const aporteRecebido = contasPeriodo.filter(row => row.conta === 'APORTE SOCIOS').reduce((s, row) => s + Number(row.debito), 0)
+    const devolucaoAporte = contasPeriodo.filter(row => row.conta === 'DEVOLUÇÃO DE APORTE AOS SÓCIOS').reduce((s, row) => s + Number(row.credito), 0)
+    const netAporteMovimento = aporteRecebido - devolucaoAporte
+
     const months = dre.map(row => {
       const receitas = Number(row.receitas)
       const resultadoLiquido = Number(row.resultado_liquido)
@@ -126,33 +134,43 @@ export default function Financeiro() {
 
     let balanceMetrics = null
     if (balanco) {
+      // R$ 882.921,28 de aporte de sócios a devolver estão lançados como contas a pagar (dentro
+      // da faixa "até 360 dias"), mas não são dívida operacional -- tiramos do total e da faixa
+      // onde estão, senão liquidez, endividamento e o mapa de aperto de caixa ficam errados.
+      const aporteADevolverAP = Number(balanco.contas_pagar_aporte_a_devolver || 0)
+      const contasPagarMedioAjustado = Number(balanco.contas_pagar_a_vencer_medio) - aporteADevolverAP
+      const contasPagarTotalAjustado = Number(balanco.contas_pagar_total) - aporteADevolverAP
+
       const ativoCirculante = Number(balanco.disponibilidades) + Number(balanco.contas_receber_total) + Number(balanco.estoque)
-      const passivoCirculante = Number(balanco.contas_pagar_vencido_curto) + Number(balanco.contas_pagar_vencido_medio) + Number(balanco.contas_pagar_a_vencer_curto) + Number(balanco.contas_pagar_a_vencer_medio)
+      const passivoCirculante = Number(balanco.contas_pagar_vencido_curto) + Number(balanco.contas_pagar_vencido_medio) + Number(balanco.contas_pagar_a_vencer_curto) + contasPagarMedioAjustado
       const passivoNaoCirculante = Number(balanco.contas_pagar_a_vencer_longo)
       const liquidezCorrente = passivoCirculante ? ativoCirculante / passivoCirculante : 0
       const liquidezSeca = passivoCirculante ? (ativoCirculante - Number(balanco.estoque)) / passivoCirculante : 0
-      const endividamento = Number(balanco.ativo_total) ? Number(balanco.contas_pagar_total) / Number(balanco.ativo_total) * 100 : 0
+      const endividamento = Number(balanco.ativo_total) ? contasPagarTotalAjustado / Number(balanco.ativo_total) * 100 : 0
       const arVencidoPct = Number(balanco.contas_receber_total) ? Number(balanco.contas_receber_vencido) / Number(balanco.contas_receber_total) * 100 : 0
       const apVencidoTotal = Number(balanco.contas_pagar_vencido_curto) + Number(balanco.contas_pagar_vencido_medio)
-      const apVencidoPct = Number(balanco.contas_pagar_total) ? apVencidoTotal / Number(balanco.contas_pagar_total) * 100 : 0
-      const apLongoPct = Number(balanco.contas_pagar_total) ? passivoNaoCirculante / Number(balanco.contas_pagar_total) * 100 : 0
+      const apVencidoPct = contasPagarTotalAjustado ? apVencidoTotal / contasPagarTotalAjustado * 100 : 0
+      const apLongoPct = contasPagarTotalAjustado ? passivoNaoCirculante / contasPagarTotalAjustado * 100 : 0
 
       // Casa o vencimento de contas a receber com o de contas a pagar, faixa a faixa, pra achar
       // onde exatamente o caixa aperta -- uma liquidez corrente "ok" no total pode esconder uma
-      // faixa de prazo com muito mais saindo do que entrando.
+      // faixa de prazo com muito mais saindo do que entrando. Já sem o aporte a devolver.
       const apVencidoCurto = Number(balanco.contas_pagar_vencido_curto) + Number(balanco.contas_pagar_vencido_medio)
       const buckets = [
         { label: 'Vencido', ar: Number(balanco.contas_receber_vencido), ap: apVencidoCurto },
         { label: 'Até 90 dias', ar: Number(balanco.contas_receber_a_vencer_curto), ap: Number(balanco.contas_pagar_a_vencer_curto) },
-        { label: 'Até 360 dias', ar: Number(balanco.contas_receber_a_vencer_medio), ap: Number(balanco.contas_pagar_a_vencer_medio) },
+        { label: 'Até 360 dias', ar: Number(balanco.contas_receber_a_vencer_medio), ap: contasPagarMedioAjustado },
         { label: 'Longo prazo', ar: 0, ap: Number(balanco.contas_pagar_a_vencer_longo) },
       ].map(b => ({ ...b, gap: b.ar - b.ap }))
       const piorFaixa = buckets.reduce((worst, b) => b.gap < worst.gap ? b : worst, buckets[0])
 
+      const patrimonioLiquidoReportado = Number(balanco.lucro_prejuizo_acumulado)
       balanceMetrics = {
         ativoCirculante, passivoCirculante, passivoNaoCirculante, liquidezCorrente, liquidezSeca, endividamento,
         arVencidoPct, apVencidoPct, apVencidoTotal, apLongoPct, buckets, piorFaixa,
-        patrimonioLiquido: Number(balanco.lucro_prejuizo_acumulado),
+        aporteADevolverAP, contasPagarTotalAjustado, contasPagarMedioAjustado,
+        patrimonioLiquidoReportado,
+        patrimonioLiquido: patrimonioLiquidoReportado - netAporteMovimento,
         capitalGiroLiquido: ativoCirculante - passivoCirculante,
       }
     }
@@ -206,6 +224,7 @@ export default function Financeiro() {
       payrollTotal, payrollPct: totalReceitas ? payrollTotal / totalReceitas * 100 : 0,
       custoFinanceiro,
       mgrMonths, mgrLast, mgrFirst, mgrWeighted,
+      aporteRecebido, devolucaoAporte, netAporteMovimento,
     }
   }, [dre, balancos, contas, closings, managerial])
 
@@ -214,7 +233,7 @@ export default function Financeiro() {
     const { balanceMetrics: bm, last, prev, totalResultadoLiquido } = data
     const list = []
     if (bm.piorFaixa && bm.piorFaixa.gap < 0) list.push({ tone: 'risk', title: `Aperto concentrado em "${bm.piorFaixa.label}": faltam ${shortMoney(Math.abs(bm.piorFaixa.gap))}`, text: `Nessa faixa de vencimento a empresa tem ${shortMoney(bm.piorFaixa.ar)} a receber contra ${shortMoney(bm.piorFaixa.ap)} a pagar. É aqui que o caixa vai apertar primeiro, mesmo que a liquidez total pareça administrável.` })
-    if (bm.patrimonioLiquido < 0) list.push({ tone: 'risk', title: `Patrimônio líquido negativo: ${shortMoney(bm.patrimonioLiquido)}`, text: 'O prejuízo acumulado supera o capital social — sob a ótica contábil a empresa opera com passivo a descoberto, financiada essencialmente por fornecedores e terceiros.' })
+    if (bm.patrimonioLiquido < 0) list.push({ tone: 'risk', title: `Patrimônio líquido negativo: ${shortMoney(bm.patrimonioLiquido)}`, text: 'Já sem o efeito de aporte/devolução de sócios (movimentação de capital, não resultado). O prejuízo acumulado operacional supera o capital social — a empresa está sendo financiada essencialmente por fornecedores e terceiros.' })
     if (bm.liquidezCorrente < 1) list.push({ tone: 'risk', title: `Liquidez corrente de ${bm.liquidezCorrente.toFixed(2)}x`, text: `Para cada R$ 1,00 de contas a pagar até 360 dias, a empresa tem R$ ${bm.liquidezCorrente.toFixed(2)} em caixa, recebíveis e estoque. O descoberto é de ${shortMoney(bm.passivoCirculante - bm.ativoCirculante)}.` })
     if (bm.apVencidoTotal > 0) list.push({ tone: bm.apVencidoPct > 5 ? 'risk' : 'warn', title: `${shortMoney(bm.apVencidoTotal)} em contas a pagar vencidas`, text: `Equivale a ${pct(bm.apVencidoPct)} do total a pagar, contra apenas ${pct(bm.arVencidoPct)} de inadimplência nos recebíveis — a empresa está mais atrasada com fornecedores do que seus clientes estão com ela.` })
     if (data.mgrLast) {
@@ -264,9 +283,17 @@ export default function Financeiro() {
         <Kpi icon={IconScale} label="Liquidez corrente" value={`${bm.liquidezCorrente.toFixed(2)}x`} note="ativo circulante ÷ passivo até 360 dias" tone={bm.liquidezCorrente < 1 ? 'risk' : 'ok'} />
         <Kpi icon={IconScale} label="Liquidez seca" value={`${bm.liquidezSeca.toFixed(2)}x`} note="sem contar estoque" tone={bm.liquidezSeca < 1 ? 'risk' : 'ok'} />
         <Kpi icon={IconWallet} label="Capital de giro líquido" value={shortMoney(bm.capitalGiroLiquido)} note="ativo circulante − passivo até 360 dias" tone={bm.capitalGiroLiquido < 0 ? 'risk' : 'ok'} />
-        <Kpi icon={IconBuildingBank} label="Patrimônio líquido" value={shortMoney(bm.patrimonioLiquido)} note="lucro/prejuízo acumulado" tone={bm.patrimonioLiquido < 0 ? 'risk' : 'ok'} />
+        <Kpi icon={IconBuildingBank} label="Patrimônio líquido" value={shortMoney(bm.patrimonioLiquido)} note="lucro/prejuízo acumulado, sem aporte de sócios" tone={bm.patrimonioLiquido < 0 ? 'risk' : 'ok'} />
         <Kpi icon={IconCreditCard} label="Endividamento" value={pct(bm.endividamento)} note="contas a pagar ÷ ativo total" tone={bm.endividamento > 100 ? 'risk' : ''} />
       </section>
+
+      {data.netAporteMovimento !== 0 && <div className="dash-note-banner">
+        <IconWallet size={17} />
+        <div>
+          <strong>Aporte de sócios não entra nos indicadores acima</strong>
+          <span>São movimentações de capital pra bancar o capital de giro, não resultado operacional — por isso tiramos o efeito do patrimônio líquido e de todas as outras análises. No período carregado: {money(data.aporteRecebido)} recebido de aporte e {money(data.devolucaoAporte)} devolvido aos sócios, líquido de {data.netAporteMovimento >= 0 ? '+' : ''}{money(data.netAporteMovimento)}. Isso é só a movimentação do período — não sei quanto ainda falta devolver no total, porque não tenho o saldo histórico de aporte anterior a este fechamento.</span>
+        </div>
+      </div>}
 
       <div className="macro-section-title macro-section-title-compact"><div><span>Ciclo de caixa</span><h3>Prazos médios reais (Relatório Gerencial do Ultra) e inadimplência</h3></div>{data.mgrLast && <small>média ponderada do período · {data.mgrLast.label}/26 no detalhe</small>}</div>
       {data.mgrWeighted ? <>
@@ -407,17 +434,25 @@ export default function Financeiro() {
           </div>
         </div>
         <div className="card">
-          <div className="dash-card-head"><h3>Contas a pagar</h3><small>{money(balanco.contas_pagar_total)}</small></div>
+          <div className="dash-card-head"><h3>Contas a pagar</h3><small>{money(bm.contasPagarTotalAjustado)}</small></div>
           <div className="dash-segment-list">
             {[
               { label: 'Vencido', value: Number(balanco.contas_pagar_vencido_curto) + Number(balanco.contas_pagar_vencido_medio), color: '#C93A32' },
               { label: 'A vencer até 90 dias', value: balanco.contas_pagar_a_vencer_curto, color: '#C87812' },
-              { label: 'A vencer até 360 dias', value: balanco.contas_pagar_a_vencer_medio, color: '#426A8C' },
+              { label: 'A vencer até 360 dias', value: bm.contasPagarMedioAjustado, color: '#426A8C' },
               { label: 'A vencer longo prazo', value: balanco.contas_pagar_a_vencer_longo, color: '#A79C92' },
-            ].map(seg => <div key={seg.label} className="dash-segment-item"><strong>{seg.label}</strong><span>{money(seg.value)} · {pct(Number(seg.value) / Number(balanco.contas_pagar_total) * 100)}</span><div className="dash-segment-bar"><span style={{ width: `${Number(seg.value) / Number(balanco.contas_pagar_total) * 100}%`, background: seg.color }} /></div></div>)}
+            ].map(seg => <div key={seg.label} className="dash-segment-item"><strong>{seg.label}</strong><span>{money(seg.value)} · {pct(bm.contasPagarTotalAjustado ? Number(seg.value) / bm.contasPagarTotalAjustado * 100 : 0)}</span><div className="dash-segment-bar"><span style={{ width: `${bm.contasPagarTotalAjustado ? Number(seg.value) / bm.contasPagarTotalAjustado * 100 : 0}%`, background: seg.color }} /></div></div>)}
           </div>
         </div>
       </section>
+
+      {bm.aporteADevolverAP > 0 && <div className="dash-note-banner">
+        <IconWallet size={17} />
+        <div>
+          <strong>Contas a pagar acima já exclui {money(bm.aporteADevolverAP)} de aporte a devolver aos sócios</strong>
+          <span>Esse valor está lançado no Ultra como conta a pagar, na faixa "até 360 dias" — mas é devolução de capital, não dívida operacional. O total oficial do balanço é {money(balanco.contas_pagar_total)}; aqui em todas as análises (liquidez, endividamento, aperto de caixa por faixa) usamos {money(bm.contasPagarTotalAjustado)}, sem esse valor.</span>
+        </div>
+      </div>}
 
       <div className="macro-section-title macro-section-title-compact"><div><span>Aperto de caixa</span><h3>Contas a receber vs. a pagar, faixa a faixa</h3></div><small>faixa com maior descoberto: {bm.piorFaixa.label}</small></div>
       <section className="chart-card">
