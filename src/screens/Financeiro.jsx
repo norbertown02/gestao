@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   IconAlertTriangle, IconArrowRight, IconBuildingBank,
   IconClockDollar, IconCoins, IconCreditCard, IconInvoice, IconPackage, IconPercentage,
   IconScale, IconUsers, IconWallet,
 } from '@tabler/icons-react'
-import { Bar, CartesianGrid, Cell, ComposedChart, Legend, Line, LineChart, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import Topbar from '../components/Topbar'
 import { supabaseAdmin } from '../lib/supabase'
 
@@ -238,34 +239,19 @@ export default function Financeiro() {
 
       <div className="macro-section-title macro-section-title-compact"><div><span>Estrutura de custos</span><h3>Rentabilidade e peso da folha</h3></div></div>
       <section className="dash-kpi-row">
-        <Kpi icon={IconPercentage} label="Margem de contribuição" value={pct(data.last.margemPct)} note={`${data.last.label}/26 · ${shortMoney(data.last.MargemContribuicao)}`} />
-        <Kpi icon={IconPercentage} label="Margem líquida" value={pct(data.last.liquidaPct)} note={`${data.last.label}/26 · ${shortMoney(data.last['Resultado Líquido'])}`} tone={data.last.liquidaPct >= 0 ? 'ok' : 'risk'} />
+        <Kpi icon={IconPercentage} label="Margem de contribuição" value={pct(data.avgMargemPct)} note={`acumulado do ano · ${shortMoney(data.totalMargem)}`} />
+        <Kpi icon={IconPercentage} label="Margem líquida" value={pct(data.totalReceitas ? data.totalResultadoLiquido / data.totalReceitas * 100 : 0)} note={`acumulado do ano · ${shortMoney(data.totalResultadoLiquido)}`} tone={data.totalResultadoLiquido >= 0 ? 'ok' : 'risk'} />
         <Kpi icon={IconUsers} label="Folha sobre receita" value={pct(data.payrollPct)} note={`${shortMoney(data.payrollTotal)} acumulado no período`} tone={data.payrollPct > 25 ? 'risk' : ''} />
         <Kpi icon={IconCoins} label="Custo financeiro acumulado" value={shortMoney(data.custoFinanceiro)} note="juros, IOF e tarifas bancárias" />
       </section>
 
+      <div className="macro-section-title macro-section-title-compact"><div><span>Despesas</span><h3>Regime de caixa, acumulado do período</h3></div><Link to="/dre" className="btn btn-ghost btn-sm">Ver DRE mês a mês →</Link></div>
       <section className="dash-main-grid">
         <div className="chart-card dash-chart-large">
-          <div className="chart-head"><div><span className="chart-title">DRE mensal</span><div className="chart-subtitle">Receita, custos totais e resultado líquido — regime de competência</div></div></div>
-          <ResponsiveContainer width="100%" height={330}>
-            <ComposedChart data={data.months} margin={{ top: 10, right: 18, left: 4, bottom: 4 }}>
-              <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} />
-              <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${Math.round(value / 1000)}k`} width={54} />
-              <Tooltip formatter={(value, name) => [money(value), name]} />
-              <Bar dataKey="Receita" fill="#E87722" radius={[6, 6, 0, 0]} barSize={26} />
-              <Bar dataKey="Custos" fill="#292623" radius={[6, 6, 0, 0]} barSize={26} />
-              <Line type="monotone" dataKey="Resultado Líquido" stroke="#23864A" strokeWidth={2.6} dot={{ r: 3.5 }} />
-              <ReferenceLine y={data.peMedio} stroke="#A79C92" strokeWidth={1.8} strokeDasharray="5 6" label={{ value: `PE médio: ${shortMoney(data.peMedio)}`, position: 'insideBottomRight', fill: '#8A8178', fontSize: 10.5, fontWeight: 600 }} />
-            </ComposedChart>
-          </ResponsiveContainer>
-          <p style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 8, lineHeight: 1.5 }}>Mostramos a <strong>média</strong> do ponto de equilíbrio (custo fixo médio ÷ margem de contribuição do período) em vez do valor mês a mês: em fevereiro a margem de contribuição foi quase nula, o que torna o ponto de equilíbrio individual daquele mês (R$ 15,05 mi) matematicamente extremo e inútil como referência visual. O valor mês a mês continua na tabela abaixo.</p>
-        </div>
-        <div className="chart-card">
-          <div className="chart-head"><div><span className="chart-title">Despesas — regime de caixa</span><div className="chart-subtitle">Acumulado do período, sem aportes/adiantamentos</div></div></div>
-          <ResponsiveContainer width="100%" height={230}>
+          <div className="chart-head"><div><span className="chart-title">Despesas por grupo</span><div className="chart-subtitle">Sem aportes, adiantamentos e empréstimo (entradas/saídas neutras de caixa)</div></div></div>
+          <ResponsiveContainer width="100%" height={280}>
             <PieChart>
-              <Pie data={data.despesasPorGrupo} dataKey="value" nameKey="name" innerRadius={54} outerRadius={86} paddingAngle={2}>
+              <Pie data={data.despesasPorGrupo} dataKey="value" nameKey="name" innerRadius={64} outerRadius={104} paddingAngle={2}>
                 {data.despesasPorGrupo.map((entry, index) => <Cell key={entry.name} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
               </Pie>
               <Tooltip formatter={value => money(value)} />
@@ -275,24 +261,14 @@ export default function Financeiro() {
             {data.despesasPorGrupo.slice(0, 6).map((item, index) => <div key={item.name} className="dash-ranking-row" style={{ gridTemplateColumns: '12px 1fr auto' }}><span style={{ width: 9, height: 9, borderRadius: 99, background: PIE_COLORS[index % PIE_COLORS.length] }} /><div className="dash-ranking-info"><strong>{item.name}</strong></div><span className="dash-ranking-value">{shortMoney(item.value)}</span></div>)}
           </div>
         </div>
-      </section>
-
-      <div className="macro-section-title macro-section-title-compact"><div><span>Evolução</span><h3>Indicadores mês a mês</h3></div><small>{data.mesesAcimaPE} de {data.months.length} meses acima do ponto de equilíbrio</small></div>
-      <section className="chart-card">
-        <div className="chart-head"><div><span className="chart-title">Margens ao longo do período</span><div className="chart-subtitle">Únicos indicadores que dá pra comparar mês a mês hoje — liquidez e prazos médios dependem de um novo balanço a cada fechamento</div></div></div>
-        <ResponsiveContainer width="100%" height={260}>
-          <LineChart data={data.months.map(m => ({ label: m.label, 'Margem de contribuição': m.margemPct, 'Margem líquida': m.liquidaPct, 'Custos fixos / receita': m.Receita ? m.CustosFixos / m.Receita * 100 : 0 }))} margin={{ top: 10, right: 18, left: 4, bottom: 4 }}>
-            <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} />
-            <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${value}%`} width={44} />
-            <Tooltip formatter={value => `${Number(value).toFixed(1)}%`} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <ReferenceLine y={0} stroke="#C9BFB7" />
-            <Line type="monotone" dataKey="Margem de contribuição" stroke="#E87722" strokeWidth={2.6} dot={{ r: 3.5 }} />
-            <Line type="monotone" dataKey="Margem líquida" stroke="#23864A" strokeWidth={2.6} dot={{ r: 3.5 }} />
-            <Line type="monotone" dataKey="Custos fixos / receita" stroke="#426A8C" strokeWidth={1.8} strokeDasharray="4 5" dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
+        <div className="chart-card">
+          <div className="chart-head"><div><span className="chart-title">Fluxo de caixa operacional</span><div className="chart-subtitle">Mesma base do gráfico ao lado</div></div></div>
+          <div className="dash-segment-list" style={{ marginTop: 10 }}>
+            <div className="dash-segment-item"><strong>Entradas</strong><span>{money(data.receitaCaixaOperacional)}</span></div>
+            <div className="dash-segment-item"><strong>Saídas</strong><span>{money(data.despesaCaixaOperacional)}</span></div>
+            <div className="dash-segment-item"><strong>Resultado de caixa</strong><span style={{ color: data.resultadoCaixaOperacional >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 700 }}>{money(data.resultadoCaixaOperacional)}</span></div>
+          </div>
+        </div>
       </section>
 
       <div className="macro-section-title macro-section-title-compact"><div><span>Balanço patrimonial</span><h3>Composição de ativo e passivo</h3></div></div>
@@ -326,26 +302,10 @@ export default function Financeiro() {
         </div>
       </section>
 
-      <div className="macro-section-title macro-section-title-compact"><div><span>Detalhamento</span><h3>DRE mês a mês</h3></div></div>
-      <section className="table-wrap">
-        <table>
-          <thead><tr><th>Mês</th><th style={{ textAlign: 'right' }}>Receita</th><th style={{ textAlign: 'right' }}>Custos variáveis</th><th style={{ textAlign: 'right' }}>Margem contrib.</th><th style={{ textAlign: 'right' }}>% margem</th><th style={{ textAlign: 'right' }}>Custos fixos</th><th style={{ textAlign: 'right' }}>Result. operacional</th><th style={{ textAlign: 'right' }}>Result. líquido</th><th style={{ textAlign: 'right' }}>Ponto de equilíbrio</th><th>Situação</th></tr></thead>
-          <tbody>
-            {data.months.map(m => <tr key={m.key}>
-              <td><strong>{m.label}/26</strong></td>
-              <td style={{ textAlign: 'right' }}>{money(m.Receita)}</td>
-              <td style={{ textAlign: 'right' }}>{money(m.CustosVariaveis)}</td>
-              <td style={{ textAlign: 'right' }}>{money(m.MargemContribuicao)}</td>
-              <td style={{ textAlign: 'right' }}>{pct(m.margemPct)}</td>
-              <td style={{ textAlign: 'right' }}>{money(m.CustosFixos)}</td>
-              <td style={{ textAlign: 'right', color: m.ResultadoOperacional >= 0 ? 'var(--green)' : 'var(--red)' }}>{money(m.ResultadoOperacional)}</td>
-              <td style={{ textAlign: 'right', color: m['Resultado Líquido'] >= 0 ? 'var(--green)' : 'var(--red)' }}><strong>{money(m['Resultado Líquido'])}</strong></td>
-              <td style={{ textAlign: 'right' }}>{money(m['Ponto de Equilíbrio'])}</td>
-              <td><span className={`pill ${m.acimaPE ? 'pill-green' : 'pill-red'}`}>{m.acimaPE ? 'Acima do PE' : 'Abaixo do PE'}</span></td>
-            </tr>)}
-          </tbody>
-        </table>
-      </section>
+      <div className="dre-cta card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+        <div><strong style={{ display: 'block', fontSize: 14, marginBottom: 3 }}>Quer o DRE mês a mês, por bimestre, trimestre ou ano?</strong><span style={{ color: 'var(--text-dim)', fontSize: 12.5 }}>A página DRE tem o demonstrativo completo, nível de conta, com filtro de período.</span></div>
+        <Link to="/dre" className="btn btn-primary btn-sm">Abrir DRE →</Link>
+      </div>
 
     </div>
   </div>
