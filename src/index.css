@@ -8481,7 +8481,7 @@ td,
 .macro-toolbar > div { display: flex; gap: 8px; }
 .macro-toolbar select { width: auto; min-width: 118px; padding: 8px 32px 8px 11px; }
 .macro-toolbar span { color: var(--text-faint); font: 650 11px 'IBM Plex Mono', monospace; }
-.macro-hero { position: relative; display: grid; grid-template-columns: minmax(300px, .72fr) minmax(620px, 1.28fr); gap: 42px; align-items: center; min-height: 190px; overflow: hidden; padding: 30px 34px; color: #fff; background: linear-gradient(110deg, #151311 0%, #211d1a 45%, #6f2c0d 74%, #e87722 138%); border-radius: 16px; box-shadow: 0 18px 44px rgba(41, 25, 15, .16); }
+.macro-hero { position: relative; display: grid; grid-template-columns: minmax(300px, .72fr) minmax(620px, 1.28fr); gap: 42px; align-items: center; min-height: 236px; overflow: hidden; padding: 34px; color: #fff; background: linear-gradient(110deg, #151311 0%, #211d1a 45%, #6f2c0d 74%, #e87722 138%); border-radius: 16px; box-shadow: 0 18px 44px rgba(41, 25, 15, .16); }
 .macro-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 88% 32%, rgba(255,151,78,.34), transparent 28%); pointer-events: none; }
 .macro-hero::after { content: ''; position: absolute; width: 330px; height: 330px; right: -105px; top: -210px; border: 42px solid rgba(255,255,255,.1); border-radius: 50%; pointer-events: none; }
 .macro-hero > header, .macro-hero-flow { position: relative; z-index: 1; min-width: 0; }

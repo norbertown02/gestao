@@ -206,8 +206,8 @@ export default function Financeiro() {
       <section className="macro-hero">
         <header>
           <span>Leitura executiva</span>
-          <h2>{data.totalResultadoLiquido < 0 && data.last['Resultado Líquido'] > 0 ? 'Prejuízo acumulado, mas o último mês fechou no azul' : data.totalResultadoLiquido < 0 ? 'Resultado acumulado ainda negativo' : 'Resultado acumulado positivo no período'}</h2>
-          <p>De {data.months[0].label} a {data.last.label}/26 a operação somou {shortMoney(data.totalReceitas)} em receita reconhecida, com margem de contribuição média de {pct(data.avgMargemPct)} e resultado líquido acumulado de {shortMoney(data.totalResultadoLiquido)}.</p>
+          <h2>{data.totalResultadoLiquido < 0 && data.last['Resultado Líquido'] > 0 ? 'Prejuízo acumulado, mês mais recente no azul' : data.totalResultadoLiquido < 0 ? 'Resultado acumulado negativo' : 'Resultado acumulado positivo'}</h2>
+          <p>{data.months[0].label}–{data.last.label}/26: {shortMoney(data.totalReceitas)} em receita, margem média de {pct(data.avgMargemPct)}, resultado líquido de {shortMoney(data.totalResultadoLiquido)}.</p>
         </header>
         <div className="macro-hero-flow">
           <div><span>Receita acumulada</span><strong>{shortMoney(data.totalReceitas)}</strong><small>{data.months.length} meses (regime de competência)</small></div>
