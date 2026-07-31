@@ -443,6 +443,7 @@ export default function Financeiro() {
               { label: 'A vencer longo prazo', value: balanco.contas_pagar_a_vencer_longo, color: '#A79C92' },
             ].map(seg => <div key={seg.label} className="dash-segment-item"><strong>{seg.label}</strong><span>{money(seg.value)} · {pct(bm.contasPagarTotalAjustado ? Number(seg.value) / bm.contasPagarTotalAjustado * 100 : 0)}</span><div className="dash-segment-bar"><span style={{ width: `${bm.contasPagarTotalAjustado ? Number(seg.value) / bm.contasPagarTotalAjustado * 100 : 0}%`, background: seg.color }} /></div></div>)}
           </div>
+          <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 12, lineHeight: 1.5 }}>Fonte: Previsão Financeira do Contas a Pagar (despesas previstas + faturas a pagar, geração até 2031) — inclui recorrentes como salários e aluguel até dezembro, não só o já faturado. Substitui o contas a pagar do balanço formal a partir deste fechamento.</p>
         </div>
       </section>
 
