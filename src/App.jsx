@@ -21,6 +21,7 @@ import Estoque from './screens/Estoque'
 import Fechamentos from './screens/Fechamentos'
 import Financeiro from './screens/Financeiro'
 import DRE from './screens/DRE'
+import ImportarFechamento from './screens/ImportarFechamento'
 
 function AppContent() {
   const { user, loading, showSplash } = useAuth()
@@ -41,6 +42,7 @@ function AppContent() {
           <Route path="/estoque"    element={<Estoque />} />
           <Route path="/financeiro" element={<Financeiro />} />
           <Route path="/dre"        element={<DRE />} />
+          <Route path="/financeiro/importar" element={<ImportarFechamento />} />
           <Route path="/regioes"    element={<Regioes />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/time" element={<DashboardTime />} />

@@ -323,7 +323,7 @@ export default function Financeiro() {
 
       <section className="macro-toolbar">
         <div><span className="pill pill-orange">Fechamento de {dateBR(data.competencia)}</span></div>
-        <span>{data.closing?.notes ? 'Carga manual (API do Ultra não expõe dados financeiros)' : ''} · atualizado em {data.closing ? new Date(data.closing.created_at).toLocaleDateString('pt-BR') : '—'}</span>
+        <span>{data.closing?.notes ? 'Carga manual (API do Ultra não expõe dados financeiros)' : ''} · atualizado em {data.closing ? new Date(data.closing.created_at).toLocaleDateString('pt-BR') : '—'}</span><Link to="/financeiro/importar" className="btn btn-primary btn-sm">Importar fechamento</Link>
       </section>
 
       <section className="macro-hero">
