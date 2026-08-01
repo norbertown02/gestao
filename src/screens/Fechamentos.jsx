@@ -213,6 +213,8 @@ function CommercialSlides({ data, period, previousLabel, generatedAt, comparison
   ]
 }
 
+// Mantida temporariamente como referência da versão anterior durante a migração do fechamento.
+// eslint-disable-next-line no-unused-vars
 function FinancialSlides({ data, period, previousLabel, generatedAt, comparisonNoun, editor }) {
   const total = 9
   const { current: cur, previous: prev, series, hasData, previousHasData } = data
@@ -273,6 +275,31 @@ function FinancialSlides({ data, period, previousLabel, generatedAt, comparisonN
     <Slide key="close" page={9} total={total} tone="dark" className="deck-close">
       <span>RECOMENDAÇÕES FINANCEIRAS</span><EditableText as="h2" editKey="financeiro.close.title" value={pos && pos.currentRatio < 1 ? `Cobrir o déficit de capital de giro de ${shortMoney(Math.abs(pos.workingCapital))}.` : pos ? `Preservar a liquidez de ${pos.currentRatio.toFixed(2).replace('.', ',')}x e a margem operacional.` : 'Carregar o próximo fechamento contábil para acompanhar a posição.'} editor={editor} /><EditableText as="p" editKey="financeiro.close.body" value={cur.result < 0 ? `1. Gerar ${shortMoney(Math.abs(cur.breakEvenGap))} adicionais para alcançar o equilíbrio. 2. Reduzir os grupos de custo com maior peso. 3. Reprogramar pagamentos onde os recebíveis não cobrem os vencimentos.` : `1. Converter resultado em caixa. 2. Monitorar a faixa de vencimento com maior descoberto. 3. Manter custos fixos abaixo de ${shortMoney(cur.fixedCosts)} por período.`} editor={editor} /><div><i /> direcionamento para o próximo ciclo</div>
     </Slide>,
+  ]
+}
+
+function ExecutiveFinancialSlides({ data, period, previousLabel, generatedAt, comparisonNoun, editor }) {
+  const total = 14
+  const { current: cur, previous: prev, series, hasData, previousHasData } = data
+  const pos = cur.position
+  const maxCost = Math.max(...cur.costs.map(item => item.value), 1)
+  const gap = cur.revenue - cur.breakEven
+  const title = (page, key, eyebrow, text, aside) => <SlideTitle eyebrow={eyebrow} aside={aside} editKey={`financeiro.${key}.title`} editor={editor}>{text}</SlideTitle>
+  return [
+    <Cover key="cover" type="financeiro" period={period} previousLabel={previousLabel} generatedAt={generatedAt} total={total} editor={editor} />,
+    <Slide key="summary" page={2} total={total} tone="dark" className="deck-thesis"><span className="deck-kicker">RESUMO EXECUTIVO</span><EditableText as="h2" editKey="financeiro.summary.title" value={!hasData ? 'Fechamento contábil ainda não carregado.' : `A empresa registrou ${cur.result >= 0 ? 'lucro' : 'prejuízo'} de ${shortMoney(Math.abs(cur.result))} e ${cur.cashDifference >= 0 ? 'gerou' : 'consumiu'} ${shortMoney(Math.abs(cur.cashDifference))} de caixa.`} editor={editor} /><div className="deck-thesis-metrics"><BigNumber label="Receita" value={shortMoney(cur.revenue)} note={previousHasData ? <Delta current={cur.revenue} previous={prev.revenue} suffix={`vs. ${comparisonNoun}`} /> : <small>vendas reconhecidas</small>} /><BigNumber label="Resultado líquido" value={shortMoney(cur.result)} note={<span className={cur.result >= 0 ? 'deck-delta positive' : 'deck-delta negative'}>{pct(cur.netMargin)} da receita</span>} accent /><BigNumber label="Geração de caixa" value={shortMoney(cur.cashDifference)} note={<small>entradas menos saídas</small>} /></div><MetricStrip dark items={[{ label: 'Margem de contribuição', value: pct(cur.contributionMargin), note: 'sobra após custos variáveis' }, { label: 'Ponto de equilíbrio', value: shortMoney(cur.breakEven), note: gap >= 0 ? 'receita acima do mínimo' : 'receita abaixo do mínimo' }, { label: 'Liquidez corrente', value: pos ? `${pos.currentRatio.toFixed(2).replace('.', ',')}x` : '—', note: 'cobertura do curto prazo' }, { label: 'Ciclo de caixa', value: `${cur.cicloCaixa.toFixed(0)} dias`, note: 'tempo financiado' }]} /></Slide>,
+    <Slide key="reading" page={3} total={total}>{title(3, 'reading', 'COMO LER ESTE FECHAMENTO', 'Resultado não é a mesma coisa que caixa.', 'conceitos diferentes, decisões diferentes')}<div className="deck-fin-steps">{[['1','Receita','Tudo o que foi vendido e reconhecido no período.'],['2','Margem','O que sobra das vendas após os custos diretamente ligados a elas.'],['3','Resultado','O lucro ou prejuízo depois da estrutura e demais efeitos.'],['4','Caixa','O dinheiro que efetivamente entrou menos o que saiu.']].map(([n,t,b]) => <div key={t}><b>{n}</b><strong>{t}</strong><p>{b}</p></div>)}</div><div className="deck-fin-note"><b>Por que separar?</b> Uma empresa pode apresentar lucro e ainda consumir caixa quando vende a prazo, compra estoque ou antecipa pagamentos.</div></Slide>,
+    <Slide key="dre" page={4} total={total}>{title(4, 'dre', 'DRE EM LINGUAGEM DIRETA', 'Como a receita se transforma em resultado.', 'regime de competência')}<div className="deck-dre-flow">{[['Receita',cur.revenue,100],['Custos variáveis',-Math.abs(cur.variableCosts),cur.variableCostPct],['Margem de contribuição',cur.contribution,cur.contributionMargin],['Custos fixos',-Math.abs(cur.fixedCosts),cur.fixedCostPct],['Resultado operacional',cur.operatingResult,cur.revenue ? cur.operatingResult / cur.revenue * 100 : 0],['Resultado líquido',cur.result,cur.netMargin]].map(([label,value,share],i) => <div key={label} className={i === 5 ? (value >= 0 ? 'result positive' : 'result negative') : ''}><span>{label}</span><i><em style={{ width: `${Math.min(Math.abs(share),100)}%` }} /></i><strong>{shortMoney(value)}</strong><small>{pct(share)}</small></div>)}</div></Slide>,
+    <Slide key="breakeven" page={5} total={total} tone="dark">{title(5, 'breakeven', 'PONTO DE EQUILÍBRIO', `A operação ${gap >= 0 ? 'superou' : 'não alcançou'} o nível mínimo de receita.`, 'receita mínima para não ter prejuízo')}<div className="deck-fin-breakeven"><div><span>RECEITA REALIZADA</span><strong>{shortMoney(cur.revenue)}</strong><i><em style={{ width: `${Math.min(cur.breakEven ? cur.revenue / cur.breakEven * 100 : 0,100)}%` }} /></i></div><div><span>PONTO DE EQUILÍBRIO</span><strong>{shortMoney(cur.breakEven)}</strong><i><em className="muted" style={{ width:'100%' }} /></i></div><aside className={gap >= 0 ? 'positive' : 'negative'}><span>{gap >= 0 ? 'MARGEM DE SEGURANÇA' : 'RECEITA QUE FALTOU'}</span><b>{shortMoney(Math.abs(gap))}</b><p>{gap >= 0 ? 'Valor vendido acima do mínimo necessário para cobrir a estrutura.' : 'Receita adicional estimada para chegar ao zero a zero.'}</p></aside></div></Slide>,
+    <Slide key="margins" page={6} total={total}>{title(6, 'margins', 'MARGENS', 'Quanto cada R$ 100 de receita deixa para a empresa.', 'leitura para cada R$ 100 vendidos')}<div className="deck-fin-hundred">{[['RECEITA','R$ 100','ponto de partida',''],['CUSTOS VARIÁVEIS',`− R$ ${cur.variableCostPct.toFixed(0)}`,'produto, impostos e despesas da venda',''],['SOBRA PARA A ESTRUTURA',`R$ ${cur.contributionMargin.toFixed(0)}`,'margem de contribuição','accent'],['RESULTADO FINAL',`R$ ${cur.netMargin.toFixed(1).replace('.',',')}`,'lucro ou prejuízo líquido',cur.netMargin >= 0 ? 'positive' : 'negative']].map(([l,v,n,c]) => <div key={l} className={c}><span>{l}</span><strong>{v}</strong><p>{n}</p></div>)}</div><div className="deck-fin-note"><b>Leitura executiva:</b> quanto maior a margem de contribuição, maior a capacidade de pagar a estrutura fixa e formar lucro.</div></Slide>,
+    <Slide key="costs" page={7} total={total} tone="dark">{title(7, 'costs', 'ESTRUTURA DE CUSTOS', 'Quais grupos mais consomem a receita.', 'acumulado no período')}<div className="deck-cost-layout"><div><span>CUSTOS TOTAIS</span><strong>{shortMoney(cur.variableCosts + cur.fixedCosts)}</strong><p>{cur.revenue ? pct((cur.variableCosts + cur.fixedCosts) / cur.revenue * 100) : '0%'} da receita. Custos variáveis acompanham vendas; fixos permanecem mesmo com menor volume.</p></div><div className="deck-cost-bars">{cur.costs.slice(0,6).map((cost,index) => <div key={cost.name}><span>{cost.name}</span><i><em style={{ width:`${cost.value / maxCost * 100}%`, background:COLORS[index % COLORS.length] }} /></i><strong>{shortMoney(cost.value)}</strong></div>)}</div></div></Slide>,
+    <Slide key="evolution" page={8} total={total}>{title(8, 'evolution', 'TRAJETÓRIA DO RESULTADO', 'Receita e resultado ao longo dos meses.', `${cur.monthsAboveBreakEven} de ${cur.monthCount || 1} meses acima do equilíbrio`)}<MetricStrip items={[{label:'Receita',value:shortMoney(cur.revenue)},{label:'Resultado operacional',value:shortMoney(cur.operatingResult)},{label:'Efeito não operacional',value:shortMoney(cur.extraOperational)},{label:'Resultado líquido',value:shortMoney(cur.result)}]} /><div className="deck-chart-stage"><ResponsiveContainer width="100%" height="100%"><BarChart data={series} margin={{top:18,right:18,left:8,bottom:0}}><CartesianGrid vertical={false} stroke="#e9e1da" strokeDasharray="3 7" /><XAxis dataKey="label" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v/1000)}k`}/><Tooltip formatter={v => money(v)}/><Bar dataKey="Receita" fill="#292623" radius={[7,7,0,0]}/><Bar dataKey="Resultado" fill="#f47b20" radius={[7,7,0,0]}/></BarChart></ResponsiveContainer></div><div className="deck-chart-legend"><i className="ink"/> Receita <i className="orange"/> Resultado líquido</div></Slide>,
+    <Slide key="cash" page={9} total={total} tone="dark">{title(9, 'cash', 'GERAÇÃO DE CAIXA', 'O resultado virou dinheiro disponível?', 'dinheiro que entrou e saiu')}<MetricStrip dark items={[{label:'Recebimentos',value:shortMoney(cur.cashReceipts),note:'entradas efetivas'},{label:'Pagamentos',value:shortMoney(cur.cashPayments),note:'saídas efetivas'},{label:'Geração líquida',value:shortMoney(cur.cashDifference),note:cur.cashDifference >= 0 ? 'caixa positivo' : 'caixa consumido'},{label:'Disponibilidades',value:shortMoney(pos?.cash),note:'posição de caixa e bancos'}]} /><div className="deck-fin-cash"><div><span>ENTRADAS</span><strong>{shortMoney(cur.cashReceipts)}</strong><i><em style={{width:'100%'}}/></i></div><div><span>SAÍDAS</span><strong>{shortMoney(cur.cashPayments)}</strong><i><em style={{width:`${Math.min(cur.cashReceipts ? cur.cashPayments / cur.cashReceipts * 100 : 0,100)}%`}}/></i></div><aside><b>{shortMoney(cur.cashDifference)}</b><p>{cur.cashDifference >= 0 ? 'A movimentação do período acrescentou recursos ao caixa.' : 'A operação precisou consumir caixa existente ou buscar financiamento.'}</p></aside></div></Slide>,
+    <Slide key="working" page={10} total={total}>{title(10, 'working', 'CAPITAL DE GIRO', 'Onde o dinheiro fica aplicado antes de voltar ao caixa.', 'recursos da operação diária')}<div className="deck-fin-working"><div><span>CONTAS A RECEBER</span><strong>{shortMoney(pos?.totalReceivable)}</strong><p>vendas realizadas ainda não recebidas</p></div><div><span>ESTOQUE</span><strong>{shortMoney(pos?.inventory)}</strong><p>capital aplicado em produtos</p></div><div><span>OBRIGAÇÕES OPERACIONAIS</span><strong>{shortMoney(pos?.totalPayable)}</strong><p>contas a pagar sem o aporte</p></div><aside className={pos?.workingCapital >= 0 ? 'positive' : 'negative'}><span>CAPITAL DE GIRO LÍQUIDO</span><b>{shortMoney(pos?.workingCapital)}</b><p>recursos circulantes menos compromissos de curto prazo</p></aside></div><div className="deck-fin-note"><b>Transparência:</b> o aporte a devolver de {shortMoney(pos?.aporteADevolver)} é mostrado separadamente para não distorcer a dívida operacional.</div></Slide>,
+    <Slide key="cycle" page={11} total={total}>{title(11, 'cycle', 'CICLO FINANCEIRO', 'Quantos dias a empresa precisa financiar a operação.', 'prazos ponderados do ERP')}<MetricStrip items={[{label:'Recebe em',value:`${cur.pmrv.toFixed(0)} dias`,note:'prazo dos clientes'},{label:'Estoque por',value:`${cur.pmre.toFixed(0)} dias`,note:'tempo até a venda'},{label:'Paga em',value:`${cur.pmpf.toFixed(0)} dias`,note:'prazo dos fornecedores'},{label:'Ciclo de caixa',value:`${cur.cicloCaixa.toFixed(0)} dias`,note:'receber + estoque − pagar'}]} /><div className="deck-fin-cycle"><span>COMPRA</span><i/><span>VENDE</span><i/><span>RECEBE</span><aside><b>{cur.cicloCaixa.toFixed(0)} dias</b><p>{cur.cicloCaixa > 0 ? 'período financiado com caixa próprio ou de terceiros' : 'fornecedores financiam o ciclo operacional'}</p></aside></div></Slide>,
+    <Slide key="liquidity" page={12} total={total}>{title(12, 'liquidity', 'LIQUIDEZ E BALANÇO', 'A empresa consegue honrar o curto prazo?', pos ? `posição em ${new Date(`${pos.date}T12:00:00`).toLocaleDateString('pt-BR')}` : 'posição não carregada')}<div className="deck-liquidity"><div className="deck-liquidity-main"><span>LIQUIDEZ CORRENTE</span><strong>{pos ? `${pos.currentRatio.toFixed(2).replace('.',',')}x` : '—'}</strong><p>{pos?.currentRatio >= 1 ? 'Os recursos circulantes cobrem os compromissos operacionais de curto prazo.' : 'Os compromissos de curto prazo superam os recursos circulantes.'}</p></div><div><BigNumber label="Capital de giro" value={shortMoney(pos?.workingCapital)} note={<small>ativo circulante − passivo circulante</small>}/><BigNumber label="Disponibilidades" value={shortMoney(pos?.cash)} note={<small>caixa e bancos</small>}/><BigNumber label="Endividamento operacional" value={pct(pos?.debtRatio)} note={<small>obrigações ajustadas ÷ ativos</small>}/></div></div></Slide>,
+    <Slide key="maturity" page={13} total={total} tone="dark">{title(13, 'maturity', 'PRESSÃO DE CAIXA', 'Em quais vencimentos o caixa pode apertar primeiro.', 'contas a receber versus contas a pagar')}<MetricStrip dark items={[{label:'Total a receber',value:shortMoney(pos?.totalReceivable)},{label:'Total a pagar ajustado',value:shortMoney(pos?.totalPayable)},{label:'Cobertura total',value:shortMoney(pos ? pos.totalReceivable-pos.totalPayable : 0),note:'recebíveis menos obrigações'},{label:'Saldo vencido',value:shortMoney(pos ? pos.overdueReceivable-pos.overduePayable : 0),note:'receber vencido menos pagar vencido'}]} /><div className="deck-chart-stage"><ResponsiveContainer width="100%" height="100%"><BarChart data={pos?.maturity || []} margin={{top:18,right:18,left:8,bottom:0}}><CartesianGrid vertical={false} stroke="rgba(255,255,255,.12)" strokeDasharray="3 7"/><XAxis dataKey="label" axisLine={false} tickLine={false} stroke="#aaa199"/><YAxis axisLine={false} tickLine={false} tickFormatter={v=>`${Math.round(v/1000)}k`} stroke="#aaa199"/><Tooltip formatter={v=>money(v)}/><Bar dataKey="A receber" fill="#f47b20" radius={[7,7,0,0]}/><Bar dataKey="A pagar" fill="#e4ddd6" radius={[7,7,0,0]}/></BarChart></ResponsiveContainer></div><div className="deck-chart-legend"><i className="orange"/> A receber <i style={{background:'#e4ddd6'}}/> A pagar</div></Slide>,
+    <Slide key="close" page={14} total={total} tone="dark" className="deck-close"><span>RECOMENDAÇÕES FINANCEIRAS</span><EditableText as="h2" editKey="financeiro.close.title" value={cur.result < 0 ? 'Recuperar resultado sem perder o controle do caixa.' : 'Preservar margem e transformar resultado em caixa recorrente.'} editor={editor}/><EditableText as="p" editKey="financeiro.close.body" value={cur.result < 0 ? '1. Reaproximar a receita do ponto de equilíbrio, protegendo margem e mix. 2. Atuar sobre os maiores grupos de custo sem comprometer a operação. 3. Compatibilizar pagamentos com recebimentos. 4. Reduzir o tempo em que o caixa fica preso em clientes e estoque.' : '1. Proteger a margem de contribuição e a disciplina de custos fixos. 2. Converter o resultado contábil em caixa recorrente. 3. Monitorar vencimentos e concentração de recebíveis. 4. Preservar capital de giro para sustentar o crescimento.'} editor={editor}/><div><i/> direcionamento para o próximo ciclo</div></Slide>,
   ]
 }
 
@@ -410,6 +437,8 @@ function aggregateFinancialPeriod(bounds, range, ctx) {
   const variableCosts = periodDre.reduce((sum, row) => sum + number(row.custos_variaveis), 0)
   const contribution = periodDre.reduce((sum, row) => sum + number(row.margem_contribuicao), 0)
   const fixedCosts = periodDre.reduce((sum, row) => sum + number(row.custos_fixos), 0)
+  const operatingResult = periodDre.reduce((sum, row) => sum + number(row.resultado_operacional), 0)
+  const extraOperational = periodDre.reduce((sum, row) => sum + number(row.extra_operacional), 0)
   const result = periodDre.reduce((sum, row) => sum + number(row.resultado_liquido), 0)
   const contributionMargin = revenue ? contribution / revenue * 100 : 0
   const netMargin = revenue ? result / revenue * 100 : 0
@@ -432,6 +461,13 @@ function aggregateFinancialPeriod(bounds, range, ctx) {
   const pmrv = weightedAvg('pmrv', 'vendas_total')
   const pmpf = weightedAvg('pmpf', 'ap_geradas_mes')
   const pmre = weightedAvg('pmre', 'compras_valor')
+  const salesTotal = periodManagerial.reduce((sum, row) => sum + number(row.vendas_total), 0)
+  const salesCash = periodManagerial.reduce((sum, row) => sum + number(row.vendas_a_vista), 0)
+  const salesCredit = periodManagerial.reduce((sum, row) => sum + number(row.vendas_a_prazo), 0)
+  const purchases = periodManagerial.reduce((sum, row) => sum + number(row.compras_valor), 0)
+  const cashReceipts = periodManagerial.reduce((sum, row) => sum + number(row.caixa_recebimentos), 0)
+  const cashPayments = periodManagerial.reduce((sum, row) => sum + number(row.caixa_pagamentos), 0)
+  const cashDifference = periodManagerial.reduce((sum, row) => sum + number(row.caixa_diferenca), 0)
 
   const endIso = iso(range.end)
   const balance = [...ctx.balanceRows].filter(row => row.competencia_date <= endIso).sort((a, b) => b.competencia_date.localeCompare(a.competencia_date))[0] || null
@@ -445,6 +481,12 @@ function aggregateFinancialPeriod(bounds, range, ctx) {
     position = {
       date: balance.competencia_date,
       cash: number(balance.disponibilidades),
+      assets: number(balance.ativo_total),
+      inventory: number(balance.estoque),
+      currentAssets,
+      currentLiabilities,
+      aporteADevolver,
+      accumulatedResult: number(balance.resultados_acumulados),
       workingCapital: currentAssets - currentLiabilities,
       currentRatio: currentLiabilities ? currentAssets / currentLiabilities : 0,
       debtRatio: number(balance.ativo_total) ? cpTotalAjustado / number(balance.ativo_total) * 100 : 0,
@@ -462,8 +504,11 @@ function aggregateFinancialPeriod(bounds, range, ctx) {
   }
 
   return {
-    revenue, variableCosts, contribution, fixedCosts, result,
+    revenue, variableCosts, contribution, fixedCosts, operatingResult, extraOperational, result,
     contributionMargin, netMargin, breakEven, breakEvenGap: revenue - breakEven,
+    variableCostPct: revenue ? variableCosts / revenue * 100 : 0,
+    fixedCostPct: revenue ? fixedCosts / revenue * 100 : 0,
+    salesTotal, salesCash, salesCredit, purchases, cashReceipts, cashPayments, cashDifference,
     costs: [...costMap.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
     pmrv, pmpf, pmre, cicloCaixa: pmrv + pmre - pmpf,
     monthsAboveBreakEven: periodDre.filter(row => number(row.receitas) >= number(row.ponto_equilibrio)).length,
@@ -530,7 +575,14 @@ function useClosingData(type, year, index) {
         }
         const financialCurrent = aggregateFinancialPeriod(currentBounds, currentRange, finCtx)
         const financialPrevious = aggregateFinancialPeriod(previousBounds, previousRange, finCtx)
-        const series = [...finCtx.dreRows].sort((a, b) => a.ano - b.ano || a.mes - b.mes).map(row => ({ label: `${MONTHS[row.mes - 1]}/${String(row.ano).slice(2)}`, Receita: number(row.receitas), Resultado: number(row.resultado_liquido) }))
+        const managerialByMonth = new Map(finCtx.managerialRows.map(row => [`${row.ano}-${row.mes}`, row]))
+        const series = [...finCtx.dreRows].sort((a, b) => a.ano - b.ano || a.mes - b.mes).map(row => ({
+          label: `${MONTHS[row.mes - 1]}/${String(row.ano).slice(2)}`,
+          Receita: number(row.receitas),
+          Resultado: number(row.resultado_liquido),
+          Equilíbrio: number(row.ponto_equilibrio),
+          Caixa: number(managerialByMonth.get(`${row.ano}-${row.mes}`)?.caixa_diferenca),
+        }))
         const financial = {
           current: financialCurrent, previous: financialPrevious, series,
           hasData: financialCurrent.hasData, previousHasData: financialPrevious.hasData,
@@ -576,7 +628,7 @@ export default function Fechamentos() {
     if (!data.commercial || !data.financial) return []
     return type === 'comercial'
       ? CommercialSlides({ data: data.commercial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun, editor })
-      : FinancialSlides({ data: data.financial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun, editor })
+      : ExecutiveFinancialSlides({ data: data.financial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun, editor })
   }, [data.commercial, data.financial, type, period, previousLabelText, generatedAt, comparisonNoun, editor])
 
   useEffect(() => {
