@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   IconAlertTriangle, IconCalendar, IconCheck, IconCloudUpload, IconFileSpreadsheet,
-  IconHistory, IconLoader2, IconRefresh, IconTrash, IconX,
+  IconHistory, IconLoader2, IconMapPin, IconRefresh, IconTrash, IconX,
 } from '@tabler/icons-react'
 import Topbar from '../components/Topbar'
 import { supabase } from '../lib/supabase'
@@ -9,12 +9,12 @@ import { useAuth } from '../lib/useAuth'
 import './ImportarFechamento.css'
 
 const REPORTS = [
-  { key: 'dre', number: '01', title: 'DRE Comparativo', note: 'Resultado, margens e contas detalhadas', required: true },
-  { key: 'gerencial', number: '02', title: 'Relatório Gerencial', note: 'Margem bruta, estoque, prazos e caixa', required: true },
-  { key: 'balanco', number: '03', title: 'Balanço Financeiro', note: 'Ativos, passivos, liquidez e capital de giro', required: true },
-  { key: 'balancete', number: '04', title: 'Balancete', note: 'Saldos, débitos, créditos e conciliações', required: true },
-  { key: 'contas_pagar', number: '05', title: 'Contas a Pagar', note: 'Previsão financeira e vencimentos futuros', required: true },
-  { key: 'contas_receber', number: '06', title: 'Contas a Receber', note: 'Títulos, vencimentos e inadimplência', required: true },
+  { key: 'dre', number: '01', title: 'DRE Comparativo', note: 'Resultado, margens e contas detalhadas', ultraPath: ['Demonstrativo', 'DRE Demonstrativo de Resultado'], required: true },
+  { key: 'gerencial', number: '02', title: 'Relatório Gerencial', note: 'Margem bruta, estoque, prazos e caixa', ultraPath: ['Demonstrativo', 'Relatório Gerencial'], required: true },
+  { key: 'balanco', number: '03', title: 'Balanço Financeiro', note: 'Ativos, passivos, liquidez e capital de giro', ultraPath: ['Demonstrativo', 'Balanço Financeiro'], required: true },
+  { key: 'balancete', number: '04', title: 'Balancete', note: 'Saldos, débitos, créditos e conciliações', ultraPath: ['Demonstrativo', 'Balancete de Receitas e Despesas'], required: true },
+  { key: 'contas_pagar', number: '05', title: 'Contas a Pagar', note: 'Previsão financeira e vencimentos futuros', ultraPath: ['Contas a pagar', 'Relatório/Resumos', 'Previsão financeira de Contas a Pagar'], required: true },
+  { key: 'contas_receber', number: '06', title: 'Contas a Receber', note: 'Títulos, vencimentos e inadimplência', ultraPath: ['Contas a receber', 'Relatório/Resumos', 'Previsão financeira de Contas a Receber'], required: true },
 ]
 const ACCEPT = '.xlsx,.xls,.csv,.pdf'
 const MAX_SIZE = 20 * 1024 * 1024
@@ -121,6 +121,7 @@ export default function ImportarFechamento() {
         const ready = local || saved
         return <article key={report.key} className={`import-card ${ready ? 'ready' : ''} ${dragging === report.key ? 'dragging' : ''}`} onDragOver={event => { event.preventDefault(); setDragging(report.key) }} onDragLeave={() => setDragging('')} onDrop={event => { event.preventDefault(); setDragging(''); chooseFile(report.key, event.dataTransfer.files[0]) }}>
           <header><b>{report.number}</b><div><h3>{report.title}</h3><p>{report.note}</p></div>{ready && <IconCheck className="import-check" size={21}/>}</header>
+          <div className="import-ultra-path"><IconMapPin size={14}/><div><span>CAMINHO NO ULTRA</span><p>{report.ultraPath.map((step, index) => <span key={step}>{index > 0 && <i>›</i>}{step}</span>)}</p></div></div>
           <button className="import-drop" onClick={() => inputs.current[report.key]?.click()}><IconFileSpreadsheet size={24}/>{local ? <><strong>{local.name}</strong><small>{fileSize(local.size)} · pronto para enviar</small></> : saved ? <><strong>{saved.file_name}</strong><small>{fileSize(saved.file_size)} · arquivo armazenado</small></> : <><strong>Selecionar ou arrastar arquivo</strong><small>XLSX, XLS, CSV ou PDF · até 20 MB</small></>}</button>
           <input ref={node => { inputs.current[report.key] = node }} type="file" accept={ACCEPT} hidden onChange={event => chooseFile(report.key, event.target.files?.[0])}/>
           <footer><span>{report.required ? 'Obrigatório' : 'Opcional'}</span>{local && <button onClick={() => clearLocal(report.key)}><IconTrash size={15}/> Remover</button>}{saved && !local && <button onClick={() => inputs.current[report.key]?.click()}><IconRefresh size={15}/> Substituir</button>}</footer>
