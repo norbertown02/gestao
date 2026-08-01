@@ -9259,3 +9259,14 @@ table td {
 .deck-portfolio-list>div>b{color:#8e847d;font-size:11px}.deck-portfolio-list>div>span strong{display:block;font-size:15px}.deck-portfolio-list>div>span small{display:block;color:#9e958e;font-size:10px;margin-top:4px}.deck-portfolio-list>div>strong{text-align:right;color:#f7a05f;font-size:16px}.deck-portfolio-list>div>small{text-align:right;color:#aaa19a;font-size:11px}
 .deck-client-bars{margin-top:8px}.deck-client-bars>div{display:grid;grid-template-columns:32px 240px 1fr 120px 50px;gap:14px;align-items:center;min-height:53px;border-bottom:1px solid #e4ddd6}.deck-client-bars b{color:#a79c92;font-size:10px}.deck-client-bars span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:700}.deck-client-bars i{height:7px;background:#e4ddd6;border-radius:7px;overflow:hidden}.deck-client-bars em{display:block;height:100%;background:#f47b20;border-radius:7px}.deck-client-bars strong{text-align:right;font-size:14px}.deck-client-bars small{text-align:right;color:#8d827a;font-size:10px}
 .deck-segment-layout{display:grid;grid-template-columns:.72fr 1.28fr;gap:65px;align-items:center;height:440px}.deck-segment-layout>div:first-child{border-left:5px solid #f47b20;padding-left:28px}.deck-segment-layout>div:first-child>span{font-size:10px;color:#f59a56;letter-spacing:.18em;font-weight:850}.deck-segment-layout>div:first-child>strong{display:block;font-size:42px;line-height:1.05;color:#fff;margin:14px 0}.deck-segment-layout>div:first-child p{color:#aaa19a;font-size:15px;line-height:1.5}.deck-segment-bars>div{display:grid;grid-template-columns:150px 1fr 105px 70px;align-items:center;gap:13px;margin:18px 0}.deck-segment-bars span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}.deck-segment-bars i{height:7px;background:#48423d;border-radius:7px;overflow:hidden}.deck-segment-bars em{display:block;height:100%;border-radius:7px}.deck-segment-bars strong{text-align:right;font-size:13px}.deck-segment-bars small{text-align:right;color:#aaa19a;font-size:10px}
+.deck-brand{bottom:19px}
+.deck-brand img,.deck-brand.dark img{width:112px;height:30px;padding:0;background:transparent;border-radius:0;filter:none;opacity:1;transform:translateY(3px)}
+.deck-goal-slide .deck-metric-strip{margin-top:45px;border-top:0}
+.deck-ranking-head{grid-template-columns:45px 1fr 140px 110px 125px}
+.deck-ranking-head span:nth-child(2),.deck-ranking-head span:nth-child(3),.deck-ranking-head span:nth-child(4){text-align:right}
+.deck-ranking>div{grid-template-columns:45px 1fr 140px 110px 125px;gap:16px}
+.deck-ranking>div>.deck-seller-goal,.deck-ranking>div>.deck-seller-variation{text-align:right;font-size:10px;line-height:1.25}
+.deck-ranking>div>.deck-seller-variation{font-weight:800;color:#8c8179}
+.deck-ranking>div>.deck-seller-variation.positive{color:#4e9b72}
+.deck-ranking>div>.deck-seller-variation.negative{color:#e46a61}
+.deck-product-bars em{background:#F1D58A}

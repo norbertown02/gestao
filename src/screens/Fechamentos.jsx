@@ -182,10 +182,11 @@ function CommercialSlides({ data, period, previousLabel, generatedAt, comparison
     </Slide>,
     <Slide key="sellers" page={6} total={total}>
       <SlideTitle eyebrow="EQUIPE COMERCIAL" aside={`pedidos líquidos · vs. ${comparisonNoun}`} editKey="comercial.sellers.title" editor={editor}>Ranking de pedidos gerados e atingimento das metas individuais.</SlideTitle>
-      <div className="deck-ranking-head"><span>Vendedor</span><span>Pedidos gerados</span><span>Meta / variação</span></div>
+      <div className="deck-ranking-head"><span>Vendedor</span><span>Pedidos gerados</span><span>Atingimento</span><span>Variação</span></div>
       <div className="deck-ranking">{cur.sellers.slice(0, 6).map((seller, index) => {
         const previousSeller = prevSellerByName.get(seller.name)
-        return <div key={seller.key}><b>{String(index + 1).padStart(2, '0')}</b><span><strong>{seller.name}</strong><i><em style={{ width: `${seller.orders / maxSeller * 100}%` }} /></i></span><strong>{shortMoney(seller.orders)}</strong><small>{seller.goal ? `${pct(seller.orders / seller.goal * 100)} da meta` : previousSeller ? <Delta current={seller.orders} previous={previousSeller.orders} suffix="" /> : shortMoney(seller.billing) + ' faturados'}</small></div>
+        const sellerDelta = previousSeller ? seller.orders - previousSeller.orders : null
+        return <div key={seller.key}><b>{String(index + 1).padStart(2, '0')}</b><span><strong>{seller.name}</strong><i><em style={{ width: `${seller.orders / maxSeller * 100}%` }} /></i></span><strong>{shortMoney(seller.orders)}</strong><small className="deck-seller-goal">{seller.goal ? `${pct(seller.orders / seller.goal * 100)} da meta` : 'Meta não cadastrada'}</small><small className={sellerDelta === null ? 'deck-seller-variation' : `deck-seller-variation ${sellerDelta >= 0 ? 'positive' : 'negative'}`}>{sellerDelta === null ? 'Sem base anterior' : `${sellerDelta >= 0 ? '↗' : '↘'} ${shortMoney(Math.abs(sellerDelta))} · ${pct(Math.abs(variation(seller.orders, previousSeller.orders)))}`}</small></div>
       })}</div>
     </Slide>,
     <Slide key="clients" page={7} total={total}>
@@ -195,7 +196,7 @@ function CommercialSlides({ data, period, previousLabel, generatedAt, comparison
     </Slide>,
     <Slide key="products" page={8} total={total} tone="dark">
       <SlideTitle eyebrow="MIX DE PRODUTOS" aside="faturamento líquido" editKey="comercial.products.title" editor={editor}>Produtos que formaram o faturamento líquido do período.</SlideTitle>
-      <div className="deck-products"><div className="deck-product-hero"><span>PRODUTO LÍDER</span><h3>{cur.products[0]?.name || 'Sem faturamento'}</h3><strong>{shortMoney(cur.products[0]?.value)}</strong><small>{cur.billing ? pct((cur.products[0]?.value || 0) / cur.billing * 100) : '0%'} do faturamento{prev.products[0]?.name === cur.products[0]?.name ? ' · mesmo líder do período anterior' : ''}</small></div><div className="deck-product-bars">{cur.products.slice(1, 6).map((product, index) => <div key={product.name}><span>{product.name}</span><i><em style={{ width: `${product.value / maxProduct * 100}%`, background: COLORS[index + 1] }} /></i><strong>{shortMoney(product.value)}</strong></div>)}</div></div>
+      <div className="deck-products"><div className="deck-product-hero"><span>PRODUTO LÍDER</span><h3>{cur.products[0]?.name || 'Sem faturamento'}</h3><strong>{shortMoney(cur.products[0]?.value)}</strong><small>{cur.billing ? pct((cur.products[0]?.value || 0) / cur.billing * 100) : '0%'} do faturamento{prev.products[0]?.name === cur.products[0]?.name ? ' · mesmo líder do período anterior' : ''}</small></div><div className="deck-product-bars">{cur.products.slice(1, 6).map(product => <div key={product.name}><span>{product.name}</span><i><em style={{ width: `${product.value / maxProduct * 100}%`, background: '#F1D58A' }} /></i><strong>{shortMoney(product.value)}</strong></div>)}</div></div>
     </Slide>,
     <Slide key="segments" page={9} total={total} tone="dark">
       <SlideTitle eyebrow="SEGMENTOS" aside="faturamento líquido" editKey="comercial.segments.title" editor={editor}>{cur.segments.some(item => item.name !== 'Sem segmento') ? 'Distribuição do faturamento por segmento de cliente.' : 'A visão por segmento será preenchida conforme a classificação da carteira for concluída.'}</SlideTitle>
