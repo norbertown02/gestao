@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import * as d3 from 'd3'
-import { IconArrowLeft, IconArrowRight, IconDownload, IconFileTypePdf, IconPresentation, IconRefresh } from '@tabler/icons-react'
+import { IconArrowLeft, IconArrowRight, IconCheck, IconDownload, IconEdit, IconFileTypePdf, IconPresentation, IconRefresh } from '@tabler/icons-react'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import Topbar from '../components/Topbar'
@@ -72,12 +72,22 @@ function Brand({ page, total, dark = false }) {
   return <div className={`deck-brand ${dark ? 'dark' : ''}`}><img src={logo} alt="Nutrialle" /><span>{String(page).padStart(2, '0')} / {String(total).padStart(2, '0')}</span></div>
 }
 
-function Cover({ type, period, previousLabel, generatedAt, total }) {
+function EditableText({ as: Tag = 'span', editKey, value, editor, className = '' }) {
+  const text = editor?.copy?.[editKey] ?? value
+  return <Tag
+    className={`${className} ${editor?.enabled ? 'deck-editable' : ''}`.trim()}
+    contentEditable={!!editor?.enabled}
+    suppressContentEditableWarning
+    onBlur={event => editor?.setCopy?.(current => ({ ...current, [editKey]: event.currentTarget.innerText }))}
+  >{text}</Tag>
+}
+
+function Cover({ type, period, previousLabel, generatedAt, total, editor }) {
   const commercial = type === 'comercial'
   return <article className="deck-slide deck-cover">
     <div className="deck-cover-glow" />
     <img className="deck-cover-logo" src={logo} alt="Nutrialle" />
-    <div className="deck-cover-copy"><span>FECHAMENTO {commercial ? 'COMERCIAL' : 'FINANCEIRO'}</span><h1>{period}</h1><p>{commercial ? 'Performance, mercado e direção para o próximo ciclo.' : 'Resultado, liquidez e decisões para sustentar o crescimento.'}</p><small>Comparado a {previousLabel}</small></div>
+    <div className="deck-cover-copy"><span>FECHAMENTO {commercial ? 'COMERCIAL' : 'FINANCEIRO'}</span><h1>{period}</h1><EditableText as="p" editKey={`${type}.cover.subtitle`} value={commercial ? 'Performance, mercado e direção para o próximo ciclo.' : 'Resultado, liquidez e decisões para sustentar o crescimento.'} editor={editor} /><small>Comparado a {previousLabel}</small></div>
     <div className="deck-cover-foot"><i /> Gestão Nutrialle <b>•</b> gerado automaticamente em {generatedAt} <b>•</b> confidencial</div>
     <Brand page={1} total={total} dark />
   </article>
@@ -87,8 +97,8 @@ function Slide({ children, page, total, tone = 'light', className = '' }) {
   return <article className={`deck-slide deck-${tone} ${className}`}>{children}<Brand page={page} total={total} dark={tone === 'dark'} /></article>
 }
 
-function SlideTitle({ eyebrow, children, aside }) {
-  return <header className="deck-title"><div><span>{eyebrow}</span><h2>{children}</h2></div>{aside && <small>{aside}</small>}</header>
+function SlideTitle({ eyebrow, children, aside, editKey, editor }) {
+  return <header className="deck-title"><div><span>{eyebrow}</span>{editKey ? <EditableText as="h2" editKey={editKey} value={children} editor={editor} /> : <h2>{children}</h2>}</div>{aside && <small>{aside}</small>}</header>
 }
 
 function BigNumber({ label, value, note, accent = false }) {
@@ -131,72 +141,88 @@ function BrazilSalesMap({ regions }) {
   return <div className="deck-brazil-map">{geo ? <svg ref={svgRef} aria-label="Mapa do faturamento líquido por estado" /> : <span>Mapa indisponível</span>}<div className="deck-map-scale"><i /><span>menor faturamento</span><b>maior faturamento</b></div></div>
 }
 
-function CommercialSlides({ data, period, previousLabel, generatedAt, comparisonNoun }) {
-  const total = 8
+function CommercialSlides({ data, period, previousLabel, generatedAt, comparisonNoun, editor }) {
+  const total = 11
   const { current: cur, previous: prev, trajectory, trajectoryDaily } = data
   const maxSeller = Math.max(...cur.sellers.map(item => item.orders), 1)
   const maxProduct = Math.max(...cur.products.map(item => item.value), 1)
+  const maxClient = Math.max(...cur.clients.map(item => item.value), 1)
+  const maxSegment = Math.max(...cur.segments.map(item => item.value), 1)
   const prevSellerByName = new Map(prev.sellers.map(row => [row.name, row]))
   const leaderChanged = cur.regions[0]?.name && prev.regions[0]?.name && cur.regions[0].name !== prev.regions[0].name
   return [
-    <Cover key="cover" type="comercial" period={period} previousLabel={previousLabel} generatedAt={generatedAt} total={total} />,
+    <Cover key="cover" type="comercial" period={period} previousLabel={previousLabel} generatedAt={generatedAt} total={total} editor={editor} />,
     <Slide key="summary" page={2} total={total} tone="dark" className="deck-thesis">
       <span className="deck-kicker">RESUMO EXECUTIVO</span>
-      <h2>{cur.billing >= prev.billing ? `Faturamento cresceu ${pct(Math.abs(variation(cur.billing, prev.billing)))} frente ao ${comparisonNoun}, para ${shortMoney(cur.billing)}.` : `Faturamento caiu ${pct(Math.abs(variation(cur.billing, prev.billing)))} frente ao ${comparisonNoun}, para ${shortMoney(cur.billing)}.`}</h2>
+      <EditableText as="h2" editKey="comercial.summary.title" value={cur.ordersValue >= prev.ordersValue ? `Pedidos cresceram ${pct(Math.abs(variation(cur.ordersValue, prev.ordersValue)))} frente ao ${comparisonNoun}, para ${shortMoney(cur.ordersValue)}.` : `Pedidos recuaram ${pct(Math.abs(variation(cur.ordersValue, prev.ordersValue)))} frente ao ${comparisonNoun}, para ${shortMoney(cur.ordersValue)}.`} editor={editor} />
       <div className="deck-thesis-metrics"><BigNumber label="Pedidos líquidos" value={shortMoney(cur.ordersValue)} note={<Delta current={cur.ordersValue} previous={prev.ordersValue} suffix={`vs. ${comparisonNoun}`} />} /><BigNumber label="Faturamento líquido" value={shortMoney(cur.billing)} note={<Delta current={cur.billing} previous={prev.billing} suffix={`vs. ${comparisonNoun}`} />} accent /><BigNumber label="Carteira aberta" value={shortMoney(cur.openPortfolio)} note={<small>potencial aguardando faturamento</small>} /></div>
       <MetricStrip dark items={[
         { label: 'Ticket médio', value: shortMoney(cur.averageTicket), note: `${comparisonNoun}: ${shortMoney(prev.averageTicket)}` },
         { label: 'Clientes faturados', value: cur.billedClients, note: `${comparisonNoun}: ${prev.billedClients}` },
-        { label: 'Taxa de conversão', value: pct(cur.conversionRate), note: 'faturamento ÷ pedidos gerados' },
+        { label: 'Maior cliente', value: pct(cur.topClientShare), note: 'participação no faturamento' },
         { label: 'Atingimento da meta', value: cur.goal ? pct(cur.attainment) : '—', note: prev.goal ? `${comparisonNoun}: ${pct(prev.attainment)}` : 'sem meta comparável' },
       ]} />
     </Slide>,
     <Slide key="rhythm" page={3} total={total}>
-      <SlideTitle eyebrow="RITMO DO PERÍODO" aside={`vs. ${comparisonNoun}`}>{cur.billing >= prev.billing ? 'O ritmo de faturamento está acima do período anterior.' : 'O ritmo de faturamento está abaixo do período anterior.'}</SlideTitle>
-      <MetricStrip items={[{ label: 'Faturamento do período', value: shortMoney(cur.billing) }, { label: `Faturamento — ${comparisonNoun}`, value: shortMoney(prev.billing) }, { label: 'Variação', value: `${variation(cur.billing, prev.billing) >= 0 ? '+' : ''}${pct(variation(cur.billing, prev.billing))}` }]} />
+      <SlideTitle eyebrow="RITMO DO PERÍODO" aside={`vs. ${comparisonNoun}`} editKey="comercial.rhythm.title" editor={editor}>{cur.ordersValue >= prev.ordersValue ? 'O ritmo de pedidos está acima do período anterior.' : 'O ritmo de pedidos está abaixo do período anterior.'}</SlideTitle>
+      <MetricStrip items={[{ label: 'Pedidos do período', value: shortMoney(cur.ordersValue) }, { label: `Pedidos — ${comparisonNoun}`, value: shortMoney(prev.ordersValue) }, { label: 'Variação', value: `${variation(cur.ordersValue, prev.ordersValue) >= 0 ? '+' : ''}${pct(variation(cur.ordersValue, prev.ordersValue))}` }]} />
       <div className="deck-chart-stage"><ResponsiveContainer width="100%" height="100%"><AreaChart data={trajectory} margin={{ top: 18, right: 18, left: 8, bottom: 0 }}><defs><linearGradient id="deckBilling" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#f47b20" stopOpacity=".28" /><stop offset="1" stopColor="#f47b20" stopOpacity="0" /></linearGradient></defs><CartesianGrid vertical={false} stroke="#e9e1da" strokeDasharray="3 7" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} /><Tooltip formatter={v => money(v)} /><Area type="monotone" dataKey="Período atual" stroke="#f47b20" strokeWidth={4} fill="url(#deckBilling)" /><Line type="monotone" dataKey="Período anterior" stroke="#292623" strokeWidth={2.5} strokeDasharray="5 5" dot={false} /></AreaChart></ResponsiveContainer></div>
-      <div className="deck-chart-legend"><i className="orange" /> {trajectoryDaily ? 'Faturamento acumulado no mês' : 'Faturamento por mês'} <i className="ink" /> {comparisonNoun[0].toUpperCase() + comparisonNoun.slice(1)}</div>
+      <div className="deck-chart-legend"><i className="orange" /> {trajectoryDaily ? 'Pedidos acumulados no mês' : 'Pedidos por mês'} <i className="ink" /> {comparisonNoun[0].toUpperCase() + comparisonNoun.slice(1)}</div>
     </Slide>,
     <Slide key="goal" page={4} total={total} className="deck-goal-slide">
-      <SlideTitle eyebrow="EXECUÇÃO CONTRA META" aside={period}>Vendas geradas atingiram {cur.goal ? pct(cur.attainment) : '—'} da meta do período.</SlideTitle>
-      <div className="deck-goal-main"><div><span>ATINGIMENTO DO PERÍODO</span><strong>{cur.goal ? pct(cur.attainment) : '—'}</strong><p>{cur.goal ? `${shortMoney(Math.max(cur.goal - cur.ordersValue, 0))} ainda separam o realizado da meta deste período.` : 'Meta ainda não cadastrada para o período.'}</p></div><div className="deck-goal-ring" style={{ '--progress': `${Math.min(cur.goal ? cur.attainment : 0, 100)}%` }}><span>{shortMoney(cur.ordersValue)}</span><small>vendidos</small></div></div>
+      <SlideTitle eyebrow="META DE PEDIDOS" aside={period} editKey="comercial.goal.title" editor={editor}>Pedidos gerados atingiram {cur.goal ? pct(cur.attainment) : '—'} da meta do período.</SlideTitle>
+      <div className="deck-goal-main"><div><span>ATINGIMENTO DO PERÍODO</span><strong>{cur.goal ? pct(cur.attainment) : '—'}</strong><EditableText as="p" editKey="comercial.goal.body" value={cur.goal ? `${shortMoney(Math.max(cur.goal - cur.ordersValue, 0))} ainda separam os pedidos realizados da meta deste período.` : 'Meta ainda não cadastrada para o período.'} editor={editor} /></div><div className="deck-goal-ring" style={{ '--progress': `${Math.min(cur.goal ? cur.attainment : 0, 100)}%` }}><span>{shortMoney(cur.ordersValue)}</span><small>em pedidos</small></div></div>
       <div className="deck-goal-track"><i style={{ width: `${Math.min(cur.goal ? cur.attainment : 0, 100)}%` }} /><span>0</span><b>Meta {shortMoney(cur.goal)}</b></div>
       <MetricStrip items={[{ label: 'Atingimento do período', value: cur.goal ? pct(cur.attainment) : '—' }, { label: `Atingimento — ${comparisonNoun}`, value: prev.goal ? pct(prev.attainment) : '—' }, { label: 'Meta do período', value: shortMoney(cur.goal) }, { label: 'Saldo até a meta', value: shortMoney(Math.max(cur.goal - cur.ordersValue, 0)) }]} />
     </Slide>,
-    <Slide key="sellers" page={5} total={total}>
-      <SlideTitle eyebrow="EQUIPE COMERCIAL" aside={`pedidos líquidos · vs. ${comparisonNoun}`}>Ranking de vendas geradas e variação frente ao período anterior.</SlideTitle>
-      <div className="deck-ranking-head"><span>Vendedor</span><span>Venda gerada</span><span>Meta / variação</span></div>
+    <Slide key="portfolio" page={5} total={total} tone="dark">
+      <SlideTitle eyebrow="CARTEIRA A FATURAR" aside={`${cur.openOrderCount} pedidos em aberto`} editKey="comercial.portfolio.title" editor={editor}>{cur.openPortfolio ? `${shortMoney(cur.openPortfolio)} aguardam faturamento, com idade média de ${cur.openAverageAge.toFixed(0)} dias.` : 'Não há pedidos pendentes de faturamento.'}</SlideTitle>
+      <MetricStrip dark items={[{ label: 'Carteira aberta', value: shortMoney(cur.openPortfolio) }, { label: 'Pedidos em aberto', value: cur.openOrderCount }, { label: 'Idade média', value: `${cur.openAverageAge.toFixed(0)} dias` }, { label: 'Acima de 30 dias', value: shortMoney(cur.openOver30) }]} />
+      <div className="deck-portfolio-list">{cur.openOrders.slice(0, 6).map((order, index) => <div key={order.id}><b>{String(index + 1).padStart(2, '0')}</b><span><strong>{order.customer}</strong><small>{order.seller} · pedido {order.number}</small></span><strong>{shortMoney(order.value)}</strong><small>{order.age} dias</small></div>)}</div>
+    </Slide>,
+    <Slide key="sellers" page={6} total={total}>
+      <SlideTitle eyebrow="EQUIPE COMERCIAL" aside={`pedidos líquidos · vs. ${comparisonNoun}`} editKey="comercial.sellers.title" editor={editor}>Ranking de pedidos gerados e atingimento das metas individuais.</SlideTitle>
+      <div className="deck-ranking-head"><span>Vendedor</span><span>Pedidos gerados</span><span>Meta / variação</span></div>
       <div className="deck-ranking">{cur.sellers.slice(0, 6).map((seller, index) => {
         const previousSeller = prevSellerByName.get(seller.name)
         return <div key={seller.key}><b>{String(index + 1).padStart(2, '0')}</b><span><strong>{seller.name}</strong><i><em style={{ width: `${seller.orders / maxSeller * 100}%` }} /></i></span><strong>{shortMoney(seller.orders)}</strong><small>{seller.goal ? `${pct(seller.orders / seller.goal * 100)} da meta` : previousSeller ? <Delta current={seller.orders} previous={previousSeller.orders} suffix="" /> : shortMoney(seller.billing) + ' faturados'}</small></div>
       })}</div>
     </Slide>,
-    <Slide key="products" page={6} total={total} tone="dark">
-      <SlideTitle eyebrow="MIX DE PRODUTOS" aside="faturamento líquido" >Produtos que formaram o faturamento líquido do período.</SlideTitle>
+    <Slide key="clients" page={7} total={total}>
+      <SlideTitle eyebrow="CARTEIRA DE CLIENTES" aside={`${cur.billedClients} clientes faturados`} editKey="comercial.clients.title" editor={editor}>{cur.clients.length ? `Os cinco maiores clientes representam ${pct(cur.top5ClientShare)} do faturamento.` : 'Ainda não há clientes faturados no período.'}</SlideTitle>
+      <MetricStrip items={[{ label: 'Maior cliente', value: pct(cur.topClientShare) }, { label: 'Top 3', value: pct(cur.top3ClientShare) }, { label: 'Top 5', value: pct(cur.top5ClientShare) }, { label: 'Ticket por cliente', value: shortMoney(cur.billedClients ? cur.billing / cur.billedClients : 0) }]} />
+      <div className="deck-client-bars">{cur.clients.slice(0, 7).map((client, index) => <div key={client.name}><b>{String(index + 1).padStart(2, '0')}</b><span>{client.name}</span><i><em style={{ width: `${client.value / maxClient * 100}%` }} /></i><strong>{shortMoney(client.value)}</strong><small>{pct(client.share)}</small></div>)}</div>
+    </Slide>,
+    <Slide key="products" page={8} total={total} tone="dark">
+      <SlideTitle eyebrow="MIX DE PRODUTOS" aside="faturamento líquido" editKey="comercial.products.title" editor={editor}>Produtos que formaram o faturamento líquido do período.</SlideTitle>
       <div className="deck-products"><div className="deck-product-hero"><span>PRODUTO LÍDER</span><h3>{cur.products[0]?.name || 'Sem faturamento'}</h3><strong>{shortMoney(cur.products[0]?.value)}</strong><small>{cur.billing ? pct((cur.products[0]?.value || 0) / cur.billing * 100) : '0%'} do faturamento{prev.products[0]?.name === cur.products[0]?.name ? ' · mesmo líder do período anterior' : ''}</small></div><div className="deck-product-bars">{cur.products.slice(1, 6).map((product, index) => <div key={product.name}><span>{product.name}</span><i><em style={{ width: `${product.value / maxProduct * 100}%`, background: COLORS[index + 1] }} /></i><strong>{shortMoney(product.value)}</strong></div>)}</div></div>
     </Slide>,
-    <Slide key="regions" page={7} total={total}>
-      <SlideTitle eyebrow="PRESENÇA DE MERCADO" aside={`${cur.activeClients} clientes ativos`}>Distribuição do faturamento líquido por estado{leaderChanged ? ' — liderança mudou no período' : ''}.</SlideTitle>
+    <Slide key="segments" page={9} total={total} tone="dark">
+      <SlideTitle eyebrow="SEGMENTOS" aside="faturamento líquido" editKey="comercial.segments.title" editor={editor}>{cur.segments.some(item => item.name !== 'Sem segmento') ? 'Distribuição do faturamento por segmento de cliente.' : 'A visão por segmento será preenchida conforme a classificação da carteira for concluída.'}</SlideTitle>
+      <div className="deck-segment-layout"><div><span>SEGMENTO LÍDER</span><strong>{cur.segments[0]?.name || 'Sem dados'}</strong><p>{cur.segments[0] && cur.billing ? `${shortMoney(cur.segments[0].value)} · ${pct(cur.segments[0].value / cur.billing * 100)} do faturamento.` : 'O conteúdo será atualizado automaticamente quando os clientes receberem sua classificação.'}</p></div><div className="deck-segment-bars">{cur.segments.slice(0, 7).map((segment, index) => <div key={segment.name}><span>{segment.name}</span><i><em style={{ width: `${segment.value / maxSegment * 100}%`, background: COLORS[index % COLORS.length] }} /></i><strong>{shortMoney(segment.value)}</strong><small>{segment.clients} clientes</small></div>)}</div></div>
+    </Slide>,
+    <Slide key="regions" page={10} total={total}>
+      <SlideTitle eyebrow="PRESENÇA DE MERCADO" aside={`${cur.activeClients} clientes ativos`} editKey="comercial.regions.title" editor={editor}>Distribuição do faturamento líquido por estado{leaderChanged ? ' — liderança mudou no período' : ''}.</SlideTitle>
       <MetricStrip items={[{ label: 'Estado líder', value: cur.regions[0]?.name || '—', note: shortMoney(cur.regions[0]?.value) }, { label: 'Participação do líder', value: cur.billing ? pct((cur.regions[0]?.value || 0) / cur.billing * 100) : '—' }, { label: `Líder — ${comparisonNoun}`, value: prev.regions[0]?.name || '—' }, { label: 'Estados faturados', value: cur.regions.length }]} />
       <div className="deck-region-layout map"><BrazilSalesMap regions={cur.regions} /><div className="deck-region-list">{cur.regions.slice(0, 6).map((region, index) => <div key={region.name}><i style={{ background: COLORS[index % COLORS.length] }} /><strong>{region.name}</strong><span>{shortMoney(region.value)}</span><small>{cur.billing ? pct(region.value / cur.billing * 100) : '0%'}</small></div>)}</div></div>
     </Slide>,
-    <Slide key="close" page={8} total={total} tone="dark" className="deck-close">
-      <span>PRIORIDADES COMERCIAIS</span><h2>{cur.billing < prev.billing ? `Recuperar o ritmo: faturamento ${pct(Math.abs(variation(cur.billing, prev.billing)))} abaixo do ${comparisonNoun}.` : cur.openPortfolio > 0 ? `Faturar a carteira de ${shortMoney(cur.openPortfolio)} e sustentar o ritmo.` : 'Recompor a carteira de pedidos do próximo período.'}</h2><p>1. Priorizar pedidos liberados e próximos do faturamento. 2. Atacar o saldo de {shortMoney(Math.max(cur.goal - cur.ordersValue, 0))} da meta do período. 3. Replicar o mix e a execução dos vendedores líderes ({cur.sellers[0]?.name || '—'}).</p><div><i /> decisão requerida da gestão</div>
+    <Slide key="close" page={11} total={total} tone="dark" className="deck-close">
+      <span>RECOMENDAÇÕES COMERCIAIS</span><EditableText as="h2" editKey="comercial.close.title" value={cur.ordersValue < prev.ordersValue ? `Recuperar o ritmo: pedidos ${pct(Math.abs(variation(cur.ordersValue, prev.ordersValue)))} abaixo do ${comparisonNoun}.` : cur.openPortfolio > 0 ? `Converter a carteira de ${shortMoney(cur.openPortfolio)} e sustentar a geração de pedidos.` : 'Recompor a carteira de pedidos do próximo período.'} editor={editor} /><EditableText as="p" editKey="comercial.close.body" value={`1. Atacar o saldo de ${shortMoney(Math.max(cur.goal - cur.ordersValue, 0))} da meta de pedidos. 2. Proteger a receita dos principais clientes e ampliar a diversificação. 3. Replicar o mix e a execução dos vendedores líderes. 4. Completar a segmentação da carteira para orientar a prospecção.`} editor={editor} /><div><i /> direcionamento para o próximo ciclo</div>
     </Slide>,
   ]
 }
 
-function FinancialSlides({ data, period, previousLabel, generatedAt, comparisonNoun }) {
+function FinancialSlides({ data, period, previousLabel, generatedAt, comparisonNoun, editor }) {
   const total = 9
   const { current: cur, previous: prev, series, hasData, previousHasData } = data
   const maxCost = Math.max(...cur.costs.map(item => item.value), 1)
   const pos = cur.position
   const prevPos = prev.position && prev.position.date !== cur.position?.date ? prev.position : null
   return [
-    <Cover key="cover" type="financeiro" period={period} previousLabel={previousLabel} generatedAt={generatedAt} total={total} />,
+    <Cover key="cover" type="financeiro" period={period} previousLabel={previousLabel} generatedAt={generatedAt} total={total} editor={editor} />,
     <Slide key="result" page={2} total={total} tone="dark" className="deck-thesis">
       <span className="deck-kicker">RESUMO EXECUTIVO</span>
-      <h2>{!hasData ? 'Fechamento contábil do período ainda não carregado.' : cur.result >= 0 ? `Resultado positivo de ${shortMoney(cur.result)}, ${previousHasData ? (cur.result >= prev.result ? 'melhor' : 'abaixo') : ''} ${previousHasData ? `que ${comparisonNoun}` : ''}.` : `Prejuízo de ${shortMoney(Math.abs(cur.result))} no período${previousHasData ? `, ${cur.result >= prev.result ? 'melhor' : 'pior'} que ${comparisonNoun}` : ''}.`}</h2>
+      <EditableText as="h2" editKey="financeiro.summary.title" value={!hasData ? 'Fechamento contábil do período ainda não carregado.' : cur.result >= 0 ? `Resultado positivo de ${shortMoney(cur.result)}, ${previousHasData ? (cur.result >= prev.result ? 'melhor' : 'abaixo') : ''} ${previousHasData ? `que ${comparisonNoun}` : ''}.` : `Prejuízo de ${shortMoney(Math.abs(cur.result))} no período${previousHasData ? `, ${cur.result >= prev.result ? 'melhor' : 'pior'} que ${comparisonNoun}` : ''}.`} editor={editor} />
       <div className="deck-thesis-metrics"><BigNumber label="Receita" value={shortMoney(cur.revenue)} note={<Delta current={cur.revenue} previous={prev.revenue} suffix={`vs. ${comparisonNoun}`} />} /><BigNumber label="Resultado líquido" value={shortMoney(cur.result)} note={<span className={cur.result >= 0 ? 'deck-delta positive' : 'deck-delta negative'}>{pct(cur.netMargin)} de margem líquida</span>} accent /><BigNumber label="Ponto de equilíbrio" value={shortMoney(cur.breakEven)} note={<small>{cur.revenue >= cur.breakEven ? 'receita acima do mínimo operacional' : 'receita abaixo do mínimo operacional'}</small>} /></div>
       <MetricStrip dark items={[
         { label: 'Margem de contribuição', value: pct(cur.contributionMargin), note: `${comparisonNoun}: ${pct(prev.contributionMargin)}` },
@@ -244,7 +270,7 @@ function FinancialSlides({ data, period, previousLabel, generatedAt, comparisonN
       <div className="deck-chart-stage"><ResponsiveContainer width="100%" height="100%"><BarChart data={pos?.maturity || []} margin={{ top: 18, right: 18, left: 8, bottom: 0 }}><CartesianGrid vertical={false} stroke="rgba(255,255,255,.12)" strokeDasharray="3 7" /><XAxis dataKey="label" axisLine={false} tickLine={false} stroke="#aaa199" /><YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} stroke="#aaa199" /><Tooltip formatter={v => money(v)} /><Bar dataKey="A receber" fill="#f47b20" radius={[7, 7, 0, 0]} /><Bar dataKey="A pagar" fill="#e4ddd6" radius={[7, 7, 0, 0]} /></BarChart></ResponsiveContainer></div><div className="deck-chart-legend"><i className="orange" /> A receber <i style={{ background: '#e4ddd6' }} /> A pagar</div>
     </Slide>,
     <Slide key="close" page={9} total={total} tone="dark" className="deck-close">
-      <span>PRIORIDADES FINANCEIRAS</span><h2>{pos && pos.currentRatio < 1 ? `Cobrir o déficit de capital de giro de ${shortMoney(Math.abs(pos.workingCapital))}.` : pos ? `Preservar a liquidez de ${pos.currentRatio.toFixed(2).replace('.', ',')}x e a margem operacional.` : 'Carregar o próximo fechamento contábil para acompanhar a posição.'}</h2><p>{cur.result < 0 ? `1. Gerar ${shortMoney(Math.abs(cur.breakEvenGap))} adicionais para alcançar o equilíbrio. 2. Reduzir os grupos de custo com maior peso. 3. Reprogramar pagamentos onde os recebíveis não cobrem os vencimentos.` : `1. Converter resultado em caixa. 2. Monitorar a faixa de vencimento com maior descoberto. 3. Manter custos fixos abaixo de ${shortMoney(cur.fixedCosts)} por período.`}</p><div><i /> decisão requerida da gestão</div>
+      <span>RECOMENDAÇÕES FINANCEIRAS</span><EditableText as="h2" editKey="financeiro.close.title" value={pos && pos.currentRatio < 1 ? `Cobrir o déficit de capital de giro de ${shortMoney(Math.abs(pos.workingCapital))}.` : pos ? `Preservar a liquidez de ${pos.currentRatio.toFixed(2).replace('.', ',')}x e a margem operacional.` : 'Carregar o próximo fechamento contábil para acompanhar a posição.'} editor={editor} /><EditableText as="p" editKey="financeiro.close.body" value={cur.result < 0 ? `1. Gerar ${shortMoney(Math.abs(cur.breakEvenGap))} adicionais para alcançar o equilíbrio. 2. Reduzir os grupos de custo com maior peso. 3. Reprogramar pagamentos onde os recebíveis não cobrem os vencimentos.` : `1. Converter resultado em caixa. 2. Monitorar a faixa de vencimento com maior descoberto. 3. Manter custos fixos abaixo de ${shortMoney(cur.fixedCosts)} por período.`} editor={editor} /><div><i /> direcionamento para o próximo ciclo</div>
     </Slide>,
   ]
 }
@@ -291,26 +317,58 @@ function aggregateCommercialPeriod(bounds, range, ctx) {
   }))
 
   const regionMap = new Map()
+  const clientMap = new Map()
+  const segmentMap = new Map()
   periodDocs.forEach(doc => {
-    const stateName = ctx.farmByPartner.get(number(doc.partner_id))?.state || 'Sem UF'
+    const farm = ctx.farmByPartner.get(number(doc.partner_id))
+    const stateName = farm?.state || 'Sem UF'
+    const clientName = doc.partner_name || 'Cliente não identificado'
+    const segmentName = farm?.segment || 'Sem segmento'
+    const value = fiscalDocumentValue(doc)
     regionMap.set(stateName, (regionMap.get(stateName) || 0) + fiscalDocumentValue(doc))
+    clientMap.set(clientName, (clientMap.get(clientName) || 0) + value)
+    const segment = segmentMap.get(segmentName) || { name: segmentName, value: 0, clients: new Set() }
+    segment.value += value
+    if (doc.partner_id) segment.clients.add(doc.partner_id)
+    segmentMap.set(segmentName, segment)
   })
+
+  const clients = [...clientMap.entries()].map(([name, value]) => ({ name, value })).filter(row => row.value > 0).sort((a, b) => b.value - a.value)
+  const clientTotal = clients.reduce((sum, row) => sum + row.value, 0)
+  clients.forEach(row => { row.share = clientTotal ? row.value / clientTotal * 100 : 0 })
+  const openOrders = ctx.portfolio.map(row => ({
+    id: row.id,
+    number: row.ultra_order_number || '—',
+    customer: row.customer_name || 'Cliente não identificado',
+    seller: row.ultra_salesman_name || 'Sem vendedor',
+    value: number(row.open_value),
+    age: Math.max(0, Math.floor((Date.now() - new Date(`${row.sale_date}T12:00:00`).getTime()) / 86400000)),
+  })).sort((a, b) => b.value - a.value)
+  const openPortfolio = openOrders.reduce((sum, row) => sum + row.value, 0)
 
   return {
     ordersValue, billing, goal, returns, billedClients,
     orderCount: periodOrders.length,
     averageTicket: periodOrders.length ? ordersValue / periodOrders.length : 0,
     attainment: goal ? ordersValue / goal * 100 : 0,
-    conversionRate: ordersValue ? billing / ordersValue * 100 : 0,
-    openPortfolio: ctx.openPortfolio,
+    openPortfolio,
+    openOrderCount: openOrders.length,
+    openAverageAge: openPortfolio ? openOrders.reduce((sum, row) => sum + row.age * row.value, 0) / openPortfolio : 0,
+    openOver30: openOrders.filter(row => row.age > 30).reduce((sum, row) => sum + row.value, 0),
+    openOrders,
     activeClients: ctx.activeClients,
     sellers: [...sellerMap.values()].sort((a, b) => b.orders - a.orders),
     products: [...productMap.entries()].map(([name, value]) => ({ name, value })).filter(row => row.value > 0).sort((a, b) => b.value - a.value),
     regions: [...regionMap.entries()].map(([name, value]) => ({ name, value })).filter(row => row.value > 0).sort((a, b) => b.value - a.value),
+    clients,
+    topClientShare: clients[0]?.share || 0,
+    top3ClientShare: clients.slice(0, 3).reduce((sum, row) => sum + row.share, 0),
+    top5ClientShare: clients.slice(0, 5).reduce((sum, row) => sum + row.share, 0),
+    segments: [...segmentMap.values()].map(row => ({ name: row.name, value: row.value, clients: row.clients.size })).filter(row => row.value > 0).sort((a, b) => b.value - a.value),
   }
 }
 
-function buildCommercialTrajectory(type, currentBounds, currentRange, previousBounds, docs) {
+function buildCommercialTrajectory(type, currentBounds, currentRange, previousBounds, orders) {
   if (type === 'mensal') {
     const daysInMonth = currentRange.nominalEnd.getDate()
     const prevDaysInMonth = new Date(previousBounds.year, previousBounds.startMonth, 0).getDate()
@@ -319,11 +377,11 @@ function buildCommercialTrajectory(type, currentBounds, currentRange, previousBo
     const series = []
     for (let day = 1; day <= daysInMonth; day++) {
       const curDate = `${currentBounds.year}-${String(currentBounds.startMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      curAcc += docs.filter(row => row.issue_date === curDate).reduce((sum, row) => sum + fiscalDocumentValue(row), 0)
+      curAcc += orders.filter(row => row.sale_date === curDate && hasNetOrderValue(row)).reduce((sum, row) => sum + netOrderValue(row), 0)
       let prevValue = null
       if (day <= prevDaysInMonth) {
         const prevDate = `${previousBounds.year}-${String(previousBounds.startMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-        prevAcc += docs.filter(row => row.issue_date === prevDate).reduce((sum, row) => sum + fiscalDocumentValue(row), 0)
+        prevAcc += orders.filter(row => row.sale_date === prevDate && hasNetOrderValue(row)).reduce((sum, row) => sum + netOrderValue(row), 0)
         prevValue = prevAcc
       }
       series.push({ label: String(day), 'Período atual': curAcc, 'Período anterior': prevValue })
@@ -338,8 +396,8 @@ function buildCommercialTrajectory(type, currentBounds, currentRange, previousBo
     const prevKey = `${previousBounds.year}-${String(prevMonth).padStart(2, '0')}`
     return {
       label: MONTHS[curMonth - 1],
-      'Período atual': docs.filter(row => row.issue_date?.startsWith(curKey)).reduce((sum, row) => sum + fiscalDocumentValue(row), 0),
-      'Período anterior': docs.filter(row => row.issue_date?.startsWith(prevKey)).reduce((sum, row) => sum + fiscalDocumentValue(row), 0),
+      'Período atual': orders.filter(row => row.sale_date?.startsWith(curKey) && hasNetOrderValue(row)).reduce((sum, row) => sum + netOrderValue(row), 0),
+      'Período anterior': orders.filter(row => row.sale_date?.startsWith(prevKey) && hasNetOrderValue(row)).reduce((sum, row) => sum + netOrderValue(row), 0),
     }
   })
   return { series, daily: false }
@@ -433,8 +491,8 @@ function useClosingData(type, year, index) {
           supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', fetchStartIso).lte('sale_date', fetchEndIso),
           supabaseAdmin.from('fiscal_documents').select('ultra_document_id,issue_date,document_total,movement_type,partner_id,partner_name,seller_id,ultra_salesman_id,salesman_name,fiscal_document_items(product_name,product_total)').gte('issue_date', fetchStartIso).lte('issue_date', fetchEndIso),
           supabaseAdmin.from('goals').select('*').in('ano', years),
-          supabaseAdmin.from('management_open_order_portfolio').select('open_value'),
-          supabaseAdmin.from('farms').select('id,state,ultra_partner_id,status'),
+          supabaseAdmin.from('management_open_order_portfolio').select('id,ultra_order_number,sale_date,customer_name,ultra_salesman_name,open_value'),
+          supabaseAdmin.from('farms').select('id,state,segment,ultra_partner_id,status'),
           supabaseAdmin.from('profiles').select('id,name,ultra_salesman_id'),
           supabaseAdmin.from('finance_dre_monthly').select('*').in('ano', years).order('ano').order('mes'),
           supabaseAdmin.from('finance_dre_accounts').select('*').in('ano', years),
@@ -454,12 +512,12 @@ function useClosingData(type, year, index) {
         const farmByPartner = new Map(farms.filter(row => row.ultra_partner_id).map(row => [number(row.ultra_partner_id), row]))
         const ctx = {
           orders, docs, goals, profileById, profileByUltra, farmByPartner,
-          openPortfolio: (portfolioRes.data || []).reduce((sum, row) => sum + number(row.open_value), 0),
+          portfolio: portfolioRes.data || [],
           activeClients: farms.filter(row => row.status === 'ativo').length,
         }
         const commercialCurrent = aggregateCommercialPeriod(currentBounds, currentRange, ctx)
         const commercialPrevious = aggregateCommercialPeriod(previousBounds, previousRange, ctx)
-        const trajectory = buildCommercialTrajectory(type, currentBounds, currentRange, previousBounds, docs)
+        const trajectory = buildCommercialTrajectory(type, currentBounds, currentRange, previousBounds, orders)
         const commercial = {
           current: commercialCurrent, previous: commercialPrevious,
           trajectory: trajectory.series, trajectoryDaily: trajectory.daily,
@@ -498,6 +556,8 @@ export default function Fechamentos() {
   const [type, setType] = useState(() => new URLSearchParams(window.location.search).get('type') === 'financeiro' ? 'financeiro' : 'comercial')
   const [activeSlide, setActiveSlide] = useState(0)
   const [exporting, setExporting] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [copy, setCopy] = useState({})
   const slideRefs = useRef([])
   const stageRef = useRef(null)
   const [slideScale, setSlideScale] = useState(1)
@@ -509,13 +569,14 @@ export default function Fechamentos() {
   const previousLabelText = periodLabel(periodType, previousBounds)
   const comparisonNoun = COMPARISON_NOUN[periodType]
   const generatedAt = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const editor = useMemo(() => ({ enabled: editing, copy, setCopy }), [editing, copy, setCopy])
 
   const slides = useMemo(() => {
     if (!data.commercial || !data.financial) return []
     return type === 'comercial'
-      ? CommercialSlides({ data: data.commercial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun })
-      : FinancialSlides({ data: data.financial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun })
-  }, [data.commercial, data.financial, type, period, previousLabelText, generatedAt, comparisonNoun])
+      ? CommercialSlides({ data: data.commercial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun, editor })
+      : FinancialSlides({ data: data.financial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun, editor })
+  }, [data.commercial, data.financial, type, period, previousLabelText, generatedAt, comparisonNoun, editor])
 
   useEffect(() => {
     if (!stageRef.current) return undefined
@@ -576,7 +637,7 @@ export default function Fechamentos() {
           {periodType !== 'anual' && <select value={index} onChange={event => { setIndex(Number(event.target.value)); setActiveSlide(0) }}>{indexOptionsFor(periodType).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>}
           <select value={year} onChange={event => { setYear(Number(event.target.value)); setActiveSlide(0) }}>{[year - 1, year, year + 1].map(value => <option key={value}>{value}</option>)}</select>
         </div>
-        <div className="closing-actions"><button className="btn btn-ghost" onClick={() => window.location.reload()}><IconRefresh size={17} /> Atualizar dados</button><button className="btn btn-ghost" disabled={data.loading || !!exporting} onClick={exportPDF}><IconFileTypePdf size={17} /> {exporting === 'pdf' ? 'Gerando…' : 'Baixar PDF'}</button><button className="btn btn-primary" disabled={data.loading || !!exporting} onClick={exportPPTX}><IconDownload size={17} /> {exporting === 'pptx' ? 'Gerando…' : 'Baixar PowerPoint'}</button></div>
+        <div className="closing-actions"><button className={`btn btn-ghost ${editing ? 'active' : ''}`} disabled={data.loading || !!exporting} onClick={() => setEditing(value => !value)}>{editing ? <IconCheck size={17} /> : <IconEdit size={17} />} {editing ? 'Concluir edição' : 'Editar textos'}</button><button className="btn btn-ghost" onClick={() => window.location.reload()}><IconRefresh size={17} /> Atualizar dados</button><button className="btn btn-ghost" disabled={data.loading || !!exporting} onClick={exportPDF}><IconFileTypePdf size={17} /> {exporting === 'pdf' ? 'Gerando…' : 'Baixar PDF'}</button><button className="btn btn-primary" disabled={data.loading || !!exporting} onClick={exportPPTX}><IconDownload size={17} /> {exporting === 'pptx' ? 'Gerando…' : 'Baixar PowerPoint'}</button></div>
       </section>
       {financialMissing && <div className="closing-warning">Nenhum fechamento contábil carregado para <b>{period}</b> ainda — a apresentação financeira vai mostrar zeros até o próximo fechamento ser lançado no Financeiro.</div>}
       {data.loading ? <div className="closing-state"><IconPresentation size={30} /><strong>Preparando o fechamento…</strong><span>Cruzando pedidos, faturamento, metas e dados financeiros.</span></div> : data.error ? <div className="closing-state error"><strong>Não foi possível montar a apresentação</strong><span>{data.error}</span></div> : <>
