@@ -7,6 +7,7 @@ const MONEY = /\(?-?\d{1,3}(?:\.\d{3})*,\d{2}\)?/g
 const NUMBER = /\(?-?\d{1,3}(?:\.\d{3})*(?:,\d{2})?\)?/g
 const MONTH_NUMBER = { JANEIRO:1, FEVEREIRO:2, MARÇO:3, ABRIL:4, MAIO:5, JUNHO:6, JULHO:7, AGOSTO:8, SETEMBRO:9, OUTUBRO:10, NOVEMBRO:11, DEZEMBRO:12 }
 const SECTION_MAP = { '1':'receitas', '2':'custos_variaveis', '4':'custos_fixos', '6':'extra_operacional' }
+const DRE_GROUPS = new Set(['VENDAS','CUSTO','IMPOSTOS','COMPRAS','FUNCIONAMENTO','FUNCIONARIOS','ADMINISTRATIVAS','BANCARIAS','PROPAGANDA E PUBLICIDADE','TRANSPORTE','TRIBUTARIAS','VEICULOS','ADIANTAMENTOS','JUROS/MULTAS/DESCONTOS'])
 
 export const moneyNumber = value => {
   const raw = String(value || '').trim()
@@ -44,25 +45,28 @@ const findValue = (lines, pattern, occurrence = 0) => {
 
 function parseDre(lines) {
   const reportText = lines.join(' ')
-  const matchPeriod = reportText.match(/(\d{2})\s*\/\s*(\d{2})\s*\/\s*(\d{4})\s*(?:à|a|-)\s*(\d{2})\s*\/\s*(\d{2})\s*\/\s*(\d{4})/i)
-  if (!matchPeriod) throw new Error('Período do DRE não identificado.')
-  const mes = Number(matchPeriod[2]), ano = Number(matchPeriod[3])
+  const periodDates = reportText.match(/\d{2}\s*\/\s*\d{2}\s*\/\s*\d{4}/g) || []
+  if (periodDates.length < 2) throw new Error('Período do DRE não identificado.')
+  const startParts = periodDates[0].replace(/\s/g,'').split('/'), endParts = periodDates[1].replace(/\s/g,'').split('/')
+  const mes = Number(startParts[1]), ano = Number(startParts[2])
+  if (startParts[1] !== endParts[1] || startParts[2] !== endParts[2]) throw new Error('O DRE deve conter uma única competência mensal.')
   const totals = {}
   const accounts = []
   const detail = { custos_variaveis:{}, custos_fixos:{}, extra_operacional:{} }
   let section = '', group = ''
   lines.forEach(line => {
-    const total = line.match(/^([1246])\s+(RECEITAS|CUSTOS VARIÁVEIS|CUSTOS FIXOS|EXTRA OPERACIONAL)\s+(.+?)\s+-?\d+[,.]\d+\s*%/i)
-    if (total) { section = SECTION_MAP[total[1]]; totals[section] = moneyNumber((total[3].match(MONEY) || [])[0]); group = ''; return }
+    const total = line.match(/^([1246])\s+(RECEITAS|CUSTOS VARIÁVEIS|CUSTOS FIXOS|EXTRA OPERACIONAL)\s+([()]?-?[\d.]+,\d{2}[)]?)/i)
+    if (total) { section = SECTION_MAP[total[1]]; totals[section] = moneyNumber(total[3]); group = ''; return }
     const subtotal = line.match(/^(3 MARGEM DE CONTRIBUIÇÃO|5 RESULTADO OPERACIONAL|7 RESULTADO LÍQUIDO|8 PONTO DE EQUILÍBRIO).*?([()]?-?[\d.]+,\d{2}[)]?)(?:\s|$)/i)
     if (subtotal) {
       const label = subtotal[1][0]
       totals[label === '3' ? 'margem_contribuicao' : label === '5' ? 'resultado_operacional' : label === '7' ? 'resultado_liquido' : 'ponto_equilibrio'] = moneyNumber(subtotal[2]); return
     }
     if (!section) return
-    const groupLine = line.match(/^([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ/* -]+?)\*?\s+([()]?-?[\d.]+,\d{2}[)]?)\s+-?[\d(]/)
-    if (groupLine && !/^TOTAL /.test(line) && !/^\d/.test(line)) {
-      group = groupLine[1].replace(/\*$/, '').trim()
+    const groupLine = line.match(/^([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ/* -]+?)\*?\s+([()]?-?[\d.]+,\d{2}[)]?)(?:\s+-?[\d(]|$)/)
+    const possibleGroup = groupLine?.[1].replace(/\*$/, '').trim()
+    if (groupLine && DRE_GROUPS.has(possibleGroup) && !/^TOTAL /.test(line) && !/^\d/.test(line)) {
+      group = possibleGroup
       if (detail[section]) detail[section][group.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')] = moneyNumber(groupLine[2])
       return
     }
