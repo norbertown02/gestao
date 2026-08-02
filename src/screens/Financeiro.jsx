@@ -21,6 +21,9 @@ const shortMoney = value => {
 const pct = value => `${Number(value || 0).toFixed(1)}%`
 const dateBR = value => value ? new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'
 const MESES = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+const MATURITY_KEYS = ['vencido', 'm1', 'm2', 'm3', 'm4_6', 'rest_year', 'next_years']
+const MATURITY_LABELS = { vencido: 'Vencido', m1: '30 dias', m2: '31–60 dias', m3: '61–90 dias', m4_6: '91–180 dias', rest_year: 'Restante do ano', next_years: 'Anos seguintes' }
+const MATURITY_COLORS = { vencido: '#C93A32', m1: '#D86B2A', m2: '#C87812', m3: '#8B7A32', m4_6: '#426A8C', rest_year: '#6D7293', next_years: '#A79C92' }
 
 // Contas que representam entrada/saída neutra de caixa (aporte de sócios, adiantamentos
 // e o próprio empréstimo tomado) -- somadas distorceriam a leitura de despesa operacional.
@@ -52,22 +55,25 @@ export default function Financeiro() {
   const [contas, setContas] = useState([])
   const [closings, setClosings] = useState([])
   const [managerial, setManagerial] = useState([])
+  const [maturities, setMaturities] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const [dreRes, balancoRes, contasRes, closingsRes, managerialRes] = await Promise.all([
+      const [dreRes, balancoRes, contasRes, closingsRes, managerialRes, maturityRes] = await Promise.all([
         supabaseAdmin.from('finance_dre_monthly').select('*').order('ano').order('mes'),
         supabaseAdmin.from('finance_balanco').select('*').order('competencia_date', { ascending: false }),
         supabaseAdmin.from('finance_balancete_accounts').select('*'),
         supabaseAdmin.from('finance_closings').select('*').order('competencia_date', { ascending: false }),
         supabaseAdmin.from('finance_managerial_monthly').select('*').order('ano').order('mes'),
+        supabaseAdmin.from('finance_cash_maturities').select('*').order('competencia_date', { ascending: false }),
       ])
       setDre(dreRes.data || [])
       setBalancos(balancoRes.data || [])
       setContas(contasRes.data || [])
       setClosings(closingsRes.data || [])
       setManagerial(managerialRes.data || [])
+      setMaturities(maturityRes.data || [])
       setLoading(false)
     }
     load()
@@ -75,7 +81,8 @@ export default function Financeiro() {
 
   const data = useMemo(() => {
     if (!dre.length) return null
-    const balanco = balancos[0]
+    const latestMaturityCompetence = maturities[0]?.competencia_date
+    const balanco = balancos.find(row => row.competencia_date === latestMaturityCompetence) || balancos[0]
     const closing = closings[0]
     const competencia = balanco?.competencia_date
     const contasPeriodo = contas.filter(row => row.competencia_date === competencia)
@@ -152,16 +159,42 @@ export default function Financeiro() {
       const apVencidoPct = contasPagarTotalAjustado ? apVencidoTotal / contasPagarTotalAjustado * 100 : 0
       const apLongoPct = contasPagarTotalAjustado ? passivoNaoCirculante / contasPagarTotalAjustado * 100 : 0
 
-      // Casa o vencimento de contas a receber com o de contas a pagar, faixa a faixa, pra achar
-      // onde exatamente o caixa aperta -- uma liquidez corrente "ok" no total pode esconder uma
-      // faixa de prazo com muito mais saindo do que entrando. Já sem o aporte a devolver.
-      const apVencidoCurto = Number(balanco.contas_pagar_vencido_curto) + Number(balanco.contas_pagar_vencido_medio)
-      const buckets = [
-        { label: 'Vencido', ar: Number(balanco.contas_receber_vencido), ap: apVencidoCurto },
-        { label: 'Até 90 dias', ar: Number(balanco.contas_receber_a_vencer_curto), ap: Number(balanco.contas_pagar_a_vencer_curto) },
-        { label: 'Até 360 dias', ar: Number(balanco.contas_receber_a_vencer_medio), ap: contasPagarMedioAjustado },
-        { label: 'Longo prazo', ar: 0, ap: Number(balanco.contas_pagar_a_vencer_longo) },
-      ].map(b => ({ ...b, gap: b.ar - b.ap }))
+      // Usa a mesma régua curta da apresentação. O aporte a devolver é retirado das faixas futuras
+      // antes da curva de caixa, pois é capital dos sócios e não uma obrigação operacional.
+      const maturityRows = maturities.filter(row => row.competencia_date === competencia)
+      let buckets
+      if (maturityRows.length) {
+        buckets = MATURITY_KEYS.map(key => ({
+          key,
+          label: MATURITY_LABELS[key],
+          color: MATURITY_COLORS[key],
+          ar: maturityRows.filter(row => row.bucket_key === key && row.nature === 'receber').reduce((sum, row) => sum + Number(row.amount), 0),
+          ap: maturityRows.filter(row => row.bucket_key === key && row.nature === 'pagar').reduce((sum, row) => sum + Number(row.amount), 0),
+          estimated: maturityRows.some(row => row.bucket_key === key && row.estimated),
+        }))
+        let aportePendente = aporteADevolverAP
+        ;['m4_6', 'rest_year', 'next_years', 'm3', 'm2', 'm1'].forEach(key => {
+          if (!aportePendente) return
+          const bucket = buckets.find(item => item.key === key)
+          const deduction = Math.min(bucket?.ap || 0, aportePendente)
+          if (bucket) bucket.ap -= deduction
+          aportePendente -= deduction
+        })
+        buckets = buckets.filter(bucket => bucket.ar || bucket.ap)
+      } else {
+        const apVencidoCurto = Number(balanco.contas_pagar_vencido_curto) + Number(balanco.contas_pagar_vencido_medio)
+        buckets = [
+          { key: 'vencido', label: 'Vencido', color: MATURITY_COLORS.vencido, ar: Number(balanco.contas_receber_vencido), ap: apVencidoCurto },
+          { key: 'm3', label: 'Até 90 dias', color: MATURITY_COLORS.m3, ar: Number(balanco.contas_receber_a_vencer_curto), ap: Number(balanco.contas_pagar_a_vencer_curto) },
+          { key: 'rest_year', label: 'Até 360 dias', color: MATURITY_COLORS.rest_year, ar: Number(balanco.contas_receber_a_vencer_medio), ap: contasPagarMedioAjustado },
+          { key: 'next_years', label: 'Longo prazo', color: MATURITY_COLORS.next_years, ar: 0, ap: Number(balanco.contas_pagar_a_vencer_longo) },
+        ]
+      }
+      let saldoAcumulado = Number(balanco.disponibilidades)
+      buckets = buckets.map(bucket => {
+        saldoAcumulado += bucket.ar - bucket.ap
+        return { ...bucket, displayLabel: `${bucket.label}${bucket.estimated ? '*' : ''}`, gap: bucket.ar - bucket.ap, saldoAcumulado }
+      })
       const piorFaixa = buckets.reduce((worst, b) => b.gap < worst.gap ? b : worst, buckets[0])
 
       const patrimonioLiquidoReportado = Number(balanco.lucro_prejuizo_acumulado)
@@ -226,7 +259,7 @@ export default function Financeiro() {
       mgrMonths, mgrLast, mgrFirst, mgrWeighted,
       aporteRecebido, devolucaoAporte, netAporteMovimento,
     }
-  }, [dre, balancos, contas, closings, managerial])
+  }, [dre, balancos, contas, closings, managerial, maturities])
 
   const insights = useMemo(() => {
     if (!data?.balanceMetrics) return []
@@ -489,22 +522,13 @@ export default function Financeiro() {
           </div>
           <div className="dash-segment-head">Contas a receber — {money(balanco.contas_receber_total)}</div>
           <div className="dash-segment-list">
-            {[
-              { label: 'Vencido', value: balanco.contas_receber_vencido, color: '#C93A32' },
-              { label: 'A vencer até 90 dias', value: balanco.contas_receber_a_vencer_curto, color: '#C87812' },
-              { label: 'A vencer até 360 dias', value: balanco.contas_receber_a_vencer_medio, color: '#426A8C' },
-            ].map(seg => <div key={seg.label} className="dash-segment-item"><strong>{seg.label}</strong><span>{money(seg.value)} · {pct(balanco.contas_receber_total ? Number(seg.value) / Number(balanco.contas_receber_total) * 100 : 0)}</span><div className="dash-segment-bar"><span style={{ width: `${balanco.contas_receber_total ? Number(seg.value) / Number(balanco.contas_receber_total) * 100 : 0}%`, background: seg.color }} /></div></div>)}
+            {bm.buckets.map(seg => <div key={seg.key} className="dash-segment-item"><strong>{seg.displayLabel}</strong><span>{money(seg.ar)} · {pct(balanco.contas_receber_total ? seg.ar / Number(balanco.contas_receber_total) * 100 : 0)}</span><div className="dash-segment-bar"><span style={{ width: `${balanco.contas_receber_total ? seg.ar / Number(balanco.contas_receber_total) * 100 : 0}%`, background: seg.color }} /></div></div>)}
           </div>
         </div>
         <div className="card">
           <div className="dash-card-head"><h3>Contas a pagar</h3><small>{money(bm.contasPagarTotalAjustado)}</small></div>
           <div className="dash-segment-list">
-            {[
-              { label: 'Vencido', value: Number(balanco.contas_pagar_vencido_curto) + Number(balanco.contas_pagar_vencido_medio), color: '#C93A32' },
-              { label: 'A vencer até 90 dias', value: balanco.contas_pagar_a_vencer_curto, color: '#C87812' },
-              { label: 'A vencer até 360 dias', value: bm.contasPagarMedioAjustado, color: '#426A8C' },
-              { label: 'A vencer longo prazo', value: balanco.contas_pagar_a_vencer_longo, color: '#A79C92' },
-            ].map(seg => <div key={seg.label} className="dash-segment-item"><strong>{seg.label}</strong><span>{money(seg.value)} · {pct(bm.contasPagarTotalAjustado ? Number(seg.value) / bm.contasPagarTotalAjustado * 100 : 0)}</span><div className="dash-segment-bar"><span style={{ width: `${bm.contasPagarTotalAjustado ? Number(seg.value) / bm.contasPagarTotalAjustado * 100 : 0}%`, background: seg.color }} /></div></div>)}
+            {bm.buckets.map(seg => <div key={seg.key} className="dash-segment-item"><strong>{seg.displayLabel}</strong><span>{money(seg.ap)} · {pct(bm.contasPagarTotalAjustado ? seg.ap / bm.contasPagarTotalAjustado * 100 : 0)}</span><div className="dash-segment-bar"><span style={{ width: `${bm.contasPagarTotalAjustado ? seg.ap / bm.contasPagarTotalAjustado * 100 : 0}%`, background: seg.color }} /></div></div>)}
           </div>
         </div>
       </section>
@@ -523,17 +547,20 @@ export default function Financeiro() {
         <ResponsiveContainer width="100%" height={260}>
           <ComposedChart data={bm.buckets} margin={{ top: 10, right: 18, left: 4, bottom: 4 }}>
             <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} />
+            <XAxis dataKey="displayLabel" tickLine={false} axisLine={false} />
             <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${Math.round(value / 1000)}k`} width={54} />
             <Tooltip formatter={(value, name) => [money(value), name]} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             <Bar dataKey="ar" name="A receber" fill="#426A8C" radius={[6, 6, 0, 0]} barSize={30} />
             <Bar dataKey="ap" name="A pagar" fill="#C93A32" radius={[6, 6, 0, 0]} barSize={30} />
+            <Line type="monotone" dataKey="saldoAcumulado" name="Saldo acumulado" stroke="#23864A" strokeWidth={2.8} dot={{ r: 4, fill: '#23864A' }} />
+            <ReferenceLine y={0} stroke="#A79C92" strokeDasharray="4 5" />
           </ComposedChart>
         </ResponsiveContainer>
         <div className="dash-gap-row">
-          {bm.buckets.map(b => <div key={b.label} className={`dash-gap-item ${b.gap < 0 ? 'negative' : 'positive'}`}><span>{b.label}</span><strong>{b.gap >= 0 ? '+' : ''}{shortMoney(b.gap)}</strong></div>)}
+          {bm.buckets.map(b => <div key={b.key} className={`dash-gap-item ${b.gap < 0 ? 'negative' : 'positive'}`}><span>{b.displayLabel}</span><strong>{b.gap >= 0 ? '+' : ''}{shortMoney(b.gap)}</strong><small>saldo: {shortMoney(b.saldoAcumulado)}</small></div>)}
         </div>
+        {bm.buckets.some(bucket => bucket.estimated) && <p className="dash-maturity-note">* Valor anual consolidado no relatório, sem abertura mensal.</p>}
       </section>
 
       <div className="macro-section-title macro-section-title-compact"><div><span>Resumo</span><h3>Pontos de atenção</h3></div></div>

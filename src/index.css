@@ -2028,6 +2028,21 @@ td,
   font-variant-numeric: tabular-nums;
 }
 
+.dash-gap-item small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-faint);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-maturity-note {
+  margin: 10px 2px 0;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  text-align: right;
+}
+
 .dash-gap-item.negative { border-color: rgba(201, 58, 50, .3); background: var(--red-bg); }
 .dash-gap-item.negative strong { color: var(--red); }
 .dash-gap-item.positive strong { color: var(--green); }

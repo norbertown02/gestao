@@ -555,12 +555,13 @@ function aggregateFinancialPeriod(bounds, range, ctx) {
     const currentLiabilities = number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio) + number(balance.contas_pagar_a_vencer_curto) + Math.max(cpMedioAjustado, 0)
     const maturityLabels={vencido:'Vencido',m1:'30 dias',m2:'31–60',m3:'61–90',m4_6:'91–180',rest_year:'Restante ano',next_years:'Anos seguintes'}
     const detailedMaturities=ctx.maturityRows.filter(row=>row.competencia_date===targetCompetence)
-    const maturity=detailedMaturities.length?['vencido','m1','m2','m3','m4_6','rest_year','next_years'].map(key=>{const estimated=detailedMaturities.some(row=>row.bucket_key===key&&row.estimated);return {label:`${maturityLabels[key]}${estimated?'*':''}`,'A receber':detailedMaturities.filter(row=>row.bucket_key===key&&row.nature==='receber').reduce((s,row)=>s+number(row.amount),0),'A pagar':detailedMaturities.filter(row=>row.bucket_key===key&&row.nature==='pagar').reduce((s,row)=>s+number(row.amount),0),estimated}}).filter(row=>row['A receber']||row['A pagar']):[
+    let maturity=detailedMaturities.length?['vencido','m1','m2','m3','m4_6','rest_year','next_years'].map(key=>{const estimated=detailedMaturities.some(row=>row.bucket_key===key&&row.estimated);return {key,label:`${maturityLabels[key]}${estimated?'*':''}`,'A receber':detailedMaturities.filter(row=>row.bucket_key===key&&row.nature==='receber').reduce((s,row)=>s+number(row.amount),0),'A pagar':detailedMaturities.filter(row=>row.bucket_key===key&&row.nature==='pagar').reduce((s,row)=>s+number(row.amount),0),estimated}}).filter(row=>row['A receber']||row['A pagar']):[
       { label: 'Vencido', 'A receber': number(balance.contas_receber_vencido), 'A pagar': number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio) },
       { label: 'Até 90 dias', 'A receber': number(balance.contas_receber_a_vencer_curto), 'A pagar': number(balance.contas_pagar_a_vencer_curto) },
       { label: 'Até 360 dias', 'A receber': number(balance.contas_receber_a_vencer_medio), 'A pagar': Math.max(cpMedioAjustado, 0) },
       { label: 'Longo prazo', 'A receber': 0, 'A pagar': number(balance.contas_pagar_a_vencer_longo) },
     ]
+    if(detailedMaturities.length&&aporteADevolver>0){let remaining=aporteADevolver;['m4_6','rest_year','next_years','m3','m2','m1'].forEach(key=>{if(!remaining)return;const row=maturity.find(item=>item.key===key),deduction=Math.min(row?.['A pagar']||0,remaining);if(row)row['A pagar']-=deduction;remaining-=deduction});maturity=maturity.filter(row=>row['A receber']||row['A pagar'])}
     let accumulatedCash=number(balance.disponibilidades)
     maturity.forEach(row=>{accumulatedCash+=row['A receber']-row['A pagar'];row['Saldo acumulado']=accumulatedCash})
     const cashAt60=maturity.find(row=>row.label==='31–60')?.['Saldo acumulado'] ?? accumulatedCash
