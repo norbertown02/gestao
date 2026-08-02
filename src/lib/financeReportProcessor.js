@@ -185,6 +185,7 @@ export async function applyFinanceReport(supabase, result, competence) {
   } else {
     const {data:current}=await supabase.from('finance_balanco').select('*').eq('competencia_date',competence).maybeSingle()
     const patch=result.row || result.values
-    const response=await supabase.from('finance_balanco').upsert({...current,...patch,competencia_date:competence},{onConflict:'competencia_date'}); if(response.error)throw response.error
+    const safeCurrent={...(current || {})}; delete safeCurrent.id; delete safeCurrent.created_at
+    const response=await supabase.from('finance_balanco').upsert({...safeCurrent,...patch,competencia_date:competence},{onConflict:'competencia_date'}); if(response.error)throw response.error
   }
 }
