@@ -53,7 +53,7 @@ function parseDre(lines) {
   const totals = {}
   const accounts = []
   const detail = { custos_variaveis:{}, custos_fixos:{}, extra_operacional:{} }
-  let section = '', group = ''
+  let section = '', group = '', pendingCode = ''
   lines.forEach(line => {
     const total = line.match(/^([1246])\s+(RECEITAS|CUSTOS VARIÁVEIS|CUSTOS FIXOS|EXTRA OPERACIONAL)\s+([()]?-?[\d.]+,\d{2}[)]?)/i)
     if (total) { section = SECTION_MAP[total[1]]; totals[section] = moneyNumber(total[3]); group = ''; return }
@@ -63,15 +63,17 @@ function parseDre(lines) {
       totals[label === '3' ? 'margem_contribuicao' : label === '5' ? 'resultado_operacional' : label === '7' ? 'resultado_liquido' : 'ponto_equilibrio'] = moneyNumber(subtotal[2]); return
     }
     if (!section) return
+    if (/^\d+$/.test(line)) { pendingCode = line; return }
     const groupLine = line.match(/^([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ/* -]+?)\*?\s+([()]?-?[\d.]+,\d{2}[)]?)(?:\s+-?[\d(]|$)/)
     const possibleGroup = groupLine?.[1].replace(/\*$/, '').trim()
-    if (groupLine && DRE_GROUPS.has(possibleGroup) && !/^TOTAL /.test(line) && !/^\d/.test(line)) {
+    if (!pendingCode && groupLine && DRE_GROUPS.has(possibleGroup) && !/^TOTAL /.test(line) && !/^\d/.test(line)) {
       group = possibleGroup
       if (detail[section]) detail[section][group.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')] = moneyNumber(groupLine[2])
       return
     }
     const account = line.match(/^(?:([0-9]+)\s+)?(.+?)\s+([()]?-?[\d.]+,\d{2}[)]?)\s+(?:\(?-?[\d.,]+\)?\s*)%/)
     if (account && group) accounts.push({ ano, mes, secao:section, grupo:group, conta:account[2].trim(), valor:moneyNumber(account[3]) })
+    pendingCode = ''
   })
   const monthly = { ano, mes, receitas:totals.receitas, custos_variaveis:totals.custos_variaveis, margem_contribuicao:totals.margem_contribuicao, custos_fixos:totals.custos_fixos, resultado_operacional:totals.resultado_operacional, extra_operacional:totals.extra_operacional, resultado_liquido:totals.resultado_liquido, ponto_equilibrio:totals.ponto_equilibrio, custos_variaveis_detail:detail.custos_variaveis, custos_fixos_detail:detail.custos_fixos, extra_operacional_detail:detail.extra_operacional }
   if (!monthly.receitas || monthly.resultado_liquido === undefined || accounts.length < 5) throw new Error('O DRE não passou na validação de totais e contas.')
