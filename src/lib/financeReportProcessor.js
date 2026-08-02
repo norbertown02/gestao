@@ -170,6 +170,11 @@ function parseReceivable(lines, competence) {
 }
 
 function parsePayable(lines, competence) {
+  const header = lines.find(line => /^Previsão Financeira do Contas a Pagar/i.test(line)) || ''
+  const headerDates = header.match(/\d{2}\/\d{2}\/\d{4}/g) || []
+  if (!headerDates.length) throw new Error('Competência das Contas a Pagar não identificada.')
+  const referenceParts = headerDates.at(-1).split('/').map(Number)
+  assertCompetence(competence, referenceParts[2], referenceParts[1], 'Contas a Pagar')
   const ref = new Date(`${competence}T12:00:00`); ref.setMonth(ref.getMonth()+1,0); const day90 = new Date(ref); day90.setDate(day90.getDate()+90); const day360=new Date(ref); day360.setDate(day360.getDate()+360)
   const buckets = { vencido:0, curto:0, medio:0, longo:0 }
   lines.forEach(line => {
@@ -177,6 +182,26 @@ function parsePayable(lines, competence) {
     const date=new Date(`${match[3]}-${match[2]}-${match[1]}T12:00:00`), value=moneyNumber(match[4])
     if(date<ref)buckets.vencido+=value; else if(date<=day90)buckets.curto+=value; else if(date<=day360)buckets.medio+=value; else buckets.longo+=value
   })
+  if (!Object.values(buckets).some(Boolean)) {
+    let futureSection = false, pendingPeriod = ''
+    lines.forEach(line => {
+      if (/^Total vencido:/i.test(line)) { buckets.vencido=moneyNumber((line.match(MONEY)||[])[0]); futureSection=true; pendingPeriod=''; return }
+      if (/^Total a vencer:/i.test(line)) { futureSection=false; pendingPeriod=''; return }
+      if (!futureSection) return
+      const period = line.match(/^([A-ZÇÁÀÂÃÉÊÍÓÔÕÚ]+|20\d{2})\s+\d+$/)
+      if (period) { pendingPeriod=period[1]; return }
+      if (!pendingPeriod) return
+      const value = moneyNumber((line.match(MONEY)||[])[0])
+      if (!value) { pendingPeriod=''; return }
+      let dueDate
+      if (/^20\d{2}$/.test(pendingPeriod)) dueDate=new Date(Number(pendingPeriod),11,31,12)
+      else dueDate=new Date(ref.getFullYear(),MONTH_NUMBER[pendingPeriod],0,12)
+      if (dueDate<=day90) buckets.curto+=value
+      else if (dueDate<=day360) buckets.medio+=value
+      else buckets.longo+=value
+      pendingPeriod=''
+    })
+  }
   const total=Object.values(buckets).reduce((s,v)=>s+v,0); if(!total) throw new Error('Vencimentos das Contas a Pagar não identificados.')
   return { type:'contas_pagar', values:{ contas_pagar_total:total, contas_pagar_vencido_curto:buckets.vencido, contas_pagar_vencido_medio:0, contas_pagar_a_vencer_curto:buckets.curto, contas_pagar_a_vencer_medio:buckets.medio, contas_pagar_a_vencer_longo:buckets.longo }, title:'Contas a Pagar', metrics:[['Total a pagar',total],['Vencido',buckets.vencido],['Até 90 dias',buckets.curto],['Longo prazo',buckets.longo]] }
 }
