@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, LabelList, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, LabelList, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import * as d3 from 'd3'
 import { IconArrowLeft, IconArrowRight, IconCheck, IconDownload, IconEdit, IconFileTypePdf, IconPresentation, IconRefresh } from '@tabler/icons-react'
 import html2canvas from 'html2canvas'
@@ -360,7 +360,7 @@ function CFOFinancialSlides({ data, period, previousLabel, generatedAt, comparis
     <Slide key="inventory" page={11} total={total}>{title('inventory','ESTOQUE','O capital aplicado em estoque deve acompanhar venda e giro.',`comparativo com ${comparisonNoun}`)}<div className="deck-inventory"><div className="deck-inventory-hero"><span>ESTOQUE FINAL</span><strong>{shortMoney(cur.inventoryEnd || pos?.inventory)}</strong><b className={inventoryVariation<=0?'positive':'negative'}>{inventoryVariation>=0?'▲':'▼'} {pct(Math.abs(inventoryVariation))} vs. {comparisonNoun}</b><p>{inventoryVariation>0?'O estoque cresceu e passou a exigir mais capital de giro.':'O estoque foi reduzido, liberando capital para a operação.'}</p></div><div className="deck-inventory-metrics"><BigNumber label="Estoque médio" value={shortMoney(cur.inventoryAverage)} note={<small>média do período</small>}/><BigNumber label="Giro no período" value={`${cur.inventoryTurnover.toFixed(2).replace('.',',')}x`} note={<small>custo variável ÷ estoque médio</small>}/><BigNumber label="Prazo médio" value={`${cur.pmre.toFixed(0)} dias`} note={<small>{comparisonNoun}: {prev.pmre.toFixed(0)} dias</small>}/><BigNumber label="Compras" value={shortMoney(cur.purchases)} note={<small>{comparisonNoun}: {shortMoney(prev.purchases)}</small>}/></div></div></Slide>,
     <Slide key="cycle" page={12} total={total}>{title('cycle','CICLO FINANCEIRO','O ciclo determina por quanto tempo a operação consome capital.','prazos ponderados do ERP')}<MetricStrip items={[{label:'Recebe em',value:`${cur.pmrv.toFixed(0)} dias`,note:`${comparisonNoun}: ${prev.pmrv.toFixed(0)}`},{label:'Estoque por',value:`${cur.pmre.toFixed(0)} dias`,note:`${comparisonNoun}: ${prev.pmre.toFixed(0)}`},{label:'Paga em',value:`${cur.pmpf.toFixed(0)} dias`,note:`${comparisonNoun}: ${prev.pmpf.toFixed(0)}`},{label:'Ciclo de caixa',value:`${cur.cicloCaixa.toFixed(0)} dias`,note:`${comparisonNoun}: ${prev.cicloCaixa.toFixed(0)}`}]} /><div className="deck-fin-cycle"><span>COMPRA</span><i/><span>VENDE</span><i/><span>RECEBE</span><aside><b>{cur.cicloCaixa.toFixed(0)} dias</b><p>{cur.cicloCaixa>0?'período financiado com caixa próprio ou de terceiros':'fornecedores financiam o ciclo operacional'}</p></aside></div></Slide>,
     <Slide key="liquidity" page={13} total={total}>{title('liquidity','LIQUIDEZ E BALANÇO','A cobertura de curto prazo permanece sob controle?',pos?`posição em ${new Date(`${pos.date}T12:00:00`).toLocaleDateString('pt-BR')}`:'posição não carregada')}<div className="deck-liquidity"><div className="deck-liquidity-main"><span>LIQUIDEZ CORRENTE</span><strong>{pos?`${pos.currentRatio.toFixed(2).replace('.',',')}x`:'—'}</strong><p>{pos?.currentRatio>=1?'Os recursos circulantes cobrem as obrigações operacionais de curto prazo.':'As obrigações de curto prazo superam os recursos circulantes.'}</p></div><div><BigNumber label="Capital de giro" value={shortMoney(pos?.workingCapital)} note={<small>ativo circulante − passivo circulante</small>}/><BigNumber label="Disponibilidades" value={shortMoney(pos?.cash)} note={<small>caixa e bancos</small>}/><BigNumber label="Endividamento operacional" value={pct(pos?.debtRatio)} note={<small>obrigações ajustadas ÷ ativos</small>}/></div></div></Slide>,
-    <Slide key="maturity" page={14} total={total} tone="dark">{title('maturity','PRESSÃO DE CAIXA','A cobertura dos vencimentos mostra onde a liquidez pode apertar.','base atual: 90, 360 dias e longo prazo')}<MetricStrip dark items={[{label:'Total a receber',value:shortMoney(pos?.totalReceivable)},{label:'Total a pagar ajustado',value:shortMoney(pos?.totalPayable)},{label:'Cobertura total',value:shortMoney(pos?pos.totalReceivable-pos.totalPayable:0),note:'recebíveis menos obrigações'},{label:'Saldo vencido',value:shortMoney(pos?pos.overdueReceivable-pos.overduePayable:0),note:'saldo já vencido'}]} /><div className="deck-chart-stage"><ResponsiveContainer width="100%" height="100%"><BarChart data={pos?.maturity||[]} margin={{top:35,right:18,left:8,bottom:0}}><CartesianGrid vertical={false} stroke="rgba(255,255,255,.12)" strokeDasharray="3 7"/><XAxis dataKey="label" axisLine={false} tickLine={false} stroke="#aaa199"/><YAxis axisLine={false} tickLine={false} tickFormatter={v=>`${Math.round(v/1000)}k`} stroke="#aaa199"/><Tooltip formatter={v=>money(v)}/><Bar dataKey="A receber" fill="#f47b20" radius={[7,7,0,0]}><LabelList dataKey="A receber" position="top" formatter={chartLabel} className="deck-bar-label light"/></Bar><Bar dataKey="A pagar" fill="#e4ddd6" radius={[7,7,0,0]}><LabelList dataKey="A pagar" position="top" formatter={chartLabel} className="deck-bar-label light"/></Bar></BarChart></ResponsiveContainer></div><div className="deck-chart-legend"><i className="orange"/> A receber <i style={{background:'#e4ddd6'}}/> A pagar</div></Slide>,
+    <Slide key="maturity" page={14} total={total} tone="dark">{title('maturity','PRESSÃO DE CAIXA','A curva acumulada revela quando os vencimentos passam a consumir liquidez.','faixas mensais disponíveis no ULTRA')}<MetricStrip dark items={[{label:'Caixa inicial',value:shortMoney(pos?.cash),note:'disponibilidades'},{label:'Saldo em 60 dias',value:shortMoney(pos?.cashAt60),note:'caixa após receber e pagar'},{label:'Primeiro aperto',value:pos?.firstNegative||'Não projetado',note:'primeira faixa com saldo negativo'},{label:'Necessidade máxima',value:shortMoney(Math.max(0,-number(pos?.minimumCash))),note:'pior saldo acumulado'}]} /><div className="deck-chart-stage deck-cash-pressure"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={pos?.maturity||[]} margin={{top:35,right:18,left:8,bottom:0}}><CartesianGrid vertical={false} stroke="rgba(255,255,255,.12)" strokeDasharray="3 7"/><XAxis dataKey="label" axisLine={false} tickLine={false} stroke="#aaa199"/><YAxis axisLine={false} tickLine={false} tickFormatter={v=>`${Math.round(v/1000)}k`} stroke="#aaa199"/><Tooltip formatter={v=>money(v)}/><Bar dataKey="A receber" fill="#f47b20" radius={[7,7,0,0]}><LabelList dataKey="A receber" position="top" formatter={chartLabel} className="deck-bar-label light"/></Bar><Bar dataKey="A pagar" fill="#e4ddd6" radius={[7,7,0,0]}><LabelList dataKey="A pagar" position="top" formatter={chartLabel} className="deck-bar-label light"/></Bar><Line type="monotone" dataKey="Saldo acumulado" stroke="#68c998" strokeWidth={3} dot={{r:4,fill:'#68c998',stroke:'#1e1b19',strokeWidth:2}}/></ComposedChart></ResponsiveContainer></div><div className="deck-chart-legend"><i className="orange"/> A receber <i style={{background:'#e4ddd6'}}/> A pagar <i className="cash-line"/> Saldo acumulado</div><div className="deck-maturity-method">Faixas calculadas pela competência mensal disponível no relatório do ULTRA. * Valor anual consolidado, sem abertura mensal.</div></Slide>,
     <Slide key="close" page={15} total={total} tone="dark" className="deck-close"><span>RECOMENDAÇÕES FINANCEIRAS</span><EditableText as="h2" editKey="financeiro.close.title" value={cur.result<0?'Recuperar resultado sem perder o controle do caixa.':'Preservar margem e transformar resultado em caixa recorrente.'} editor={editor}/><EditableText as="p" editKey="financeiro.close.body" value={cur.result<0?'1. Reaproximar a receita do ponto de equilíbrio, protegendo margem e mix. 2. Atuar sobre os custos que mais cresceram. 3. Compatibilizar pagamentos com recebimentos. 4. Reduzir capital imobilizado em estoque e clientes.':'1. Proteger margem e disciplina de custos fixos. 2. Converter resultado em caixa recorrente. 3. Monitorar vencimentos e concentração de recebíveis. 4. Preservar giro de estoque e capital de giro.'} editor={editor}/><div><i/> direcionamento para o próximo ciclo</div></Slide>,
   ]
 }
@@ -544,7 +544,8 @@ function aggregateFinancialPeriod(bounds, range, ctx) {
   const inventoryTurnover = inventoryAverage ? variableCosts / inventoryAverage : 0
 
   const endIso = iso(range.end)
-  const balance = [...ctx.balanceRows].filter(row => row.competencia_date <= endIso).sort((a, b) => b.competencia_date.localeCompare(a.competencia_date))[0] || null
+  const targetCompetence = `${bounds.year}-${String(bounds.endMonth).padStart(2,'0')}-01`
+  const balance = ctx.balanceRows.find(row=>row.competencia_date===targetCompetence) || [...ctx.balanceRows].filter(row => row.competencia_date <= endIso).sort((a, b) => b.competencia_date.localeCompare(a.competencia_date))[0] || null
   let position = null
   if (balance) {
     const aporteADevolver = number(balance.contas_pagar_aporte_a_devolver)
@@ -552,6 +553,19 @@ function aggregateFinancialPeriod(bounds, range, ctx) {
     const cpMedioAjustado = number(balance.contas_pagar_a_vencer_medio) - aporteADevolver
     const currentAssets = number(balance.disponibilidades) + number(balance.contas_receber_total) + number(balance.estoque)
     const currentLiabilities = number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio) + number(balance.contas_pagar_a_vencer_curto) + Math.max(cpMedioAjustado, 0)
+    const maturityLabels={vencido:'Vencido',m1:'30 dias',m2:'31–60',m3:'61–90',m4_6:'91–180',rest_year:'Restante ano',next_years:'Anos seguintes'}
+    const detailedMaturities=ctx.maturityRows.filter(row=>row.competencia_date===targetCompetence)
+    const maturity=detailedMaturities.length?['vencido','m1','m2','m3','m4_6','rest_year','next_years'].map(key=>{const estimated=detailedMaturities.some(row=>row.bucket_key===key&&row.estimated);return {label:`${maturityLabels[key]}${estimated?'*':''}`,'A receber':detailedMaturities.filter(row=>row.bucket_key===key&&row.nature==='receber').reduce((s,row)=>s+number(row.amount),0),'A pagar':detailedMaturities.filter(row=>row.bucket_key===key&&row.nature==='pagar').reduce((s,row)=>s+number(row.amount),0),estimated}}).filter(row=>row['A receber']||row['A pagar']):[
+      { label: 'Vencido', 'A receber': number(balance.contas_receber_vencido), 'A pagar': number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio) },
+      { label: 'Até 90 dias', 'A receber': number(balance.contas_receber_a_vencer_curto), 'A pagar': number(balance.contas_pagar_a_vencer_curto) },
+      { label: 'Até 360 dias', 'A receber': number(balance.contas_receber_a_vencer_medio), 'A pagar': Math.max(cpMedioAjustado, 0) },
+      { label: 'Longo prazo', 'A receber': 0, 'A pagar': number(balance.contas_pagar_a_vencer_longo) },
+    ]
+    let accumulatedCash=number(balance.disponibilidades)
+    maturity.forEach(row=>{accumulatedCash+=row['A receber']-row['A pagar'];row['Saldo acumulado']=accumulatedCash})
+    const cashAt60=maturity.find(row=>row.label==='31–60')?.['Saldo acumulado'] ?? accumulatedCash
+    const firstNegative=maturity.find(row=>row['Saldo acumulado']<0)?.label
+    const minimumCash=Math.min(number(balance.disponibilidades),...maturity.map(row=>row['Saldo acumulado']))
     position = {
       date: balance.competencia_date,
       cash: number(balance.disponibilidades),
@@ -568,12 +582,7 @@ function aggregateFinancialPeriod(bounds, range, ctx) {
       totalPayable: Math.max(cpTotalAjustado, 0),
       overdueReceivable: number(balance.contas_receber_vencido),
       overduePayable: number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio),
-      maturity: [
-        { label: 'Vencido', 'A receber': number(balance.contas_receber_vencido), 'A pagar': number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio) },
-        { label: 'Até 90 dias', 'A receber': number(balance.contas_receber_a_vencer_curto), 'A pagar': number(balance.contas_pagar_a_vencer_curto) },
-        { label: 'Até 360 dias', 'A receber': number(balance.contas_receber_a_vencer_medio), 'A pagar': Math.max(cpMedioAjustado, 0) },
-        { label: 'Longo prazo', 'A receber': 0, 'A pagar': number(balance.contas_pagar_a_vencer_longo) },
-      ],
+      maturity, cashAt60, firstNegative, minimumCash,
     }
   }
 
@@ -609,7 +618,7 @@ function useClosingData(type, year, index) {
       const fetchEndIso = iso(currentRange.end)
       const years = [...new Set([currentBounds.year, previousBounds.year])]
       try {
-        const [ordersRes, docsRes, goalsRes, portfolioRes, farmsRes, profilesRes, dreRes, dreAccountsRes, balanceRes, managerialRes] = await Promise.all([
+        const [ordersRes, docsRes, goalsRes, portfolioRes, farmsRes, profilesRes, dreRes, dreAccountsRes, balanceRes, managerialRes, maturityRes] = await Promise.all([
           supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', fetchStartIso).lte('sale_date', fetchEndIso),
           supabaseAdmin.from('fiscal_documents').select('ultra_document_id,issue_date,document_total,movement_type,partner_id,partner_name,seller_id,ultra_salesman_id,salesman_name,fiscal_document_items(product_name,product_total)').gte('issue_date', fetchStartIso).lte('issue_date', fetchEndIso),
           supabaseAdmin.from('goals').select('*').in('ano', years),
@@ -620,8 +629,9 @@ function useClosingData(type, year, index) {
           supabaseAdmin.from('finance_dre_accounts').select('*').in('ano', years),
           supabaseAdmin.from('finance_balanco').select('*').order('competencia_date', { ascending: false }),
           supabaseAdmin.from('finance_managerial_monthly').select('*').in('ano', years),
+          supabaseAdmin.from('finance_cash_maturities').select('*').gte('competencia_date',fetchStartIso).lte('competencia_date',fetchEndIso),
         ])
-        const failure = [ordersRes, docsRes, goalsRes, portfolioRes, farmsRes, profilesRes, dreRes, dreAccountsRes, balanceRes, managerialRes].find(result => result.error)
+        const failure = [ordersRes, docsRes, goalsRes, portfolioRes, farmsRes, profilesRes, dreRes, dreAccountsRes, balanceRes, managerialRes, maturityRes].find(result => result.error)
         if (failure?.error) throw failure.error
 
         const orders = ordersRes.data || []
@@ -648,6 +658,7 @@ function useClosingData(type, year, index) {
         const finCtx = {
           dreRows: dreRes.data || [], dreAccounts: dreAccountsRes.data || [],
           balanceRows: balanceRes.data || [], managerialRows: managerialRes.data || [],
+          maturityRows: maturityRes.data || [],
         }
         const financialCurrent = aggregateFinancialPeriod(currentBounds, currentRange, finCtx)
         const financialPrevious = aggregateFinancialPeriod(previousBounds, previousRange, finCtx)

@@ -162,6 +162,7 @@ export default function ImportarFechamento() {
       if (types.has('dre')) { let response=await supabase.from('finance_dre_accounts').delete().eq('ano',batchYear).eq('mes',batchMonth); if(response.error)throw response.error; response=await supabase.from('finance_dre_monthly').delete().eq('ano',batchYear).eq('mes',batchMonth); if(response.error)throw response.error }
       if (types.has('gerencial')) { const {error}=await supabase.from('finance_managerial_monthly').delete().eq('ano',batchYear).eq('mes',batchMonth); if(error)throw error }
       if (types.has('balancete')) { const {error}=await supabase.from('finance_balancete_accounts').delete().eq('competencia_date',batch.competencia_date); if(error)throw error }
+      if (types.has('contas_pagar')||types.has('contas_receber')) { const {error}=await supabase.from('finance_cash_maturities').delete().eq('competencia_date',batch.competencia_date); if(error)throw error }
       if (['balanco','contas_pagar','contas_receber'].some(type=>types.has(type))) { const {error}=await supabase.from('finance_balanco').delete().eq('competencia_date',batch.competencia_date); if(error)throw error }
       const {error}=await supabase.from('finance_import_batches').delete().eq('id',batch.id); if(error)throw error
       setMessage({type:'success',text:`Pacote de ${label} excluído com segurança.`}); await loadHistory()

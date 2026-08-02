@@ -18,6 +18,19 @@ const assertCompetence = (competence, ano, mes, reportName) => {
   }
 }
 
+const maturityBucket = (reference, dueDate) => {
+  if (dueDate <= reference) return 'vencido'
+  const monthOffset = (dueDate.getFullYear() - reference.getFullYear()) * 12 + dueDate.getMonth() - reference.getMonth()
+  if (monthOffset === 1) return 'm1'
+  if (monthOffset === 2) return 'm2'
+  if (monthOffset === 3) return 'm3'
+  if (monthOffset <= 6) return 'm4_6'
+  if (dueDate.getFullYear() === reference.getFullYear()) return 'rest_year'
+  return 'next_years'
+}
+
+const maturityRows = (map, nature) => [...map.entries()].map(([bucket_key, item]) => ({ nature, bucket_key, amount:item.amount, estimated:item.estimated }))
+
 export const moneyNumber = value => {
   const raw = String(value || '').trim()
   const negative = raw.startsWith('(') || raw.startsWith('-')
@@ -173,7 +186,10 @@ function parseReceivable(lines, competence) {
   }).filter(Boolean)
   if (!total) throw new Error('Total das Contas a Receber não identificado.')
   const referenceMonth=Number(competence.slice(5,7)), future=months.filter(item=>item.mes>referenceMonth)
-  return { type:'contas_receber', values:{ contas_receber_total:total, contas_receber_vencido:vencido, contas_receber_a_vencer_curto:future.slice(0,3).reduce((s,m)=>s+m.valor,0), contas_receber_a_vencer_medio:future.slice(3).reduce((s,m)=>s+m.valor,0) }, title:'Contas a Receber', metrics:[['Total a receber',total],['Vencido',vencido],['A vencer',total-vencido]] }
+  const reference=new Date(`${competence}T12:00:00`); reference.setMonth(reference.getMonth()+1,0)
+  const maturity=new Map([['vencido',{amount:vencido,estimated:false}]])
+  future.forEach(item=>{const dueDate=new Date(reference.getFullYear(),item.mes,0,12),key=maturityBucket(reference,dueDate),current=maturity.get(key)||{amount:0,estimated:false};current.amount+=item.valor;maturity.set(key,current)})
+  return { type:'contas_receber', values:{ contas_receber_total:total, contas_receber_vencido:vencido, contas_receber_a_vencer_curto:future.slice(0,3).reduce((s,m)=>s+m.valor,0), contas_receber_a_vencer_medio:future.slice(3).reduce((s,m)=>s+m.valor,0) }, maturities:maturityRows(maturity,'receber'), title:'Contas a Receber', metrics:[['Total a receber',total],['Vencido',vencido],['A vencer',total-vencido]] }
 }
 
 function parsePayable(lines, competence) {
@@ -184,15 +200,18 @@ function parsePayable(lines, competence) {
   assertCompetence(competence, referenceParts[2], referenceParts[1], 'Contas a Pagar')
   const ref = new Date(`${competence}T12:00:00`); ref.setMonth(ref.getMonth()+1,0); const day90 = new Date(ref); day90.setDate(day90.getDate()+90); const day360=new Date(ref); day360.setDate(day360.getDate()+360)
   const buckets = { vencido:0, curto:0, medio:0, longo:0 }
+  const maturity = new Map()
+  const addMaturity = (key, value, estimated=false) => { const current=maturity.get(key)||{amount:0,estimated:false}; current.amount+=value; current.estimated=current.estimated||estimated; maturity.set(key,current) }
   lines.forEach(line => {
     const match=line.match(/^Total do Dia:\s*(\d{2})\/(\d{2})\/(\d{4})\s+([()]?[\d.]+,\d{2}[)]?)/i); if(!match)return
     const date=new Date(`${match[3]}-${match[2]}-${match[1]}T12:00:00`), value=moneyNumber(match[4])
     if(date<ref)buckets.vencido+=value; else if(date<=day90)buckets.curto+=value; else if(date<=day360)buckets.medio+=value; else buckets.longo+=value
+    addMaturity(maturityBucket(ref,date),value)
   })
   if (!Object.values(buckets).some(Boolean)) {
     let futureSection = false, pendingPeriod = ''
     lines.forEach(line => {
-      if (/^Total vencido:/i.test(line)) { buckets.vencido=moneyNumber((line.match(MONEY)||[])[0]); futureSection=true; pendingPeriod=''; return }
+      if (/^Total vencido:/i.test(line)) { buckets.vencido=moneyNumber((line.match(MONEY)||[])[0]); addMaturity('vencido',buckets.vencido); futureSection=true; pendingPeriod=''; return }
       if (/^Total a vencer:/i.test(line)) { futureSection=false; pendingPeriod=''; return }
       if (!futureSection) return
       const period = line.match(/^([A-ZÇÁÀÂÃÉÊÍÓÔÕÚ]+|20\d{2})\s+\d+$/)
@@ -206,11 +225,12 @@ function parsePayable(lines, competence) {
       if (dueDate<=day90) buckets.curto+=value
       else if (dueDate<=day360) buckets.medio+=value
       else buckets.longo+=value
+      addMaturity(maturityBucket(ref,dueDate),value,/^20\d{2}$/.test(pendingPeriod))
       pendingPeriod=''
     })
   }
   const total=Object.values(buckets).reduce((s,v)=>s+v,0); if(!total) throw new Error('Vencimentos das Contas a Pagar não identificados.')
-  return { type:'contas_pagar', values:{ contas_pagar_total:total, contas_pagar_vencido_curto:buckets.vencido, contas_pagar_vencido_medio:0, contas_pagar_a_vencer_curto:buckets.curto, contas_pagar_a_vencer_medio:buckets.medio, contas_pagar_a_vencer_longo:buckets.longo }, title:'Contas a Pagar', metrics:[['Total a pagar',total],['Vencido',buckets.vencido],['Até 90 dias',buckets.curto],['Longo prazo',buckets.longo]] }
+  return { type:'contas_pagar', values:{ contas_pagar_total:total, contas_pagar_vencido_curto:buckets.vencido, contas_pagar_vencido_medio:0, contas_pagar_a_vencer_curto:buckets.curto, contas_pagar_a_vencer_medio:buckets.medio, contas_pagar_a_vencer_longo:buckets.longo }, maturities:maturityRows(maturity,'pagar'), title:'Contas a Pagar', metrics:[['Total a pagar',total],['Vencido',buckets.vencido],['Até 90 dias',buckets.curto],['Longo prazo',buckets.longo]] }
 }
 
 export function parseFinanceReport(type, lines, competence) {
@@ -235,5 +255,6 @@ export async function applyFinanceReport(supabase, result, competence) {
     const patch=result.row || result.values
     const safeCurrent={...(current || {})}; delete safeCurrent.id; delete safeCurrent.created_at
     const response=await supabase.from('finance_balanco').upsert({...safeCurrent,...patch,competencia_date:competence},{onConflict:'competencia_date'}); if(response.error)throw response.error
+    if(result.maturities?.length) { let maturityResponse=await supabase.from('finance_cash_maturities').delete().eq('competencia_date',competence).eq('nature',result.maturities[0].nature); if(maturityResponse.error)throw maturityResponse.error; maturityResponse=await supabase.from('finance_cash_maturities').insert(result.maturities.map(row=>({...row,competencia_date:competence,source_type:result.type}))); if(maturityResponse.error)throw maturityResponse.error }
   }
 }
