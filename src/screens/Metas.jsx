@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { IconArrowLeft, IconCheck, IconTargetArrow, IconTrendingUp, IconUser } from '@tabler/icons-react'
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { supabaseAdmin } from '../lib/supabase'
+import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import Topbar from '../components/Topbar'
 
 const money = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -13,6 +14,7 @@ const moneyShort = value => {
 }
 const monthName = month => new Date(2024, month - 1, 1).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
 const sellerKey = row => row.seller_id || (row.ultra_salesman_id ? `ultra:${row.ultra_salesman_id}` : null)
+const goalKey = goal => goal.seller_id || (goal.ultra_salesman_id ? `ultra:${goal.ultra_salesman_id}` : null)
 const CURRENT_YEAR = new Date().getFullYear()
 const CURRENT_MONTH = new Date().getMonth() + 1
 
@@ -33,14 +35,14 @@ export default function Metas() {
       setLoading(true)
       const [profilesResult, goalsResult, documentsResult] = await Promise.all([
         supabaseAdmin.from('profiles').select('id,name,email,role').eq('active', true).order('name'),
-        supabaseAdmin.from('goals').select('*').eq('ano', year),
-        supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,seller_id,ultra_salesman_id,salesman_name').gte('issue_date', `${year}-01-01`).lte('issue_date', `${year}-12-31`),
+        supabaseAdmin.from('goals').select('*,erp_salesmen(name)').eq('ano', year),
+        supabaseAdmin.from('management_order_overview').select('sale_date,order_value,order_stage,fiscal_returned_value,seller_id,ultra_salesman_id,ultra_salesman_name').gte('sale_date', `${year}-01-01`).lte('sale_date', `${year}-12-31`),
       ])
       setSellers(profilesResult.data || [])
       setGoals(goalsResult.data || [])
       setDocuments(documentsResult.data || [])
       const values = {}
-      ;(goalsResult.data || []).filter(goal => goal.mes === month).forEach(goal => { values[goal.seller_id] = goal.meta_fat })
+      ;(goalsResult.data || []).filter(goal => goal.mes === month).forEach(goal => { values[goalKey(goal)] = goal.meta_fat })
       setEditGoals(values)
       setLoading(false)
     }
@@ -50,17 +52,18 @@ export default function Metas() {
   const data = useMemo(() => {
     const profileMap = new Map(sellers.map(seller => [seller.id, seller]))
     const sellerMap = new Map(sellers.map(seller => [seller.id, seller.name || seller.email]))
+    goals.forEach(goal => { const key = goalKey(goal); if (key && !sellerMap.has(key)) sellerMap.set(key, goal.erp_salesmen?.name || 'Vendedor ULTRA') })
     documents.forEach(doc => {
       const key = sellerKey(doc)
-      if (key && !sellerMap.has(key)) sellerMap.set(key, doc.salesman_name || 'Vendedor não vinculado')
+      if (key && !sellerMap.has(key)) sellerMap.set(key, doc.ultra_salesman_name || 'Vendedor não vinculado')
     })
 
     const sellerOptions = [...sellerMap.entries()].sort((a, b) => a[1].localeCompare(b[1]))
     const filteredDocs = selectedSeller === 'todos' ? documents : documents.filter(doc => sellerKey(doc) === selectedSeller)
-    const filteredGoals = selectedSeller === 'todos' ? goals : goals.filter(goal => goal.seller_id === selectedSeller)
+    const filteredGoals = selectedSeller === 'todos' ? goals : goals.filter(goal => goalKey(goal) === selectedSeller)
     const months = Array.from({ length: 12 }, (_, index) => {
       const value = index + 1
-      const realized = filteredDocs.filter(doc => Number(doc.issue_date?.slice(5, 7)) === value).reduce((sum, doc) => sum + Number(doc.document_total || 0), 0)
+      const realized = filteredDocs.filter(doc => Number(doc.sale_date?.slice(5, 7)) === value && hasNetOrderValue(doc)).reduce((sum, doc) => sum + netOrderValue(doc), 0)
       const goal = filteredGoals.filter(item => item.mes === value).reduce((sum, item) => sum + Number(item.meta_fat || 0), 0)
       return { month: value, label: monthName(value), Realizado: realized, Meta: goal }
     })
@@ -72,8 +75,8 @@ export default function Metas() {
     const attainmentYtd = goalYtd ? (realizedYtd / goalYtd) * 100 : 0
 
     const team = sellerOptions.map(([id, name]) => {
-      const realized = documents.filter(doc => sellerKey(doc) === id && Number(doc.issue_date?.slice(5, 7)) === month).reduce((sum, doc) => sum + Number(doc.document_total || 0), 0)
-      const goal = goals.filter(item => item.seller_id === id && item.mes === month).reduce((sum, item) => sum + Number(item.meta_fat || 0), 0)
+      const realized = documents.filter(doc => sellerKey(doc) === id && Number(doc.sale_date?.slice(5, 7)) === month && hasNetOrderValue(doc)).reduce((sum, doc) => sum + netOrderValue(doc), 0)
+      const goal = goals.filter(item => goalKey(item) === id && item.mes === month).reduce((sum, item) => sum + Number(item.meta_fat || 0), 0)
       return { id, name, profile: profileMap.get(id), realized, goal, percent: goal ? (realized / goal) * 100 : 0 }
     }).sort((a, b) => b.realized - a.realized)
 
@@ -86,17 +89,18 @@ export default function Metas() {
   async function saveGoal(sellerId) {
     const value = Number(String(editGoals[sellerId] || 0).replace(',', '.'))
     setSaving(current => ({ ...current, [sellerId]: true }))
-    const existing = goals.find(goal => goal.seller_id === sellerId && goal.mes === month)
+    const existing = goals.find(goal => goalKey(goal) === sellerId && goal.mes === month)
+    const ultraSalesmanId = sellerId.startsWith('ultra:') ? Number(sellerId.slice(6)) : null
     const result = existing
       ? await supabaseAdmin.from('goals').update({ meta_fat: value, updated_at: new Date().toISOString() }).eq('id', existing.id).select().single()
-      : await supabaseAdmin.from('goals').insert({ seller_id: sellerId, ano: year, mes: month, meta_fat: value }).select().single()
+      : await supabaseAdmin.from('goals').insert({ seller_id: ultraSalesmanId ? null : sellerId, ultra_salesman_id: ultraSalesmanId, ano: year, mes: month, meta_fat: value }).select().single()
     if (result.data) setGoals(current => existing ? current.map(goal => goal.id === existing.id ? result.data : goal) : [...current, result.data])
     setSaving(current => ({ ...current, [sellerId]: false }))
   }
 
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Topbar title="Metas Comerciais" subtitle="Resultado mensal e acumulado por vendedor" />
+      <Topbar title="Metas Comerciais" subtitle="Pedidos mensais e acumulados por vendedor" />
       <div className="page goals-page" style={{ overflowY: 'auto' }}>
         <section className="goals-toolbar">
           <div>
@@ -113,7 +117,7 @@ export default function Metas() {
 
         {loading ? <div className="empty">Carregando metas...</div> : tab === 'acompanhamento' ? <>
           <section className="goals-year-card">
-            <div><span className="goals-eyebrow">Acumulado no ano · {selectedName}</span><h2>{moneyShort(data.realizedYtd)}</h2><small>faturamento líquido de janeiro até o período atual</small></div>
+            <div><span className="goals-eyebrow">Acumulado no ano · {selectedName}</span><h2>{moneyShort(data.realizedYtd)}</h2><small>pedidos líquidos de janeiro até o período atual</small></div>
             <div className="goals-year-stats">
               <div><span>Meta acumulada</span><strong>{data.goalYtd ? moneyShort(data.goalYtd) : '—'}</strong></div>
               <div><span>Atingimento</span><strong>{data.goalYtd ? `${data.attainmentYtd.toFixed(1)}%` : '—'}</strong></div>
@@ -129,7 +133,7 @@ export default function Metas() {
           </section>
 
           <section className="goals-chart-card">
-            <div className="goals-card-head"><div><span className="goals-eyebrow">Linha de safra comercial</span><h3>Vendas versus meta mês a mês</h3></div><small>realizado líquido após devoluções</small></div>
+            <div className="goals-card-head"><div><span className="goals-eyebrow">Linha de safra comercial</span><h3>Pedidos versus meta mês a mês</h3></div><small>pedidos líquidos após cancelamentos e devoluções</small></div>
             <ResponsiveContainer width="100%" height={330}>
               <ComposedChart data={data.months} margin={{ top: 20, right: 20, left: 6, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="4 6" vertical={false} />
@@ -147,10 +151,10 @@ export default function Metas() {
           </button>)}</section>}
         </> : <section className="goals-editor">
           <div className="goals-card-head"><div><span className="goals-eyebrow">Planejamento interno</span><h3>Metas de {monthName(month)} de {year}</h3></div><small>cadastro centralizado no Gestão</small></div>
-          {sellers.map(seller => <div className="goals-editor-row" key={seller.id}>
-            <div className="goals-avatar">{(seller.name || seller.email || 'V').charAt(0)}</div><div><strong>{seller.name || seller.email}</strong><span>Meta mensal de faturamento</span></div>
-            <label>R$ <input type="number" value={editGoals[seller.id] || ''} onChange={event => setEditGoals(current => ({ ...current, [seller.id]: event.target.value }))} placeholder="0,00" /></label>
-            <button className="btn btn-primary btn-sm" onClick={() => saveGoal(seller.id)} disabled={saving[seller.id]}><IconCheck size={14} />{saving[seller.id] ? 'Salvando' : 'Salvar'}</button>
+          {data.sellerOptions.map(([sellerId, sellerName]) => <div className="goals-editor-row" key={sellerId}>
+            <div className="goals-avatar">{(sellerName || 'V').charAt(0)}</div><div><strong>{sellerName}</strong><span>Meta mensal de pedidos</span></div>
+            <label>R$ <input type="number" value={editGoals[sellerId] || ''} onChange={event => setEditGoals(current => ({ ...current, [sellerId]: event.target.value }))} placeholder="0,00" /></label>
+            <button className="btn btn-primary btn-sm" onClick={() => saveGoal(sellerId)} disabled={saving[sellerId]}><IconCheck size={14} />{saving[sellerId] ? 'Salvando' : 'Salvar'}</button>
           </div>)}
         </section>}
       </div>

@@ -393,8 +393,9 @@ function aggregateCommercialPeriod(bounds, range, ctx) {
     sellerMap.set(key, entry)
   })
   periodGoals.forEach(goalRow => {
-    const key = goalRow.seller_id
-    const entry = sellerMap.get(key) || { key, name: ctx.profileById.get(key)?.name || 'Vendedor', orders: 0, billing: 0, goal: 0 }
+    const key = goalRow.seller_id || `ultra:${goalRow.ultra_salesman_id || 0}`
+    const profile = ctx.profileById.get(goalRow.seller_id) || ctx.profileByUltra.get(number(goalRow.ultra_salesman_id))
+    const entry = sellerMap.get(key) || { key, name: profile?.name || goalRow.erp_salesmen?.name || 'Vendedor', orders: 0, billing: 0, goal: 0 }
     entry.goal += number(goalRow.meta_fat)
     sellerMap.set(key, entry)
   })
@@ -622,7 +623,7 @@ function useClosingData(type, year, index) {
         const [ordersRes, docsRes, goalsRes, portfolioRes, farmsRes, profilesRes, dreRes, dreAccountsRes, balanceRes, managerialRes, maturityRes] = await Promise.all([
           supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', fetchStartIso).lte('sale_date', fetchEndIso),
           supabaseAdmin.from('fiscal_documents').select('ultra_document_id,issue_date,document_total,movement_type,partner_id,partner_name,seller_id,ultra_salesman_id,salesman_name,fiscal_document_items(product_name,product_total)').gte('issue_date', fetchStartIso).lte('issue_date', fetchEndIso),
-          supabaseAdmin.from('goals').select('*').in('ano', years),
+          supabaseAdmin.from('goals').select('*,erp_salesmen(name)').in('ano', years),
           supabaseAdmin.from('management_open_order_portfolio').select('id,ultra_order_number,sale_date,customer_name,ultra_salesman_name,open_value'),
           supabaseAdmin.from('farms').select('id,state,segment,ultra_partner_id,status'),
           supabaseAdmin.from('profiles').select('id,name,ultra_salesman_id'),
