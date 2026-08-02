@@ -43,8 +43,8 @@ const findValue = (lines, pattern, occurrence = 0) => {
 }
 
 function parseDre(lines) {
-  const period = lines.find(line => /DRE - Demonstrativo.*\d{2}\/\d{2}\/\d{4}/i.test(line))
-  const matchPeriod = period?.match(/(\d{2})\/(\d{2})\/(\d{4})\s+[àa].*?(\d{2})\/(\d{2})\/(\d{4})/i)
+  const reportText = lines.join(' ')
+  const matchPeriod = reportText.match(/(\d{2})\s*\/\s*(\d{2})\s*\/\s*(\d{4})\s*(?:à|a|-)\s*(\d{2})\s*\/\s*(\d{2})\s*\/\s*(\d{4})/i)
   if (!matchPeriod) throw new Error('Período do DRE não identificado.')
   const mes = Number(matchPeriod[2]), ano = Number(matchPeriod[3])
   const totals = {}
