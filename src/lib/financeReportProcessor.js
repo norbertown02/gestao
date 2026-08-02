@@ -93,7 +93,14 @@ function parseBalanco(lines, competence) {
   const reference = lines.map(line => line.match(/(?:^|\s)(\d{2})\/(\d{2})\/(\d{4})(?:\s|$)/)).find(Boolean)
   if (!reference) throw new Error('Competência do Balanço Financeiro não identificada.')
   assertCompetence(competence, Number(reference[3]), Number(reference[2]), 'Balanço Financeiro')
-  const field = pattern => findValue(lines, pattern)
+  const field = pattern => {
+    const index = lines.findIndex(line => pattern.test(line))
+    if (index < 0) return 0
+    const sameLine = lines[index].match(MONEY) || []
+    if (sameLine.length) return moneyNumber(sameLine.at(-1))
+    const previousLine = lines[index - 1]?.match(MONEY) || []
+    return moneyNumber(previousLine.at(-1))
+  }
   const row = {
     competencia_date:competence,
     ativo_total:field(/^ATIVO\s/i), caixa:field(/^CAIXA\s/i), bancos:field(/^BANCOS\s/i), disponibilidades:field(/^DISPONIBILIDADES\s/i),

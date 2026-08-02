@@ -33,7 +33,7 @@ export function runFinanceAudit({dre,managerial,balance,accounts=[],dreAccounts=
   }
 
   if(hasFullBalance){
-    const ar=n(balance.contas_receber_vencido)+n(balance.contas_receber_a_vencer_curto)+n(balance.contas_receber_a_vencer_medio)-n(balance.duplicatas_descontadas)
+    const ar=n(balance.contas_receber_vencido)+n(balance.contas_receber_a_vencer_curto)+n(balance.contas_receber_a_vencer_medio)+n(balance.duplicatas_descontadas)
     const ap=n(balance.contas_pagar_vencido_curto)+n(balance.contas_pagar_vencido_medio)+n(balance.contas_pagar_a_vencer_curto)+n(balance.contas_pagar_a_vencer_medio)+n(balance.contas_pagar_a_vencer_longo)
     const availability=n(balance.caixa)+n(balance.bancos)
     ;[
