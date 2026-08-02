@@ -9,6 +9,15 @@ const MONTH_NUMBER = { JANEIRO:1, FEVEREIRO:2, MARÇO:3, ABRIL:4, MAIO:5, JUNHO:
 const SECTION_MAP = { '1':'receitas', '2':'custos_variaveis', '4':'custos_fixos', '6':'extra_operacional' }
 const DRE_GROUPS = new Set(['VENDAS','CUSTO','IMPOSTOS','COMPRAS','FUNCIONAMENTO','FUNCIONARIOS','ADMINISTRATIVAS','BANCARIAS','PROPAGANDA E PUBLICIDADE','TRANSPORTE','TRIBUTARIAS','VEICULOS','ADIANTAMENTOS','JUROS/MULTAS/DESCONTOS'])
 
+const assertCompetence = (competence, ano, mes, reportName) => {
+  const expectedYear = Number(competence.slice(0, 4)), expectedMonth = Number(competence.slice(5, 7))
+  if (Number(ano) !== expectedYear || Number(mes) !== expectedMonth) {
+    const found = `${String(mes).padStart(2, '0')}/${ano}`
+    const expected = `${String(expectedMonth).padStart(2, '0')}/${expectedYear}`
+    throw new Error(`${reportName}: o arquivo é de ${found}, mas a competência selecionada é ${expected}.`)
+  }
+}
+
 export const moneyNumber = value => {
   const raw = String(value || '').trim()
   const negative = raw.startsWith('(') || raw.startsWith('-')
@@ -81,6 +90,9 @@ function parseDre(lines) {
 }
 
 function parseBalanco(lines, competence) {
+  const reference = lines.map(line => line.match(/(?:^|\s)(\d{2})\/(\d{2})\/(\d{4})(?:\s|$)/)).find(Boolean)
+  if (!reference) throw new Error('Competência do Balanço Financeiro não identificada.')
+  assertCompetence(competence, Number(reference[3]), Number(reference[2]), 'Balanço Financeiro')
   const field = pattern => findValue(lines, pattern)
   const row = {
     competencia_date:competence,
@@ -94,8 +106,10 @@ function parseBalanco(lines, competence) {
 }
 
 function parseBalancete(lines, competence) {
-  const period = lines.find(line => /Balancete de Receitas e Despesas/i.test(line)) || ''
+  const period = lines.find(line => /\d{2}\/\d{2}\/\d{2,4}\s+(?:à|a)\s+\d{2}\/\d{2}\/\d{2,4}/i.test(line)) || ''
   const dates = period.match(/(\d{2})\/(\d{2})\/(\d{2,4}).*?(\d{2})\/(\d{2})\/(\d{2,4})/)
+  if (!dates) throw new Error('Período do Balancete não identificado.')
+  assertCompetence(competence, Number(`20${dates[6].slice(-2)}`), Number(dates[5]), 'Balancete')
   let tipo = '', grupo = ''
   const accounts = []
   lines.forEach(line => {
@@ -136,7 +150,7 @@ function parseManagerial(lines) {
   const monthly = Object.values(rows).filter(row=>row.mes>0 && row.vendas_total !== undefined)
   if (!monthly.length) throw new Error('Indicadores mensais do Relatório Gerencial não identificados.')
   const last = monthly[0]
-  return { type:'gerencial', monthly, title:'Relatório Gerencial', metrics:[['Meses identificados',monthly.length],['Vendas do último mês',last.vendas_total],['Estoque do último mês',last.estoque_valor],['Ciclo de caixa',last.ciclo_caixa]] }
+  return { type:'gerencial', monthly, reference:periods[0], title:'Relatório Gerencial', metrics:[['Competência identificada',`${String(periods[0].mes).padStart(2,'0')}/${periods[0].ano}`],['Meses identificados',monthly.length],['Vendas do último mês',last.vendas_total],['Estoque do último mês',last.estoque_valor],['Ciclo de caixa',last.ciclo_caixa]] }
 }
 
 function parseReceivable(lines, competence) {
@@ -168,10 +182,10 @@ function parsePayable(lines, competence) {
 }
 
 export function parseFinanceReport(type, lines, competence) {
-  if (type==='dre') return parseDre(lines)
+  if (type==='dre') { const result=parseDre(lines); assertCompetence(competence,result.monthly.ano,result.monthly.mes,'DRE'); return result }
   if (type==='balanco') return parseBalanco(lines,competence)
   if (type==='balancete') return parseBalancete(lines,competence)
-  if (type==='gerencial') return parseManagerial(lines)
+  if (type==='gerencial') { const result=parseManagerial(lines); assertCompetence(competence,result.reference.ano,result.reference.mes,'Relatório Gerencial'); return result }
   if (type==='contas_receber') return parseReceivable(lines,competence)
   if (type==='contas_pagar') return parsePayable(lines,competence)
   throw new Error('Tipo de relatório não reconhecido.')

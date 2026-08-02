@@ -37,6 +37,7 @@ export default function ImportarFechamento() {
   const [dragging, setDragging] = useState('')
   const [message, setMessage] = useState(null)
   const [processing, setProcessing] = useState(false)
+  const [deletingBatch, setDeletingBatch] = useState('')
   const [preview, setPreview] = useState(null)
   const inputs = useRef({})
 
@@ -79,6 +80,16 @@ export default function ImportarFechamento() {
     setUploading(true)
     setMessage(null)
     try {
+      for (const [type, file] of pending) {
+        if (!/\.pdf$/i.test(file.name)) continue
+        try {
+          const lines = await extractPdfLines(file)
+          parseFinanceReport(type, lines, competence)
+        } catch (error) {
+          const title = REPORTS.find(report => report.key === type)?.title || type
+          throw new Error(`${title}: envio bloqueado. ${error.message}`, { cause: error })
+        }
+      }
       const { data: batch, error: batchError } = await supabase.from('finance_import_batches').upsert({ competencia_date: competence, status: 'rascunho', created_by: user?.id, updated_at: new Date().toISOString() }, { onConflict: 'competencia_date' }).select().single()
       if (batchError) throw batchError
 
@@ -138,6 +149,26 @@ export default function ImportarFechamento() {
     finally { setProcessing(false) }
   }
 
+  async function deleteBatch(batch) {
+    const label = `${MONTHS[Number(batch.competencia_date.slice(5, 7)) - 1]} de ${batch.competencia_date.slice(0, 4)}`
+    if (!window.confirm(`Excluir o pacote de ${label}? Os arquivos e os dados processados desta competência serão removidos.`)) return
+    setDeletingBatch(batch.id); setMessage(null)
+    try {
+      const batchFiles = batch.finance_import_files || []
+      const paths = batchFiles.map(file => file.storage_path).filter(Boolean)
+      if (paths.length) { const { error } = await supabase.storage.from('finance-reports').remove(paths); if (error) throw error }
+      const types = new Set(batchFiles.map(file => file.report_type))
+      const [batchYear, batchMonth] = batch.competencia_date.split('-').map(Number)
+      if (types.has('dre')) { let response=await supabase.from('finance_dre_accounts').delete().eq('ano',batchYear).eq('mes',batchMonth); if(response.error)throw response.error; response=await supabase.from('finance_dre_monthly').delete().eq('ano',batchYear).eq('mes',batchMonth); if(response.error)throw response.error }
+      if (types.has('gerencial')) { const {error}=await supabase.from('finance_managerial_monthly').delete().eq('ano',batchYear).eq('mes',batchMonth); if(error)throw error }
+      if (types.has('balancete')) { const {error}=await supabase.from('finance_balancete_accounts').delete().eq('competencia_date',batch.competencia_date); if(error)throw error }
+      if (['balanco','contas_pagar','contas_receber'].some(type=>types.has(type))) { const {error}=await supabase.from('finance_balanco').delete().eq('competencia_date',batch.competencia_date); if(error)throw error }
+      const {error}=await supabase.from('finance_import_batches').delete().eq('id',batch.id); if(error)throw error
+      setMessage({type:'success',text:`Pacote de ${label} excluído com segurança.`}); await loadHistory()
+    } catch(error) { setMessage({type:'error',text:error.message || 'Não foi possível excluir o pacote.'}) }
+    finally { setDeletingBatch('') }
+  }
+
   return <div className="import-shell">
     <Topbar title="Importar fechamento" subtitle="Arquive e organize os relatórios mensais do Financeiro" />
     <main className="import-page">
@@ -166,8 +197,8 @@ export default function ImportarFechamento() {
 
       <section className="import-process"><div><IconPlayerPlay size={23}/><div><span>ETAPA 2</span><strong>Processar os arquivos recebidos</strong><p>O sistema lê somente os relatórios disponíveis e preserva as demais informações da competência.</p></div></div><button className="btn btn-primary" disabled={processing || !currentBatch?.finance_import_files?.length || Object.keys(files).length>0} onClick={analyzeBatch}>{processing?<><IconLoader2 className="spin" size={18}/> Analisando…</>:<><IconEye size={18}/> Conferir antes de processar</>}</button></section>
 
-      <section className="import-history"><header><div><IconHistory size={20}/><div><span>HISTÓRICO</span><h2>Fechamentos recebidos</h2></div></div><button onClick={loadHistory}><IconRefresh size={16}/> Atualizar</button></header>{loading ? <div className="import-empty"><IconLoader2 className="spin"/> Carregando histórico…</div> : history.length ? <div className="import-history-list">{history.map(batch => { const count = batch.finance_import_files?.length || 0, done=batch.status==='concluido'; return <div key={batch.id}><time>{MONTHS[Number(batch.competencia_date.slice(5, 7)) - 1]} <b>{batch.competencia_date.slice(0, 4)}</b></time><span><i className={done ? 'processed' : count === REPORTS.length ? 'complete' : ''}/>{done ? `${count} ${count===1?'relatório processado':'relatórios processados'}` : `${count} ${count===1?'relatório recebido':'relatórios recebidos'}`}</span><small>Atualizado em {new Date(batch.updated_at).toLocaleDateString('pt-BR')}</small></div> })}</div> : <div className="import-empty">Nenhum pacote enviado por esta central ainda.</div>}</section>
+      <section className="import-history"><header><div><IconHistory size={20}/><div><span>HISTÓRICO</span><h2>Fechamentos recebidos</h2></div></div><button onClick={loadHistory}><IconRefresh size={16}/> Atualizar</button></header>{loading ? <div className="import-empty"><IconLoader2 className="spin"/> Carregando histórico…</div> : history.length ? <div className="import-history-list">{history.map(batch => { const count = batch.finance_import_files?.length || 0, done=batch.status==='concluido'; return <div key={batch.id}><time>{MONTHS[Number(batch.competencia_date.slice(5, 7)) - 1]} <b>{batch.competencia_date.slice(0, 4)}</b></time><span><i className={done ? 'processed' : count === REPORTS.length ? 'complete' : ''}/>{done ? `${count} ${count===1?'relatório processado':'relatórios processados'}` : batch.status==='erro'?'Pacote com erro':`${count} ${count===1?'relatório recebido':'relatórios recebidos'}`}</span><small>Atualizado em {new Date(batch.updated_at).toLocaleDateString('pt-BR')}</small><button className="import-delete-batch" disabled={deletingBatch===batch.id} onClick={()=>deleteBatch(batch)}><IconTrash size={15}/>{deletingBatch===batch.id?'Excluindo…':'Excluir'}</button></div> })}</div> : <div className="import-empty">Nenhum pacote enviado por esta central ainda.</div>}</section>
     </main>
-    {preview&&<div className="import-modal-backdrop"><section className="import-preview"><header><div><span>CONFERÊNCIA</span><h2>{MONTHS[month-1]} de {year}</h2><p>Nenhum dado será gravado até você confirmar.</p></div><button onClick={()=>setPreview(null)}><IconX/></button></header>{preview.results.map(({file,result})=><article key={file.id}><div><IconCheck size={18}/><div><strong>{result.title}</strong><small>{file.file_name}</small></div></div><dl>{result.metrics.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{typeof value==='number'&&label!=='Contas detalhadas'&&label!=='Contas identificadas'&&label!=='Meses identificados'&&label!=='Ciclo de caixa'?value.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):value}</dd></div>)}</dl></article>)}{preview.errors.length>0&&<div className="import-preview-errors"><strong>Arquivos que precisam de revisão</strong>{preview.errors.map(error=><p key={error}>{error}</p>)}</div>}<footer><button className="btn btn-ghost" onClick={()=>setPreview(null)}>Voltar</button><button className="btn btn-primary" disabled={processing||!preview.results.length} onClick={confirmProcessing}>{processing?<><IconLoader2 className="spin" size={18}/> Processando…</>:<><IconCheck size={18}/> Confirmar e atualizar apresentação</>}</button></footer></section></div>}
+    {preview&&<div className="import-modal-backdrop"><section className="import-preview"><header><div><span>CONFERÊNCIA</span><h2>{MONTHS[month-1]} de {year}</h2><p>Nenhum dado será gravado até você confirmar.</p></div><button onClick={()=>setPreview(null)}><IconX/></button></header>{preview.results.map(({file,result})=><article key={file.id}><div><IconCheck size={18}/><div><strong>{result.title}</strong><small>{file.file_name}</small></div></div><dl>{result.metrics.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{typeof value==='number'&&label!=='Contas detalhadas'&&label!=='Contas identificadas'&&label!=='Meses identificados'&&label!=='Ciclo de caixa'?value.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):value}</dd></div>)}</dl></article>)}{preview.errors.length>0&&<div className="import-preview-errors"><strong>Processamento bloqueado</strong>{preview.errors.map(error=><p key={error}>{error}</p>)}</div>}<footer><button className="btn btn-ghost" onClick={()=>setPreview(null)}>Voltar</button><button className="btn btn-primary" disabled={processing||!preview.results.length||preview.errors.length>0} onClick={confirmProcessing}>{processing?<><IconLoader2 className="spin" size={18}/> Processando…</>:<><IconCheck size={18}/> Confirmar e atualizar apresentação</>}</button></footer></section></div>}
   </div>
 }
