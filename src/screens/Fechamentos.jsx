@@ -30,6 +30,7 @@ const shortMoney = value => {
 const pct = value => `${number(value).toFixed(1).replace('.', ',')}%`
 const variation = (current, previous) => previous ? (current - previous) / Math.abs(previous) * 100 : current ? 100 : 0
 const sanitizeName = value => String(value).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-|-$/g, '').toLowerCase()
+const normalizeClientName = value => String(value || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 const iso = date => date.toISOString().slice(0, 10)
 const commercialSellerKey = row => row.ultra_salesman_id ? `ultra:${row.ultra_salesman_id}` : row.seller_id
 
@@ -164,6 +165,7 @@ function CommercialSlides({ data, financial, period, previousLabel, generatedAt,
   const newClientIds = new Set(cur.newClientIds)
   const reactivatedClients = cur.clientIds.filter(id => !previousClientIds.has(id) && !newClientIds.has(id)).length
   const inactiveClients = prev.clientIds.filter(id => !currentClientIds.has(id)).length
+  const forgottenHistoricalValue = cur.forgottenClients.reduce((sum, client) => sum + client.historicalValue, 0)
   return [
     <Cover key="cover" type="comercial" period={period} previousLabel={previousLabel} generatedAt={generatedAt} total={total} editor={editor} />,
     <Slide key="summary" page={2} total={total} tone="dark" className="deck-thesis">
@@ -208,9 +210,11 @@ function CommercialSlides({ data, financial, period, previousLabel, generatedAt,
       <div className="deck-client-bars">{cur.clients.slice(0, 7).map((client, index) => <div key={client.name}><b>{String(index + 1).padStart(2, '0')}</b><span>{client.name}</span><i><em style={{ width: `${client.value / maxClient * 100}%` }} /></i><strong>{shortMoney(client.value)}</strong><small>{pct(client.share)}</small></div>)}</div>
     </Slide>,
     <Slide key="client-health" page={8} total={total}>
-      <SlideTitle eyebrow="SAÚDE DA CARTEIRA" aside="recência de pedidos" editKey="comercial.client_health.title" editor={editor}>Novos e recorrentes ampliam a base; clientes esquecidos exigem retomada.</SlideTitle>
-      <MetricStrip items={[{ label: 'Clientes novos', value: enteredClients, note: 'primeira venda no histórico' }, { label: 'Reativados', value: reactivatedClients, note: `voltaram após o ${comparisonNoun}` }, { label: 'Recorrentes', value: retainedClients, note: 'faturaram nos dois períodos' }, { label: 'Sem recorrência', value: inactiveClients, note: 'faturaram antes, mas não agora' }]} />
-      <div className="deck-forgotten-head"><span>Cliente sem pedido no período</span><span>Último pedido</span><span>Tempo sem pedir</span></div><div className="deck-forgotten-list">{cur.forgottenClients.slice(0,7).map((client,index)=><div key={client.key}><b>{String(index+1).padStart(2,'0')}</b><span><strong>{client.name}</strong><small>prioridade por maior tempo sem pedido</small></span><span>{new Date(`${client.lastOrder}T12:00:00`).toLocaleDateString('pt-BR')}</span><strong>{client.age} dias</strong></div>)}</div>
+      <SlideTitle eyebrow="SAÚDE E RETENÇÃO DA CARTEIRA" aside="recência + valor histórico" editKey="comercial.client_health.title" editor={editor}>{cur.forgottenClients.length ? `${shortMoney(forgottenHistoricalValue)} já foram comprados por clientes sem pedido no período.` : 'A carteira não possui clientes históricos sem pedido no período.'}</SlideTitle>
+      <MetricStrip items={[{ label: 'Clientes novos', value: enteredClients, note: 'primeira compra no histórico' }, { label: 'Reativados', value: reactivatedClients, note: `voltaram após o ${comparisonNoun}` }, { label: 'Recorrentes', value: retainedClients, note: 'compraram nos dois períodos' }, { label: 'Saíram no período', value: inactiveClients, note: `compraram no ${comparisonNoun}` }]} />
+      <div className="deck-forgotten-summary"><div><span>PRIORIDADES DE RETOMADA</span><strong>{cur.forgottenClients.length} clientes sem pedido</strong></div><p>Ordenados pelo total histórico comprado, com a recência como contexto para a abordagem comercial.</p></div>
+      <div className="deck-forgotten-head"><span>Cliente</span><span>Total já comprado</span><span>Último pedido</span><span>Sem comprar</span></div><div className="deck-forgotten-list">{cur.forgottenClients.slice(0,6).map((client,index)=><div key={client.key}><b>{String(index+1).padStart(2,'0')}</b><span><strong>{client.name}</strong><small>{index < 3 ? 'prioridade alta pelo histórico' : 'oportunidade de retomada'}</small></span><strong>{shortMoney(client.historicalValue)}</strong><span>{new Date(`${client.lastOrder}T12:00:00`).toLocaleDateString('pt-BR')}</span><em>{client.age} dias</em></div>)}</div>
+      <div className="deck-forgotten-note">Total comprado considera o faturamento líquido acumulado disponível desde janeiro de 2026.</div>
     </Slide>,
     <Slide key="products" page={9} total={total} tone="dark">
       <SlideTitle eyebrow="MIX DE PRODUTOS" aside="faturamento líquido" editKey="comercial.products.title" editor={editor}>Produtos que formaram o faturamento líquido do período.</SlideTitle>
@@ -481,6 +485,15 @@ function aggregateCommercialPeriod(bounds, range, ctx) {
     if (!firstBillingByClient.has(row.partner_id) || row.issue_date < firstBillingByClient.get(row.partner_id)) firstBillingByClient.set(row.partner_id, row.issue_date)
   })
   const newClientIds = clientIds.filter(id => firstBillingByClient.get(id) >= startIso && firstBillingByClient.get(id) <= endIso)
+  const lifetimeBillingByClient = new Map()
+  const lifetimeBillingByName = new Map()
+  ctx.docs.filter(row => row.issue_date && row.issue_date <= endIso).forEach(row => {
+    const value = fiscalDocumentValue(row)
+    const farmId = ctx.farmByPartner.get(number(row.partner_id))?.id
+    const nameKey = normalizeClientName(row.partner_name)
+    if (farmId) lifetimeBillingByClient.set(farmId, (lifetimeBillingByClient.get(farmId) || 0) + value)
+    if (nameKey) lifetimeBillingByName.set(nameKey, (lifetimeBillingByName.get(nameKey) || 0) + value)
+  })
   const currentOrderClients = new Set(periodOrders.map(row => row.farm_id || row.customer_name).filter(Boolean))
   const lastOrderByClient = new Map()
   ctx.orders.filter(row => row.sale_date && row.sale_date <= endIso && hasNetOrderValue(row)).forEach(row => {
@@ -489,7 +502,11 @@ function aggregateCommercialPeriod(bounds, range, ctx) {
     const previous = lastOrderByClient.get(key)
     if (!previous || row.sale_date > previous.lastOrder) lastOrderByClient.set(key, { key, name: row.customer_name || 'Cliente não identificado', lastOrder: row.sale_date })
   })
-  const forgottenClients = [...lastOrderByClient.values()].filter(row => !currentOrderClients.has(row.key)).map(row => ({ ...row, age: Math.max(0, Math.floor((range.end-new Date(`${row.lastOrder}T12:00:00`))/86400000)) })).sort((a,b)=>b.age-a.age)
+  const forgottenClients = [...lastOrderByClient.values()].filter(row => !currentOrderClients.has(row.key)).map(row => ({
+    ...row,
+    age: Math.max(0, Math.floor((range.end-new Date(`${row.lastOrder}T12:00:00`))/86400000)),
+    historicalValue: Math.max(lifetimeBillingByClient.get(row.key) || lifetimeBillingByName.get(normalizeClientName(row.name)) || 0, 0),
+  })).sort((a,b)=>b.historicalValue-a.historicalValue || b.age-a.age)
 
   return {
     ordersValue, billing, goal, returns, billedClients, clientIds, newClientIds, newClientCount: newClientIds.length,
