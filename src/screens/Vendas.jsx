@@ -29,7 +29,7 @@ const dateBR = value => value
   ? new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR')
   : '—'
 
-const sellerKey = row => row.seller_id || (row.ultra_salesman_id ? `ultra:${row.ultra_salesman_id}` : null)
+const sellerKey = row => row.ultra_salesman_id ? `ultra:${row.ultra_salesman_id}` : row.seller_id
 
 const currentMonth = () => {
   const now = new Date()
@@ -73,6 +73,7 @@ export default function Vendas() {
   const [orders, setOrders] = useState([])
   const [documents, setDocuments] = useState([])
   const [portfolio, setPortfolio] = useState([])
+  const [goals, setGoals] = useState([])
   const [orderItems, setOrderItems] = useState({})
   const [expandedOrder, setExpandedOrder] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -111,24 +112,33 @@ export default function Vendas() {
       portfolioQuery = portfolioQuery.eq(field, value)
     }
 
-    const [ordersResult, fiscalResult, portfolioResult] = await Promise.all([
+    let goalsQuery = supabase.from('goals').select('meta_fat,seller_id,ultra_salesman_id').eq('ano', Number(month.slice(0,4))).eq('mes', Number(month.slice(5,7)))
+    if (seller !== 'todos') {
+      const isUltraSeller = seller.startsWith('ultra:')
+      goalsQuery = goalsQuery.eq(isUltraSeller ? 'ultra_salesman_id' : 'seller_id', isUltraSeller ? Number(seller.slice(6)) : seller)
+    }
+
+    const [ordersResult, fiscalResult, portfolioResult, goalsResult] = await Promise.all([
       ordersQuery,
       fiscalQuery,
       portfolioQuery,
+      goalsQuery,
     ])
 
-    const failure = ordersResult.error || fiscalResult.error || portfolioResult.error
+    const failure = ordersResult.error || fiscalResult.error || portfolioResult.error || goalsResult.error
     if (failure) {
       console.error('Falha ao carregar gestão comercial:', failure)
       setError('Não foi possível atualizar os indicadores. Tente novamente.')
       setOrders([])
       setDocuments([])
       setPortfolio([])
+      setGoals([])
       setOrderItems({})
     } else {
       setOrders(ordersResult.data || [])
       setDocuments(fiscalResult.data || [])
       setPortfolio(portfolioResult.data || [])
+      setGoals(goalsResult.data || [])
       const orderIds = (ordersResult.data || []).map(row => row.id).filter(Boolean)
       if (orderIds.length) {
         const linksResult = await supabase
@@ -173,6 +183,17 @@ export default function Vendas() {
     const grossBilling = salesDocs.reduce((sum, row) => sum + Number(row.document_total || 0), 0)
     const returns = returnDocs.reduce((sum, row) => sum + Math.abs(Number(row.document_total || 0)), 0)
     const openValue = portfolio.reduce((sum, row) => sum + Number(row.open_value || 0), 0)
+    const goal = goals.reduce((sum,row)=>sum+Number(row.meta_fat||0),0)
+    const [selectedYear,selectedMonth]=month.split('-').map(Number)
+    const today=new Date()
+    const daysInMonth=new Date(selectedYear,selectedMonth,0).getDate()
+    const isCurrent=selectedYear===today.getFullYear()&&selectedMonth===today.getMonth()+1
+    const isFuture=new Date(selectedYear,selectedMonth-1,1)>new Date(today.getFullYear(),today.getMonth(),1)
+    const elapsedDays=isCurrent?Math.max(today.getDate(),1):isFuture?0:daysInMonth
+    const remainingDays=isCurrent?Math.max(daysInMonth-today.getDate(),0):isFuture?daysInMonth:0
+    const dailyPace=elapsedDays?generated/elapsedDays:0
+    const projected=isCurrent?dailyPace*daysInMonth:isFuture?0:generated
+    const requiredPace=remainingDays?Math.max(goal-generated,0)/remainingDays:0
 
     return {
       generated,
@@ -185,8 +206,9 @@ export default function Vendas() {
       returns,
       netBilling: grossBilling - returns,
       openValue,
+      goal, dailyPace, projected, requiredPace, remainingDays, isCurrent,
     }
-  }, [orders, documents, portfolio])
+  }, [orders, documents, portfolio, goals, month])
 
   const dailySeries = useMemo(() => {
     const [, end] = monthRange(month)
@@ -275,6 +297,13 @@ export default function Vendas() {
           <Metric icon={IconRotateClockwise} label="Devoluções" value={money(summary.returns)} note={`${summary.reversedCount} pedido(s) totalmente estornado(s)`} tone="red" />
           <Metric icon={IconCash} label="Faturamento líquido" value={money(summary.netBilling)} note="Vendas menos devoluções" tone="ink" />
           <Metric icon={IconPackage} label="Carteira em aberto" value={money(summary.openValue)} note={`${portfolio.length} pedido(s) com saldo`} tone="amber" />
+        </section>
+
+        <section className="commerce-forecast">
+          <div className="commerce-forecast-main"><span>{summary.isCurrent?'Previsão de fechamento':'Fechamento realizado'}</span><strong>{money(summary.projected)}</strong><p>{summary.isCurrent?'Projeção linear pelo ritmo de pedidos líquidos da competência.':'Competência encerrada; valor final de pedidos líquidos.'}</p><i><em style={{width:`${Math.min(summary.goal?summary.projected/summary.goal*100:0,100)}%`}}/></i><small>{summary.goal?`${(summary.projected/summary.goal*100).toFixed(1)}% da meta ${summary.isCurrent?'projetados':'realizados'}`:'Meta não cadastrada'}</small></div>
+          <div><span>Meta de pedidos</span><strong>{summary.goal?money(summary.goal):'—'}</strong><small>competência selecionada</small></div>
+          <div><span>Ritmo atual</span><strong>{money(summary.dailyPace)}</strong><small>por dia corrido</small></div>
+          <div><span>Ritmo necessário</span><strong>{summary.remainingDays?money(summary.requiredPace):'—'}</strong><small>{summary.remainingDays?`${summary.remainingDays} dias restantes`:'competência encerrada'}</small></div>
         </section>
 
         <section className="commerce-panel commerce-daily-chart">
