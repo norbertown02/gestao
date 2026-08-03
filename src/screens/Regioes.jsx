@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import { fiscalDocumentValue, hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
+import { CURRENT_MONTH, CURRENT_YEAR, historyStart, monthOptions, periodRange, previousPeriodRange, yearOptions } from '../lib/commercialPeriod'
 import {
   IconAlertTriangle,
   IconBuildingStore,
@@ -61,29 +62,6 @@ function pct(atual, anterior) {
 
 function toISO(d) {
   return d.toISOString().split('T')[0]
-}
-
-function periodoRange(periodo) {
-  const hoje = new Date()
-  const ano = hoje.getFullYear()
-  const mes = hoje.getMonth()
-
-  if (periodo === 'mes') return [new Date(ano, mes, 1), hoje]
-  if (periodo === 'trimestre') return [new Date(ano, mes - 2, 1), hoje]
-  if (periodo === 'semestre') return [new Date(ano, mes - 5, 1), hoje]
-
-  return [new Date(ano, 0, 1), hoje]
-}
-
-function periodoAnterior(periodo) {
-  const [ini, fim] = periodoRange(periodo)
-  const diff = fim.getTime() - ini.getTime()
-  const fimAnt = new Date(ini)
-  fimAnt.setDate(fimAnt.getDate() - 1)
-
-  const iniAnt = new Date(fimAnt.getTime() - diff)
-
-  return [iniAnt, fimAnt]
 }
 
 function diasDesde(data) {
@@ -180,6 +158,8 @@ function Empty({ children = 'Sem dados para exibir' }) {
 export default function Regioes() {
   const svgRef = useRef(null)
   const [periodo, setPeriodo] = useState('mes')
+  const [mesReferencia, setMesReferencia] = useState(CURRENT_MONTH)
+  const [anoReferencia, setAnoReferencia] = useState(CURRENT_YEAR)
   const [segmento, setSegmento] = useState('todos')
   const [farms, setFarms] = useState([])
   const [sales, setSales] = useState([])
@@ -210,7 +190,7 @@ export default function Regioes() {
 
   useEffect(() => {
     carregarPeriodo()
-  }, [periodo])
+  }, [periodo, mesReferencia, anoReferencia])
 
   async function carregarBase() {
     const { data } = await supabaseAdmin
@@ -224,11 +204,9 @@ export default function Regioes() {
     setLoading(true)
 
     try {
-      const [ini, fim] = periodoRange(periodo)
-      const [iniAnt, fimAnt] = periodoAnterior(periodo)
-      const histIni = new Date()
-      histIni.setMonth(histIni.getMonth() - 5)
-      histIni.setDate(1)
+      const [ini, fim] = periodRange(periodo, anoReferencia, mesReferencia)
+      const [iniAnt, fimAnt] = previousPeriodRange(periodo, anoReferencia, mesReferencia)
+      const histIni = historyStart(anoReferencia, mesReferencia)
 
       const fiscalSelect = 'issue_date,document_total,movement_type,partner_id,fiscal_document_items(product_name,product_total)'
       const [rSales, rSalesAnt, rDocs, rDocsAnt, rDocsHist, rVisits, rQuotes] = await Promise.all([
@@ -236,7 +214,7 @@ export default function Regioes() {
         supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(iniAnt)).lte('sale_date', toISO(fimAnt)),
         supabaseAdmin.from('fiscal_documents').select(fiscalSelect).gte('issue_date', toISO(ini)).lte('issue_date', toISO(fim)),
         supabaseAdmin.from('fiscal_documents').select(fiscalSelect).gte('issue_date', toISO(iniAnt)).lte('issue_date', toISO(fimAnt)),
-        supabaseAdmin.from('fiscal_documents').select(fiscalSelect).gte('issue_date', toISO(histIni)).lte('issue_date', toISO(new Date())),
+        supabaseAdmin.from('fiscal_documents').select(fiscalSelect).gte('issue_date', toISO(histIni)).lte('issue_date', toISO(fim)),
         supabaseAdmin.from('visits').select('*').gte('visit_date', toISO(ini)).lte('visit_date', toISO(fim)),
         supabaseAdmin.from('quotes').select('*').gte('created_at', `${toISO(ini)}T00:00:00`).lte('created_at', `${toISO(fim)}T23:59:59`),
       ])
@@ -649,10 +627,18 @@ export default function Regioes() {
             </div>
 
             <select value={periodo} onChange={e => setPeriodo(e.target.value)}>
-              <option value="mes">Mês atual</option>
+              <option value="mes">Mês</option>
               <option value="trimestre">Trimestre</option>
               <option value="semestre">Semestre</option>
               <option value="ano">Ano</option>
+            </select>
+
+            <select aria-label="Mês de referência" value={mesReferencia} onChange={e => setMesReferencia(Number(e.target.value))}>
+              {monthOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+
+            <select aria-label="Ano de referência" value={anoReferencia} onChange={e => setAnoReferencia(Number(e.target.value))}>
+              {yearOptions.map(value => <option key={value} value={value}>{value}</option>)}
             </select>
 
             <select value={segmento} onChange={e => setSegmento(e.target.value)}>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import Topbar from '../components/Topbar'
+import { CURRENT_MONTH, CURRENT_YEAR, historyStart, monthOptions, periodRange, previousPeriodRange, yearOptions } from '../lib/commercialPeriod'
 import {
   IconAlertTriangle,
   IconBuildingStore,
@@ -64,29 +65,6 @@ function pct(atual, anterior) {
   if (b === 0) return 100
 
   return ((a - b) / b) * 100
-}
-
-function periodoRange(periodo) {
-  const hoje = new Date()
-  const ano = hoje.getFullYear()
-  const mes = hoje.getMonth()
-
-  if (periodo === 'mes') return [new Date(ano, mes, 1), hoje]
-  if (periodo === 'trimestre') return [new Date(ano, mes - 2, 1), hoje]
-  if (periodo === 'semestre') return [new Date(ano, mes - 5, 1), hoje]
-
-  return [new Date(ano, 0, 1), hoje]
-}
-
-function periodoAnterior(periodo) {
-  const [ini, fim] = periodoRange(periodo)
-  const diff = fim.getTime() - ini.getTime()
-  const fimAnt = new Date(ini)
-  fimAnt.setDate(fimAnt.getDate() - 1)
-
-  const iniAnt = new Date(fimAnt.getTime() - diff)
-
-  return [iniAnt, fimAnt]
 }
 
 function diasDesde(data) {
@@ -178,6 +156,8 @@ function Empty({ children = 'Sem dados para exibir' }) {
 
 export default function Vendedores() {
   const [periodo, setPeriodo] = useState('ano')
+  const [mesReferencia, setMesReferencia] = useState(CURRENT_MONTH)
+  const [anoReferencia, setAnoReferencia] = useState(CURRENT_YEAR)
   const [segmento, setSegmento] = useState('todos')
   const [sellers, setSellers] = useState([])
   const [farms, setFarms] = useState([])
@@ -203,7 +183,7 @@ export default function Vendedores() {
     // eslint-disable-next-line react-hooks/immutability
     carregarPeriodo()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodo])
+  }, [periodo, mesReferencia, anoReferencia])
 
   async function carregarBase() {
     const [rSellers, rFarms] = await Promise.all([
@@ -219,9 +199,9 @@ export default function Vendedores() {
     setLoading(true)
 
     try {
-      const [ini, fim] = periodoRange(periodo)
-      const [iniAnt, fimAnt] = periodoAnterior(periodo)
-      const histIni = new Date(new Date().getFullYear() - 1, new Date().getMonth() + 1, 1)
+      const [ini, fim] = periodRange(periodo, anoReferencia, mesReferencia)
+      const [iniAnt, fimAnt] = previousPeriodRange(periodo, anoReferencia, mesReferencia)
+      const histIni = historyStart(anoReferencia, mesReferencia, 12)
 
       const [
         salesAtual,
@@ -530,10 +510,18 @@ export default function Vendedores() {
             </div>
 
             <select value={periodo} onChange={e => setPeriodo(e.target.value)}>
-              <option value="mes">Mês atual</option>
+              <option value="mes">Mês</option>
               <option value="trimestre">Trimestre</option>
               <option value="semestre">Semestre</option>
               <option value="ano">Ano</option>
+            </select>
+
+            <select aria-label="Mês de referência" value={mesReferencia} onChange={e => setMesReferencia(Number(e.target.value))}>
+              {monthOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+
+            <select aria-label="Ano de referência" value={anoReferencia} onChange={e => setAnoReferencia(Number(e.target.value))}>
+              {yearOptions.map(value => <option key={value} value={value}>{value}</option>)}
             </select>
 
             <select value={segmento} onChange={e => setSegmento(e.target.value)}>

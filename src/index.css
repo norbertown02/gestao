@@ -8553,6 +8553,23 @@ td,
 .goals-tabs button.active { color: #fff; background: #292623; box-shadow: 0 3px 8px rgba(35, 31, 28, .18); }
 .goals-source { align-self: center; padding: 7px 10px; color: #a65018; background: #fff0e4; border: 1px solid #f3d7c2; border-radius: 99px; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
 .goals-year-card { padding: 26px 28px 20px; color: #fff; background: linear-gradient(120deg, #211f1d 0%, #302c29 70%, #413a35 100%); border-radius: 16px; }
+.goals-command { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(250px, .65fr); overflow: hidden; color: #fff; background: linear-gradient(120deg, #211f1d, #37312d); border-radius: 18px; }
+.goals-command-main { padding: 26px 28px 22px; }
+.goals-command .goals-eyebrow { color: #c6bdb5; }
+.goals-command-values { display: flex; align-items: end; gap: 34px; margin-top: 18px; }
+.goals-command-values > div { display: grid; gap: 4px; }
+.goals-command-values small { color: #aaa19a; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.goals-command-values h2 { margin: 0; color: #fff; font: 750 clamp(32px, 4vw, 48px) 'IBM Plex Mono', monospace; letter-spacing: -.07em; }
+.goals-command-values strong { color: #f4a05c; font: 750 25px 'IBM Plex Mono', monospace; letter-spacing: -.05em; }
+.goals-command-progress { height: 8px; margin-top: 22px; overflow: hidden; background: rgba(255,255,255,.13); border-radius: 99px; }
+.goals-command-progress span { display: block; height: 100%; background: linear-gradient(90deg, #df711f, #f5a563); border-radius: inherit; }
+.goals-command-foot { display: flex; justify-content: space-between; gap: 20px; margin-top: 10px; color: #bfb7b0; font-size: 11px; }
+.goals-command-foot strong { color: #fff; }
+.goals-command-side { display: grid; align-content: center; gap: 9px; padding: 26px; background: rgba(255,255,255,.055); border-left: 1px solid rgba(255,255,255,.09); }
+.goals-command-side > strong { color: #fff; font: 750 29px 'IBM Plex Mono', monospace; letter-spacing: -.06em; }
+.goals-command-side small { width: fit-content; padding: 6px 9px; border-radius: 99px; font-size: 10px; font-weight: 700; }
+.goals-command-side small.on-track { color: #8bd5ad; background: rgba(58,154,103,.16); }
+.goals-command-side small.attention { color: #ffc28f; background: rgba(232,119,34,.16); }
 .goals-eyebrow { color: #8e9e95; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .goals-year-card .goals-eyebrow { color: #c6bdb5; }
 .goals-year-card h2 { margin: 8px 0 3px; color: #fff; font-family: 'IBM Plex Mono', monospace; font-size: clamp(30px, 4vw, 48px); letter-spacing: -.07em; }
@@ -8564,11 +8581,26 @@ td,
 .goals-progress { height: 5px; margin-top: 18px; overflow: hidden; background: rgba(255,255,255,.14); border-radius: 99px; }
 .goals-progress span { display: block; height: 100%; background: #f08b36; border-radius: inherit; }
 .goals-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.goals-kpis-four { grid-template-columns: repeat(4, 1fr); }
 .goals-kpis article { display: grid; grid-template-columns: 34px 1fr; gap: 2px 12px; align-items: center; padding: 16px 18px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
 .goals-kpis svg { grid-row: 1 / 3; padding: 8px; width: 34px; height: 34px; color: #ce681c; background: #fff0e4; border-radius: 9px; }
 .goals-kpis span { color: var(--text-faint); font-size: 10px; font-weight: 750; text-transform: uppercase; }
 .goals-kpis strong { font: 700 19px 'IBM Plex Mono', monospace; }
 .goals-chart-card, .goals-editor { padding: 20px; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
+.goals-team-table-card { padding: 20px; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
+.goals-team-table { overflow-x: auto; }
+.goals-team-head, .goals-team-table button { display: grid; grid-template-columns: minmax(190px, 1.4fr) repeat(3, minmax(100px, .65fr)) minmax(170px, 1fr); gap: 16px; align-items: center; min-width: 800px; }
+.goals-team-head { padding: 0 12px 9px; color: var(--text-faint); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.goals-team-table button { width: 100%; padding: 11px 12px; color: var(--text); text-align: left; background: transparent; border: 0; border-top: 1px solid var(--line); cursor: pointer; }
+.goals-team-table button:hover { background: #fffaf6; }
+.goals-team-table button > span:not(.goals-team-name):not(.goals-team-attainment) { font: 650 12px 'IBM Plex Mono', monospace; }
+.goals-team-name { display: flex; align-items: center; gap: 10px; }
+.goals-team-name > i { display: grid; place-items: center; flex: 0 0 30px; height: 30px; color: #c65e18; background: #fff0e4; border-radius: 9px; font-size: 11px; font-style: normal; font-weight: 800; }
+.goals-team-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.goals-team-attainment { display: grid; grid-template-columns: 1fr 40px; gap: 9px; align-items: center; }
+.goals-team-attainment > em { overflow: hidden; height: 6px; background: #eee9e4; border-radius: 99px; }
+.goals-team-attainment > em i { display: block; height: 100%; background: linear-gradient(90deg, #ca6119, #ef9856); border-radius: inherit; }
+.goals-team-attainment b { color: #be5917; font: 750 12px 'IBM Plex Mono', monospace; text-align: right; }
 .goals-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .goals-card-head h3 { margin: 4px 0 0; font-size: 17px; }
 .goals-card-head small { color: var(--text-faint); font-size: 11px; }
@@ -8590,6 +8622,9 @@ td,
   .dash-year-strip { grid-template-columns: 1fr 1fr; }
   .goals-toolbar { align-items: stretch; flex-direction: column; }
   .goals-toolbar > div { flex-wrap: wrap; }
+  .goals-command { grid-template-columns: 1fr; }
+  .goals-command-side { border-top: 1px solid rgba(255,255,255,.09); border-left: 0; }
+  .goals-kpis-four { grid-template-columns: 1fr 1fr; }
 }
 
 /* ESTOQUE · MAPA DE CAPACIDADE */
