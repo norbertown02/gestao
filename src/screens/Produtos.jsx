@@ -50,6 +50,10 @@ function fmtK(n) {
   return `R$ ${fmt(v)}`
 }
 
+function fmtPercent(n) {
+  return `${Number(n || 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
+}
+
 function pct(atual, anterior) {
   const a = Number(atual || 0)
   const b = Number(anterior || 0)
@@ -564,8 +568,8 @@ export default function Produtos() {
                       <CartesianGrid strokeDasharray="3 7" vertical={false} />
                       <XAxis dataKey="name" tickLine={false} axisLine={false} angle={-28} textAnchor="end" interval={0} height={70} tick={{ fontSize: 10 }} />
                       <YAxis yAxisId="money" tickLine={false} axisLine={false} tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} />
-                      <YAxis yAxisId="share" orientation="right" domain={[0, 100]} tickLine={false} axisLine={false} tickFormatter={v => `${v}%`} />
-                      <Tooltip formatter={(value, name) => name === 'Acumulado' ? [`${Number(value).toFixed(1)}%`, 'Participação acumulada'] : [`R$ ${fmt(value)}`, 'Faturamento']} />
+                      <YAxis yAxisId="share" orientation="right" domain={[0, 100]} tickLine={false} axisLine={false} tickFormatter={fmtPercent} />
+                      <Tooltip formatter={(value, name) => name === 'Acumulado' ? [fmtPercent(value), 'Participação acumulada'] : [`R$ ${fmt(value)}`, 'Faturamento']} />
                       <Bar yAxisId="money" dataKey="receita" name="Faturamento" fill="var(--orange)" radius={[7, 7, 0, 0]} maxBarSize={34} />
                       <Line yAxisId="share" type="monotone" dataKey="Acumulado" stroke="#292623" strokeWidth={2.5} dot={{ r: 3, fill: '#292623' }} />
                     </ComposedChart>

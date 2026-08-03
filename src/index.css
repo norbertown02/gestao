@@ -5395,6 +5395,13 @@ td,
   font-weight: 560;
 }
 
+.produtos-table-wrap :is(th, td):nth-child(4),
+.produtos-table-wrap :is(th, td):nth-child(5),
+.produtos-table-wrap :is(th, td):nth-child(8) {
+  min-width: 108px;
+  white-space: nowrap;
+}
+
 .produtos-position {
   color: var(--text-faint) !important;
   font-weight: 760 !important;
