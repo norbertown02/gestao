@@ -3,6 +3,7 @@ import { IconArrowLeft, IconCheck, IconClock, IconTargetArrow, IconTrendingUp } 
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { supabaseAdmin } from '../lib/supabase'
 import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
+import { useVendedores } from '../lib/sellers'
 import Topbar from '../components/Topbar'
 
 const money = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -15,6 +16,16 @@ const moneyShort = value => {
 const monthName = month => new Date(2024, month - 1, 1).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
 const sellerKey = row => row.seller_id || (row.ultra_salesman_id ? `ultra:${row.ultra_salesman_id}` : null)
 const goalKey = goal => goal.seller_id || (goal.ultra_salesman_id ? `ultra:${goal.ultra_salesman_id}` : null)
+const buildUltraToProfileId = profiles => new Map(profiles.filter(p => p.ultra_salesman_id).map(p => [p.ultra_salesman_id, p.id]))
+// Uma linha com só ultra_salesman_id (sem seller_id) precisa resolver pra
+// mesma chave do perfil já vinculado àquele vendedor, senão a mesma pessoa
+// aparece "duplicada" -- uma vez pelo uuid do perfil, outra pelo "ultra:<id>".
+const resolveKey = (rawKey, ultraToProfileId) => {
+  if (typeof rawKey === 'string' && rawKey.startsWith('ultra:')) {
+    return ultraToProfileId.get(Number(rawKey.slice(6))) || rawKey
+  }
+  return rawKey
+}
 const CURRENT_YEAR = new Date().getFullYear()
 const CURRENT_MONTH = new Date().getMonth() + 1
 
@@ -29,20 +40,22 @@ export default function Metas() {
   const [loading, setLoading] = useState(true)
   const [editGoals, setEditGoals] = useState({})
   const [saving, setSaving] = useState({})
+  const { vendedores } = useVendedores()
 
   useEffect(() => {
     async function load() {
       setLoading(true)
       const [profilesResult, goalsResult, documentsResult] = await Promise.all([
-        supabaseAdmin.from('profiles').select('id,name,email,role').eq('active', true).order('name'),
-        supabaseAdmin.from('goals').select('*,erp_salesmen(name)').eq('ano', year),
+        supabaseAdmin.from('profiles').select('id,name,email,role,ultra_salesman_id').eq('active', true).order('name'),
+        supabaseAdmin.from('goals').select('*').eq('ano', year),
         supabaseAdmin.from('management_order_overview').select('sale_date,order_value,order_stage,fiscal_returned_value,seller_id,ultra_salesman_id,ultra_salesman_name').gte('sale_date', `${year}-01-01`).lte('sale_date', `${year}-12-31`),
       ])
       setSellers(profilesResult.data || [])
       setGoals(goalsResult.data || [])
       setDocuments(documentsResult.data || [])
+      const ultraToProfileId = buildUltraToProfileId(profilesResult.data || [])
       const values = {}
-      ;(goalsResult.data || []).filter(goal => goal.mes === month).forEach(goal => { values[goalKey(goal)] = goal.meta_fat })
+      ;(goalsResult.data || []).filter(goal => goal.mes === month).forEach(goal => { values[resolveKey(goalKey(goal), ultraToProfileId)] = goal.meta_fat })
       setEditGoals(values)
       setLoading(false)
     }
@@ -51,19 +64,18 @@ export default function Metas() {
 
   const data = useMemo(() => {
     const profileMap = new Map(sellers.map(seller => [seller.id, seller]))
-    const sellerMap = new Map()
-    goals.forEach(goal => {
-      const key = goalKey(goal)
-      if (key && !sellerMap.has(key)) sellerMap.set(key, goal.erp_salesmen?.name || profileMap.get(key)?.name || profileMap.get(key)?.email || 'Vendedor')
-    })
-    documents.forEach(doc => {
-      const key = sellerKey(doc)
-      if (key && !sellerMap.has(key)) sellerMap.set(key, doc.ultra_salesman_name || 'Vendedor não vinculado')
-    })
-
-    const sellerOptions = [...sellerMap.entries()].sort((a, b) => a[1].localeCompare(b[1]))
-    const filteredDocs = selectedSeller === 'todos' ? documents : documents.filter(doc => sellerKey(doc) === selectedSeller)
-    const filteredGoals = selectedSeller === 'todos' ? goals : goals.filter(goal => goalKey(goal) === selectedSeller)
+    // Só existe vendedor que vem do Ultra: a lista de opções (e quem aparece
+    // pra definir/acompanhar meta) é sempre a lista canônica -- não emerge
+    // mais de quem já tem meta ou pedido lançado, então um vendedor novo já
+    // aparece pra receber meta antes da primeira venda.
+    const ultraToProfileId = new Map(sellers.filter(s => s.ultra_salesman_id).map(s => [s.ultra_salesman_id, s.id]))
+    const sellerOptions = vendedores
+      .map(v => [ultraToProfileId.get(v.id) || `ultra:${v.id}`, v.name])
+      .sort((a, b) => a[1].localeCompare(b[1]))
+    const docKey = doc => resolveKey(sellerKey(doc), ultraToProfileId)
+    const goalRowKey = goal => resolveKey(goalKey(goal), ultraToProfileId)
+    const filteredDocs = selectedSeller === 'todos' ? documents : documents.filter(doc => docKey(doc) === selectedSeller)
+    const filteredGoals = selectedSeller === 'todos' ? goals : goals.filter(goal => goalRowKey(goal) === selectedSeller)
     const months = Array.from({ length: 12 }, (_, index) => {
       const value = index + 1
       const realized = filteredDocs.filter(doc => Number(doc.sale_date?.slice(5, 7)) === value && hasNetOrderValue(doc)).reduce((sum, doc) => sum + netOrderValue(doc), 0)
@@ -78,8 +90,8 @@ export default function Metas() {
     const attainmentYtd = goalYtd ? (realizedYtd / goalYtd) * 100 : 0
 
     const team = sellerOptions.map(([id, name]) => {
-      const realized = documents.filter(doc => sellerKey(doc) === id && Number(doc.sale_date?.slice(5, 7)) === month && hasNetOrderValue(doc)).reduce((sum, doc) => sum + netOrderValue(doc), 0)
-      const goal = goals.filter(item => goalKey(item) === id && item.mes === month).reduce((sum, item) => sum + Number(item.meta_fat || 0), 0)
+      const realized = documents.filter(doc => docKey(doc) === id && Number(doc.sale_date?.slice(5, 7)) === month && hasNetOrderValue(doc)).reduce((sum, doc) => sum + netOrderValue(doc), 0)
+      const goal = goals.filter(item => goalRowKey(item) === id && item.mes === month).reduce((sum, item) => sum + Number(item.meta_fat || 0), 0)
       const remaining = Math.max(0, goal - realized)
       return { id, name, profile: profileMap.get(id), realized, goal, remaining, percent: goal ? (realized / goal) * 100 : 0 }
     }).sort((a, b) => b.percent - a.percent || b.realized - a.realized)
@@ -95,7 +107,7 @@ export default function Metas() {
     const projected = isPast ? current.Realizado : isFuture ? 0 : actualPace * daysInMonth
 
     return { sellerOptions, months, current, realizedYtd, goalYtd, attainmentYtd, team, elapsedDays, remainingDays, actualPace, requiredPace, projected }
-  }, [documents, goals, sellers, selectedSeller, month, year])
+  }, [documents, goals, sellers, vendedores, selectedSeller, month, year])
 
   const years = Array.from({ length: 4 }, (_, index) => CURRENT_YEAR - index)
   const selectedName = selectedSeller === 'todos' ? 'Time comercial' : data.sellerOptions.find(([id]) => id === selectedSeller)?.[1]
@@ -103,11 +115,14 @@ export default function Metas() {
   async function saveGoal(sellerId) {
     const value = Number(String(editGoals[sellerId] || 0).replace(',', '.'))
     setSaving(current => ({ ...current, [sellerId]: true }))
-    const existing = goals.find(goal => goalKey(goal) === sellerId && goal.mes === month)
-    const ultraSalesmanId = sellerId.startsWith('ultra:') ? Number(sellerId.slice(6)) : null
+    const ultraToProfileId = buildUltraToProfileId(sellers)
+    const existing = goals.find(goal => resolveKey(goalKey(goal), ultraToProfileId) === sellerId && goal.mes === month)
+    // Sempre grava o id do Ultra quando dá pra saber (mesmo pra vendedor com
+    // login vinculado), pra meta ficar rastreável ao vendedor canônico.
+    const ultraSalesmanId = sellerId.startsWith('ultra:') ? Number(sellerId.slice(6)) : sellers.find(s => s.id === sellerId)?.ultra_salesman_id || null
     const result = existing
       ? await supabaseAdmin.from('goals').update({ meta_fat: value, updated_at: new Date().toISOString() }).eq('id', existing.id).select().single()
-      : await supabaseAdmin.from('goals').insert({ seller_id: ultraSalesmanId ? null : sellerId, ultra_salesman_id: ultraSalesmanId, ano: year, mes: month, meta_fat: value }).select().single()
+      : await supabaseAdmin.from('goals').insert({ seller_id: sellerId.startsWith('ultra:') ? null : sellerId, ultra_salesman_id: ultraSalesmanId, ano: year, mes: month, meta_fat: value }).select().single()
     if (result.data) setGoals(current => existing ? current.map(goal => goal.id === existing.id ? result.data : goal) : [...current, result.data])
     setSaving(current => ({ ...current, [sellerId]: false }))
   }

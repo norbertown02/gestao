@@ -16,6 +16,7 @@ import {
 import { supabase } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import { fiscalDocumentValue, hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
+import { useVendedores } from '../lib/sellers'
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 const money = value => Number(value || 0).toLocaleString('pt-BR', {
@@ -28,8 +29,6 @@ const integer = value => Number(value || 0).toLocaleString('pt-BR')
 const dateBR = value => value
   ? new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR')
   : '—'
-
-const sellerKey = row => row.ultra_salesman_id ? `ultra:${row.ultra_salesman_id}` : row.seller_id
 
 const currentMonth = () => {
   const now = new Date()
@@ -164,14 +163,13 @@ export default function Vendas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, seller])
 
-  const sellers = useMemo(() => {
-    const map = new Map()
-    ;[...orders, ...documents, ...portfolio].forEach(row => {
-      const key = sellerKey(row)
-      if (key) map.set(key, row.ultra_salesman_name || row.salesman_name || 'Vendedor')
-    })
-    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
-  }, [orders, documents, portfolio])
+  // Só existe vendedor que vem do Ultra: o filtro passa a listar sempre a
+  // lista canônica (erp_vendedores), não só quem teve pedido/documento no
+  // mês selecionado -- assim um vendedor sem movimento ainda aparece.
+  const { vendedores } = useVendedores()
+  const sellers = useMemo(() => (
+    vendedores.map(v => [`ultra:${v.id}`, v.name]).sort((a, b) => a[1].localeCompare(b[1]))
+  ), [vendedores])
 
   const summary = useMemo(() => {
     const validOrders = orders.filter(hasNetOrderValue)

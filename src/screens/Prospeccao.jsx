@@ -16,18 +16,23 @@ function fmtK(n) { if(n>=1000000) return `R$ ${(n/1000000).toFixed(1)}M`; if(n>=
 
 export default function Prospeccao() {
   const navigate = useNavigate()
-  const { seller } = useAuth()
+  // useAuth() nunca expõe "seller" (só user/loading/error/login/logout/showSplash)
+  // -- isso deixava seller?.id sempre undefined e o filtro de "minhas
+  // cotações" quebrado. O id de quem está logado é user.id (auth.uid()),
+  // que é o mesmo valor gravado em quotes.seller_id.
+  const { user } = useAuth()
   const [quotes, setQuotes] = useState([])
   const [farms, setFarms] = useState([])
   const [loading, setLoading] = useState(true)
   const [filtro, setFiltro] = useState('todos')
 
-  useEffect(() => { carregar() }, [])
+  useEffect(() => { carregar() }, [user])
 
   async function carregar() {
+    if (!user?.id) return
     setLoading(true)
     const [rQuotes, rFarms] = await Promise.all([
-      supabase.from('quotes').select('*').eq('seller_id', seller?.id).order('created_at', {ascending: false}),
+      supabase.from('quotes').select('*').eq('seller_id', user.id).order('created_at', {ascending: false}),
       supabase.from('farms').select('id,name,segment,prospect'),
     ])
     setQuotes(rQuotes.data || [])

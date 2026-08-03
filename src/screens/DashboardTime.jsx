@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase, supabaseAdmin } from '../lib/supabase'
+import { isVendedorValido, useVendedores } from '../lib/sellers'
 import Topbar from '../components/Topbar'
 import { IconUsers, IconRoute, IconClipboardList, IconBuildingStore, IconAlertTriangle, IconCalendar, IconChartPie } from '@tabler/icons-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
@@ -12,8 +13,9 @@ const CORES = ['#F07D1A','#6BA4D9','#E67E47','#D9A4C1','#2f9e44','#e03131','#197
 export default function DashboardTime() {
   const [dados, setDados] = useState(null)
   const [loading, setLoading] = useState(true)
+  const { vendedoresById } = useVendedores()
 
-  useEffect(() => { carregar() }, [])
+  useEffect(() => { carregar() }, [vendedoresById])
 
   async function carregar() {
     setLoading(true)
@@ -34,7 +36,9 @@ export default function DashboardTime() {
       supabaseAdmin.from('appointments').select('*').gte('appointment_date', toISO(hoje)).lte('appointment_date', d7f),
     ])
 
-    const sellers = rSellers.data || []
+    // Só existe vendedor que vem do Ultra: um perfil ativo sem vínculo real
+    // (ex.: um gestor puro) não entra no acompanhamento por vendedor.
+    const sellers = (rSellers.data || []).filter(s => isVendedorValido(s.ultra_salesman_id, vendedoresById))
     const farms = rFarms.data || []
     const visitsMes = rVisitsMes.data || []
     const allVisits = rAllVisits.data || []

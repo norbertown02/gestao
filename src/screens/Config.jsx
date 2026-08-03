@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase, supabaseAdmin } from '../lib/supabase'
+import { useVendedores } from '../lib/sellers'
 import Topbar from '../components/Topbar'
 import { IconPlus, IconTrash, IconEdit, IconCheck, IconX } from '@tabler/icons-react'
 
@@ -109,10 +110,11 @@ function VendedoresSection() {
   const [sellers, setSellers]   = useState([])
   const [loading, setLoading]   = useState(true)
   const [adding, setAdding]     = useState(false)
-  const [form, setForm]         = useState({name:'',email:'',password:'',role:'vendedor'})
-  const [editRole, setEditRole]   = useState(null) // {id, role}
+  const [form, setForm]         = useState({name:'',email:'',password:'',role:'vendedor',ultra_salesman_id:''})
+  const [editRole, setEditRole]   = useState(null) // {id, role, ultra_salesman_id}
   const [saving, setSaving]     = useState(false)
   const [msg, setMsg]           = useState('')
+  const { vendedores, vendedoresById } = useVendedores()
 
   async function load() {
     setLoading(true)
@@ -135,16 +137,28 @@ function VendedoresSection() {
       p_role: form.role,
     })
     if (fnError) { setMsg('Erro: ' + fnError.message); setSaving(false); return }
-    // profiles é populado automaticamente pelo trigger
-    const error = null
-    if (!error) { setMsg('Vendedor cadastrado!'); setForm({name:'',email:'',password:'',role:'vendedor'}); setAdding(false); load() }
-    else setMsg('Erro: '+error.message)
+    // profiles é populado automaticamente pelo trigger. O vínculo com o
+    // vendedor real do Ultra não faz parte do create_user -- só existe
+    // vendedor que vem do Ultra, então isso é sempre um segundo passo
+    // explícito escolhendo da lista canônica, nunca texto livre.
+    if (form.ultra_salesman_id && newUserId) {
+      const { error: linkError } = await supabaseAdmin
+        .from('profiles')
+        .update({ ultra_salesman_id: Number(form.ultra_salesman_id) })
+        .eq('id', newUserId)
+      if (linkError) { setMsg('Usuário criado, mas falhou ao vincular vendedor: ' + linkError.message); setSaving(false); load(); return }
+    }
+    setMsg('Vendedor cadastrado!'); setForm({name:'',email:'',password:'',role:'vendedor',ultra_salesman_id:''}); setAdding(false); load()
     setSaving(false)
   }
 
   async function salvarRole() {
     if (!editRole) return
-    await supabaseAdmin.from('profiles').update({role:editRole.role, name:editRole.name}).eq('id',editRole.id)
+    await supabaseAdmin.from('profiles').update({
+      role: editRole.role,
+      name: editRole.name,
+      ultra_salesman_id: editRole.ultra_salesman_id ? Number(editRole.ultra_salesman_id) : null,
+    }).eq('id',editRole.id)
     setEditRole(null)
     load()
   }
@@ -172,6 +186,12 @@ function VendedoresSection() {
               <option value="gestor">Gestor</option>
               <option value="admin">Admin</option>
             </select>
+            <label style={{fontSize:12,fontWeight:600,color:'var(--text-dim)'}}>Vendedor vinculado (Ultra)</label>
+            <select value={editRole.ultra_salesman_id||''} onChange={e=>setEditRole(p=>({...p,ultra_salesman_id:e.target.value}))} style={{marginTop:4,marginBottom:4,width:'100%'}}>
+              <option value="">— nenhum (não é vendedor) —</option>
+              {vendedores.map(v=><option key={v.id} value={v.id}>{v.name}{v.is_conta_padrao?' — conta padrão':''}</option>)}
+            </select>
+            <div style={{fontSize:11,color:'var(--text-faint)',marginBottom:16}}>Só existe vendedor que vem do Ultra -- essa lista é a mesma que o Ultra reconhece como vendedor real.</div>
             <div style={{display:'flex',gap:8}}>
               <button className="btn btn-primary" style={{flex:1}} onClick={salvarRole}>Salvar</button>
               <button className="btn btn-ghost" style={{flex:1}} onClick={()=>setEditRole(null)}>Cancelar</button>
@@ -195,11 +215,20 @@ function VendedoresSection() {
               <label>Perfil</label>
               <select value={form.role} onChange={e=>setForm(p=>({...p,role:e.target.value}))}>
                 <option value="vendedor">Vendedor</option>
-                <option value="gerente">Gerente</option>
+                <option value="gestor_comercial">Gestor Comercial</option>
+                <option value="gestor">Gestor</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
+            <div className="form-group" style={{gridColumn:'1 / -1'}}>
+              <label>Vendedor vinculado (Ultra)</label>
+              <select value={form.ultra_salesman_id} onChange={e=>setForm(p=>({...p,ultra_salesman_id:e.target.value}))}>
+                <option value="">— nenhum (não é vendedor) —</option>
+                {vendedores.map(v=><option key={v.id} value={v.id}>{v.name}{v.is_conta_padrao?' — conta padrão':''}</option>)}
+              </select>
+            </div>
           </div>
+          <div style={{fontSize:11,color:'var(--text-faint)',marginBottom:10,marginTop:-4}}>Só existe vendedor que vem do Ultra -- essa lista é a mesma que o Ultra reconhece como vendedor real, não dá pra digitar um nome novo aqui.</div>
           {msg && <div style={{marginBottom:10,fontSize:13,color:msg.includes('Erro')?'var(--red)':'var(--green)'}}>{msg}</div>}
           <div style={{display:'flex',gap:8}}>
             <button className="btn btn-primary btn-sm" onClick={addSeller} disabled={saving||!form.name||!form.email||!form.password}>
@@ -211,18 +240,19 @@ function VendedoresSection() {
       )}
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Vendedor (Ultra)</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
-            {loading ? <tr><td colSpan={5} style={{textAlign:'center',color:'var(--text-faint)'}}>Carregando...</td></tr>
+            {loading ? <tr><td colSpan={6} style={{textAlign:'center',color:'var(--text-faint)'}}>Carregando...</td></tr>
               : sellers.map(s=>(
                 <tr key={s.id}>
                   <td style={{fontWeight:500}}>{s.name}</td>
                   <td>{s.email}</td>
                   <td><span className={`pill ${s.role==='admin'?'pill-orange':s.role==='gerente'?'pill-blue':'pill-gray'}`}>{s.role}</span></td>
+                  <td>{s.ultra_salesman_id ? (vendedoresById.get(s.ultra_salesman_id)?.name || <span style={{color:'var(--red)'}}>id {s.ultra_salesman_id} inválido</span>) : <span style={{color:'var(--text-faint)'}}>—</span>}</td>
                   <td><span className={`pill ${s.active?'pill-green':'pill-red'}`}>{s.active?'Ativo':'Inativo'}</span></td>
                   <td style={{display:'flex',gap:6}}>
                     <button className={`btn btn-sm ${s.active?'btn-danger':'btn-ghost'}`} onClick={()=>toggleActive(s.id,!s.active)}>{s.active?'Desativar':'Ativar'}</button>
-                    <button className="btn btn-sm btn-ghost" onClick={()=>setEditRole({id:s.id,role:s.role,name:s.name,email:s.email})}>Editar</button>
+                    <button className="btn btn-sm btn-ghost" onClick={()=>setEditRole({id:s.id,role:s.role,name:s.name,email:s.email,ultra_salesman_id:s.ultra_salesman_id||''})}>Editar</button>
                   </td>
                 </tr>
               ))
