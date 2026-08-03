@@ -4,6 +4,7 @@ import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip,
 import Topbar from '../components/Topbar'
 import { supabaseAdmin } from '../lib/supabase'
 import { fiscalDocumentValue, hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
+import { useVendedores } from '../lib/sellers'
 
 const money = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const shortMoney = value => {
@@ -56,6 +57,7 @@ export default function Dashboard() {
   const [goals, setGoals] = useState([])
   const [portfolio, setPortfolio] = useState([])
   const [loading, setLoading] = useState(true)
+  const { vendedoresById } = useVendedores()
 
   const range = useMemo(() => rangeFor(year, type, index), [year, type, index])
 
@@ -113,7 +115,11 @@ export default function Dashboard() {
     const sellerMap = new Map()
     currentDocs.forEach(doc => {
       const key = doc.seller_id || `ultra:${doc.ultra_salesman_id || 0}`
-      const current = sellerMap.get(key) || { name: doc.salesman_name || 'Sem vendedor', total: 0 }
+      // Só existe vendedor que vem do Ultra: nome só confia na lista
+      // canônica, nunca no texto solto salesman_name (pode vir de um id que
+      // não é vendedor real).
+      const canonico = vendedoresById.get(Number(doc.ultra_salesman_id))
+      const current = sellerMap.get(key) || { name: canonico?.name || 'Sem vendedor', total: 0 }
       current.total += fiscalDocumentValue(doc)
       sellerMap.set(key, current)
     })
@@ -133,7 +139,7 @@ export default function Dashboard() {
       goalGap: goal ? Math.max(0, goal - orderValue) : 0,
       sellerCount: sellerMap.size,
     }
-  }, [sales, documents, goals, portfolio, range])
+  }, [sales, documents, goals, portfolio, range, vendedoresById])
 
   const counts = { ano: 1, semestre: 2, trimestre: 4, bimestre: 6 }
   const labels = { ano: 'Ano completo', semestre: 'Semestre', trimestre: 'Trimestre', bimestre: 'Bimestre' }

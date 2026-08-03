@@ -8,6 +8,7 @@ import Topbar from '../components/Topbar'
 import logo from '../assets/logo-nutrialle.png'
 import { supabaseAdmin } from '../lib/supabase'
 import { fiscalDocumentValue, hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
+import { useVendedores } from '../lib/sellers'
 import './FechamentosFinance.css'
 
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
@@ -413,25 +414,34 @@ function aggregateCommercialPeriod(bounds, range, ctx) {
   const remainingDays = Math.max(0, totalDays - elapsedDays)
   const projectionFactor = remainingDays ? totalDays / elapsedDays : 1
 
+  // Só existe vendedor que vem do Ultra: o nome só vem de um perfil vinculado
+  // ou da lista canônica (ctx.vendedoresById) -- nunca do texto solto
+  // (ultra_salesman_name/salesman_name) de uma linha, que pode vir de um id
+  // que não é vendedor real (ex.: um antigo operador de sistema no Ultra).
+  const resolveSellerName = row => {
+    const profile = ctx.profileById.get(row.seller_id) || ctx.profileByUltra.get(number(row.ultra_salesman_id))
+    if (profile) return profile.name
+    const canonico = ctx.vendedoresById.get(number(row.ultra_salesman_id))
+    if (canonico) return canonico.name
+    return 'Sem vendedor'
+  }
+
   const sellerMap = new Map()
   periodOrders.forEach(row => {
     const key = commercialSellerKey(row)
-    const profile = ctx.profileById.get(row.seller_id) || ctx.profileByUltra.get(number(row.ultra_salesman_id))
-    const entry = sellerMap.get(key) || { key, name: profile?.name || row.ultra_salesman_name || 'Sem vendedor', orders: 0, billing: 0, goal: 0 }
+    const entry = sellerMap.get(key) || { key, name: resolveSellerName(row), orders: 0, billing: 0, goal: 0 }
     entry.orders += netOrderValue(row)
     sellerMap.set(key, entry)
   })
   periodDocs.forEach(row => {
     const key = commercialSellerKey(row)
-    const profile = ctx.profileById.get(row.seller_id) || ctx.profileByUltra.get(number(row.ultra_salesman_id))
-    const entry = sellerMap.get(key) || { key, name: profile?.name || row.salesman_name || 'Sem vendedor', orders: 0, billing: 0, goal: 0 }
+    const entry = sellerMap.get(key) || { key, name: resolveSellerName(row), orders: 0, billing: 0, goal: 0 }
     entry.billing += fiscalDocumentValue(row)
     sellerMap.set(key, entry)
   })
   periodGoals.forEach(goalRow => {
     const key = commercialSellerKey(goalRow)
-    const profile = ctx.profileById.get(goalRow.seller_id) || ctx.profileByUltra.get(number(goalRow.ultra_salesman_id))
-    const entry = sellerMap.get(key) || { key, name: profile?.name || goalRow.erp_salesmen?.name || 'Vendedor', orders: 0, billing: 0, goal: 0 }
+    const entry = sellerMap.get(key) || { key, name: resolveSellerName(goalRow), orders: 0, billing: 0, goal: 0 }
     entry.goal += number(goalRow.meta_fat)
     sellerMap.set(key, entry)
   })
@@ -683,6 +693,7 @@ function aggregateFinancialPeriod(bounds, range, ctx) {
 
 function useClosingData(type, year, index) {
   const [state, setState] = useState({ loading: true, error: '', commercial: null, financial: null })
+  const { vendedoresById } = useVendedores()
 
   useEffect(() => {
     let active = true
@@ -699,7 +710,7 @@ function useClosingData(type, year, index) {
         const [ordersRes, docsRes, goalsRes, portfolioRes, farmsRes, profilesRes, dreRes, dreAccountsRes, balanceRes, managerialRes, maturityRes] = await Promise.all([
           supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', '2026-01-01').lte('sale_date', fetchEndIso),
           supabaseAdmin.from('fiscal_documents').select('ultra_document_id,issue_date,document_total,movement_type,partner_id,partner_name,seller_id,ultra_salesman_id,salesman_name,fiscal_document_items(product_name,product_total)').gte('issue_date', '2026-01-01').lte('issue_date', fetchEndIso),
-          supabaseAdmin.from('goals').select('*,erp_salesmen(name)').in('ano', years),
+          supabaseAdmin.from('goals').select('*').in('ano', years),
           supabaseAdmin.from('management_open_order_portfolio').select('id,ultra_order_number,sale_date,customer_name,seller_id,ultra_salesman_id,ultra_salesman_name,open_value'),
           supabaseAdmin.from('farms').select('id,state,segment,ultra_partner_id,status'),
           supabaseAdmin.from('profiles').select('id,name,ultra_salesman_id'),
@@ -721,7 +732,7 @@ function useClosingData(type, year, index) {
         const profileByUltra = new Map(profiles.filter(row => row.ultra_salesman_id).map(row => [number(row.ultra_salesman_id), row]))
         const farmByPartner = new Map(farms.filter(row => row.ultra_partner_id).map(row => [number(row.ultra_partner_id), row]))
         const ctx = {
-          orders, docs, goals, profileById, profileByUltra, farmByPartner,
+          orders, docs, goals, profileById, profileByUltra, farmByPartner, vendedoresById,
           portfolio: portfolioRes.data || [],
           activeClients: farms.filter(row => row.status === 'ativo').length,
         }
@@ -761,7 +772,7 @@ function useClosingData(type, year, index) {
     }
     load()
     return () => { active = false }
-  }, [type, year, index])
+  }, [type, year, index, vendedoresById])
 
   return state
 }

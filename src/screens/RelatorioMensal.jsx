@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
+import { useVendedores } from '../lib/sellers'
 import Topbar from '../components/Topbar'
 import {
   IconCalendar,
@@ -654,6 +655,7 @@ export default function RelatorioMensal() {
   const [dados, setDados] = useState(null)
   const [loading, setLoading] = useState(false)
   const [gerandoPDF, setGerandoPDF] = useState(false)
+  const { vendedoresById } = useVendedores()
 
   const mesesOpcoes = Array.from({ length: 13 }, (_, i) => getMes(-i))
   const anosOpcoes = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
@@ -662,7 +664,7 @@ export default function RelatorioMensal() {
     // eslint-disable-next-line react-hooks/immutability
     carregar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mesSel, tipoPeriodo, anoSel, trimSel])
+  }, [mesSel, tipoPeriodo, anoSel, trimSel, vendedoresById])
 
   async function carregar() {
     setLoading(true)
@@ -762,9 +764,12 @@ export default function RelatorioMensal() {
       const vendedorMap = {}
       salesAtual.forEach(s => {
         const key = s.seller_id || (s.ultra_salesman_id ? `ultra:${s.ultra_salesman_id}` : 'geral')
+        // Só existe vendedor que vem do Ultra: nome só confia num perfil
+        // vinculado ou na lista canônica, nunca no texto solto
+        // ultra_salesman_name (pode ser um id que não é vendedor real).
         if (!vendedorMap[key]) vendedorMap[key] = {
           id: key,
-          nome: s.ultra_salesman_name || 'Vendedor não vinculado',
+          nome: vendedoresById.get(Number(s.ultra_salesman_id))?.name || 'Vendedor não vinculado',
           total: 0,
           pedidos: 0,
         }

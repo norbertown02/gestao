@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
+import { isVendedorValido, useVendedores } from '../lib/sellers'
 import Topbar from '../components/Topbar'
 import { CURRENT_MONTH, CURRENT_YEAR, historyStart, monthOptions, periodRange, previousPeriodRange, yearOptions } from '../lib/commercialPeriod'
 import {
@@ -173,6 +174,7 @@ export default function Vendedores() {
   const [checklists, setChecklists] = useState([])
   const [loading, setLoading] = useState(true)
   const [detalheId, setDetalheId] = useState(null)
+  const { vendedores, vendedoresById } = useVendedores()
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/immutability
@@ -256,9 +258,21 @@ export default function Vendedores() {
 
   const dados = useMemo(() => {
     const sellerById = new Map(sellers.map(s => [s.id, s]))
-    const saleSellerKey = sale => sale.seller_id || (sale.ultra_salesman_id ? `ultra:${sale.ultra_salesman_id}` : null)
     const fiscalValue = doc => doc.movement_type === 'devolucao' ? -Math.abs(Number(doc.document_total || 0)) : Number(doc.document_total || 0)
-    const sellersAtivos = sellers.filter(s => s.id)
+    // Só existe vendedor que vem do Ultra: perfis sem ultra_salesman_id
+    // válido (ex.: gestor puro, ou vínculo quebrado apontando pra um id que
+    // não é vendedor real) não contam como vendedor nesta tela.
+    const sellersAtivos = sellers.filter(s => isVendedorValido(s.ultra_salesman_id, vendedoresById))
+    const ultraToProfileId = new Map(sellersAtivos.filter(s => s.ultra_salesman_id).map(s => [s.ultra_salesman_id, s.id]))
+    // Prioriza resolver pelo id do Ultra quando o perfil dono dele já existe
+    // (evita duplicar a mesma pessoa em duas linhas -- uma pelo seller_id do
+    // app, outra pelo ultra_salesman_id solto na venda/documento).
+    const saleSellerKey = row => {
+      if (row.ultra_salesman_id && ultraToProfileId.has(row.ultra_salesman_id)) return ultraToProfileId.get(row.ultra_salesman_id)
+      if (row.seller_id) return row.seller_id
+      if (row.ultra_salesman_id && vendedoresById.has(row.ultra_salesman_id)) return `ultra:${row.ultra_salesman_id}`
+      return null
+    }
     const farmById = new Map(farms.map(f => [f.id, f]))
 
     const filtrarSegmento = row => {
@@ -291,22 +305,22 @@ export default function Vendedores() {
     const conversao = totalCotacoes ? Math.round((convertidas / totalCotacoes) * 100) : 0
     const conversaoAnt = totalCotacoesAnt ? Math.round((convertidasAnt / totalCotacoesAnt) * 100) : 0
 
-    const sellerIdsAtivos = new Set([
-      ...sellersAtivos.map(s => s.id),
-      ...vendas.map(saleSellerKey),
-      ...docs.map(saleSellerKey),
-      ...visitas.map(v => v.seller_id || v.user_id || v.created_by),
-      ...cotacoes.map(q => q.seller_id),
-      ...carteiraFiltrada.map(f => f.seller_id),
-    ].filter(Boolean))
+    // Base é sempre a lista canônica de vendedores do Ultra: quem já tem
+    // perfil de login entra pela chave do perfil (pra casar farms/visitas/
+    // cotações, que usam seller_id=uuid do app); quem ainda não tem login
+    // entra como "ultra:<id>" mesmo assim, pra aparecer se tiver atividade.
+    const sellerIdsAtivos = new Set(
+      vendedores.map(v => ultraToProfileId.get(v.id) || `ultra:${v.id}`),
+    )
 
     const rows = [...sellerIdsAtivos].map(id => {
-      const ultraSale = vendas.find(s => saleSellerKey(s) === id) || vendasAnt.find(s => saleSellerKey(s) === id) || docs.find(s => saleSellerKey(s) === id)
+      const vendorId = typeof id === 'string' && id.startsWith('ultra:') ? Number(id.slice(6)) : sellerById.get(id)?.ultra_salesman_id
+      const canonico = vendorId ? vendedoresById.get(vendorId) : null
       const seller = sellerById.get(id) || {
         id,
-        name: ultraSale?.ultra_salesman_name || ultraSale?.salesman_name || 'Vendedor não vinculado',
+        name: canonico?.name || 'Vendedor não vinculado',
         email: '',
-        ultra_salesman_id: ultraSale?.ultra_salesman_id || null,
+        ultra_salesman_id: vendorId || null,
       }
       const fazendas = carteiraFiltrada.filter(f => f.seller_id === id)
       const vendasSeller = vendas.filter(s => saleSellerKey(s) === id)
@@ -393,18 +407,21 @@ export default function Vendedores() {
       }
     })
 
-    const vendedores = rows
+    // Renomeado pra rankingVendedores -- "vendedores" já é o nome da lista
+    // canônica (vinda de useVendedores()) usada mais acima nesta mesma
+    // função; reaproveitar o nome aqui criava um shadowing perigoso (TDZ).
+    const rankingVendedores = rows
       .map(r => ({
         ...r,
         role: r.role || r.position || 'Comercial',
       }))
       .sort((a, b) => b.fat - a.fat || b.performance - a.performance)
 
-    const melhor = vendedores[0]
-    const topFaturamento = [...vendedores].sort((a, b) => b.fat - a.fat).slice(0, 8)
-    const topConversao = [...vendedores].filter(v => v.cotacoes > 0).sort((a, b) => b.txConversao - a.txConversao).slice(0, 8)
-    const topVisitas = [...vendedores].sort((a, b) => b.visitas - a.visitas).slice(0, 8)
-    const risco = [...vendedores].filter(v => v.clientesRisco > 0).sort((a, b) => b.clientesRisco - a.clientesRisco).slice(0, 8)
+    const melhor = rankingVendedores[0]
+    const topFaturamento = [...rankingVendedores].sort((a, b) => b.fat - a.fat).slice(0, 8)
+    const topConversao = [...rankingVendedores].filter(v => v.cotacoes > 0).sort((a, b) => b.txConversao - a.txConversao).slice(0, 8)
+    const topVisitas = [...rankingVendedores].sort((a, b) => b.visitas - a.visitas).slice(0, 8)
+    const risco = [...rankingVendedores].filter(v => v.clientesRisco > 0).sort((a, b) => b.clientesRisco - a.clientesRisco).slice(0, 8)
 
     const mesMap = {}
     documents.forEach(s => {
@@ -438,7 +455,7 @@ export default function Vendedores() {
     }))
 
     return {
-      vendedores,
+      vendedores: rankingVendedores,
       melhor,
       totalFat,
       totalFatAnt,
@@ -456,7 +473,7 @@ export default function Vendedores() {
       barData,
       totalCarteira: carteiraFiltrada.length,
     }
-  }, [sellers, farms, sales, salesAnt, documents, documentsAnt, documentsHistory, visits, visitsAnt, quotes, quotesAnt, checklists, segmento])
+  }, [sellers, vendedores, vendedoresById, farms, sales, salesAnt, documents, documentsAnt, documentsHistory, visits, visitsAnt, quotes, quotesAnt, checklists, segmento])
 
   const topFatMax = Math.max(...dados.topFaturamento.map(v => v.fat), 1)
   const topConvMax = Math.max(...dados.topConversao.map(v => v.txConversao), 1)
