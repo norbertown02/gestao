@@ -142,15 +142,25 @@ function BrazilSalesMap({ regions }) {
   return <div className="deck-brazil-map">{geo ? <svg ref={svgRef} aria-label="Mapa do faturamento líquido por estado" /> : <span>Mapa indisponível</span>}<div className="deck-map-scale"><i /><span>menor faturamento</span><b>maior faturamento</b></div></div>
 }
 
-function CommercialSlides({ data, period, previousLabel, generatedAt, comparisonNoun, editor }) {
-  const total = 11
+function IntegratedExecutiveSlide({ page, total, commercial, financial, period, editor }) {
+  const uncovered = Math.max(commercial.goal - commercial.ordersValue - commercial.openPortfolio, 0)
+  const pos = financial.position
+  return <Slide key="integrated" page={page} total={total} tone="dark" className="deck-integrated"><span className="deck-kicker">VISÃO EXECUTIVA INTEGRADA · {period}</span><EditableText as="h2" editKey="integrated.title" value={uncovered > 0 ? `A prioridade é cobrir ${shortMoney(uncovered)} da meta sem perder margem e liquidez.` : 'A carteira cobre a meta; a prioridade é converter pedidos com margem e caixa.'} editor={editor}/><div className="deck-integrated-line"><div><span>Pedidos</span><strong>{shortMoney(commercial.ordersValue)}</strong><small>{commercial.goal ? `${pct(commercial.attainment)} da meta` : 'meta não cadastrada'}</small></div><i>→</i><div><span>Carteira aberta</span><strong>{shortMoney(commercial.openPortfolio)}</strong><small>potencial a faturar</small></div><i>→</i><div><span>Margem de contribuição</span><strong>{pct(financial.contributionMargin)}</strong><small>{shortMoney(financial.contribution)} para a estrutura</small></div><i>→</i><div><span>Resultado</span><strong>{shortMoney(financial.result)}</strong><small>{pct(financial.netMargin)} da receita</small></div></div><div className="deck-integrated-decisions"><section><span>COMERCIAL</span><EditableText as="p" editKey="integrated.commercial" value={`${uncovered > 0 ? `Gerar ${shortMoney(uncovered)} além da carteira atual.` : 'Converter a carteira que já cobre a meta.'} Proteger clientes-chave e atuar nas menores coberturas.`} editor={editor}/></section><section><span>MARGEM</span><EditableText as="p" editKey="integrated.margin" value={`Preservar a margem de contribuição em ${pct(financial.contributionMargin)} ou acima, acompanhando mix e negociações fora do padrão.`} editor={editor}/></section><section><span>LIQUIDEZ</span><EditableText as="p" editKey="integrated.cash" value={pos ? `Administrar ${shortMoney(pos.totalReceivable)} a receber contra ${shortMoney(pos.totalPayable)} a pagar, com liquidez de ${pos.currentRatio.toFixed(2).replace('.', ',')}x.` : 'Completar a posição financeira para orientar as decisões de liquidez.'} editor={editor}/></section></div></Slide>
+}
+
+function CommercialSlides({ data, financial, period, previousLabel, generatedAt, comparisonNoun, editor }) {
+  const total = 12
   const { current: cur, previous: prev, trajectory, trajectoryDaily } = data
   const maxSeller = Math.max(...cur.sellers.map(item => item.orders), 1)
   const maxProduct = Math.max(...cur.products.map(item => item.value), 1)
   const maxClient = Math.max(...cur.clients.map(item => item.value), 1)
   const maxSegment = Math.max(...cur.segments.map(item => item.value), 1)
-  const prevSellerByName = new Map(prev.sellers.map(row => [row.name, row]))
   const leaderChanged = cur.regions[0]?.name && prev.regions[0]?.name && cur.regions[0].name !== prev.regions[0].name
+  const currentClientIds = new Set(cur.clientIds)
+  const previousClientIds = new Set(prev.clientIds)
+  const retainedClients = cur.clientIds.filter(id => previousClientIds.has(id)).length
+  const enteredClients = cur.clientIds.filter(id => !previousClientIds.has(id)).length
+  const inactiveClients = prev.clientIds.filter(id => !currentClientIds.has(id)).length
   return [
     <Cover key="cover" type="comercial" period={period} previousLabel={previousLabel} generatedAt={generatedAt} total={total} editor={editor} />,
     <Slide key="summary" page={2} total={total} tone="dark" className="deck-thesis">
@@ -182,17 +192,17 @@ function CommercialSlides({ data, period, previousLabel, generatedAt, comparison
       <div className="deck-portfolio-list">{cur.openOrders.slice(0, 6).map((order, index) => <div key={order.id}><b>{String(index + 1).padStart(2, '0')}</b><span><strong>{order.customer}</strong><small>{order.seller} · pedido {order.number}</small></span><strong>{shortMoney(order.value)}</strong><small>{order.age} dias</small></div>)}</div>
     </Slide>,
     <Slide key="sellers" page={6} total={total}>
-      <SlideTitle eyebrow="EQUIPE COMERCIAL" aside={`pedidos líquidos · vs. ${comparisonNoun}`} editKey="comercial.sellers.title" editor={editor}>Ranking de pedidos gerados e atingimento das metas individuais.</SlideTitle>
-      <div className="deck-ranking-head"><span>Vendedor</span><span>Pedidos gerados</span><span>Atingimento</span><span>Variação</span></div>
+      <SlideTitle eyebrow="COBERTURA DA META POR VENDEDOR" aside="pedidos + carteira aberta" editKey="comercial.sellers.title" editor={editor}>Onde a carteira já sustenta a meta — e onde ainda falta venda.</SlideTitle>
+      <div className="deck-ranking-head deck-coverage-head"><span>Vendedor</span><span>Pedidos</span><span>Carteira</span><span>Cobertura</span><span>Descoberto</span></div>
       <div className="deck-ranking">{cur.sellers.slice(0, 6).map((seller, index) => {
-        const previousSeller = prevSellerByName.get(seller.name)
-        const sellerDelta = previousSeller ? seller.orders - previousSeller.orders : null
-        return <div key={seller.key}><b>{String(index + 1).padStart(2, '0')}</b><span><strong>{seller.name}</strong><i><em style={{ width: `${seller.orders / maxSeller * 100}%` }} /></i></span><strong>{shortMoney(seller.orders)}</strong><small className="deck-seller-goal">{seller.goal ? `${pct(seller.orders / seller.goal * 100)} da meta` : 'Meta não cadastrada'}</small><small className={sellerDelta === null ? 'deck-seller-variation' : `deck-seller-variation ${sellerDelta >= 0 ? 'positive' : 'negative'}`}>{sellerDelta === null ? 'Sem base anterior' : `${sellerDelta >= 0 ? '↗' : '↘'} ${shortMoney(Math.abs(sellerDelta))} · ${pct(Math.abs(variation(seller.orders, previousSeller.orders)))}`}</small></div>
+        const covered = seller.orders + seller.openPortfolio
+        const coverage = seller.goal ? covered / seller.goal * 100 : 0
+        return <div className="deck-coverage-row" key={seller.key}><b>{String(index + 1).padStart(2, '0')}</b><span><strong>{seller.name}</strong><i><em style={{ width: `${seller.orders / maxSeller * 100}%` }} /></i></span><strong>{shortMoney(seller.orders)}</strong><small>{shortMoney(seller.openPortfolio)}</small><small className="deck-seller-goal">{seller.goal ? pct(coverage) : 'Sem meta'}</small><small className={seller.goal && covered < seller.goal ? 'negative' : 'positive'}>{seller.goal ? shortMoney(Math.max(seller.goal - covered, 0)) : '—'}</small></div>
       })}</div>
     </Slide>,
     <Slide key="clients" page={7} total={total}>
       <SlideTitle eyebrow="CARTEIRA DE CLIENTES" aside={`${cur.billedClients} clientes faturados`} editKey="comercial.clients.title" editor={editor}>{cur.clients.length ? `Os cinco maiores clientes representam ${pct(cur.top5ClientShare)} do faturamento.` : 'Ainda não há clientes faturados no período.'}</SlideTitle>
-      <MetricStrip items={[{ label: 'Maior cliente', value: pct(cur.topClientShare) }, { label: 'Top 3', value: pct(cur.top3ClientShare) }, { label: 'Top 5', value: pct(cur.top5ClientShare) }, { label: 'Ticket por cliente', value: shortMoney(cur.billedClients ? cur.billing / cur.billedClients : 0) }]} />
+      <MetricStrip items={[{ label: 'Retidos', value: retainedClients, note: 'faturaram nos dois períodos' }, { label: 'Entraram ou retornaram', value: enteredClients, note: `não faturaram no ${comparisonNoun}` }, { label: 'Deixaram de faturar', value: inactiveClients, note: 'exigem atuação comercial' }, { label: 'Top 5', value: pct(cur.top5ClientShare), note: 'concentração da receita' }]} />
       <div className="deck-client-bars">{cur.clients.slice(0, 7).map((client, index) => <div key={client.name}><b>{String(index + 1).padStart(2, '0')}</b><span>{client.name}</span><i><em style={{ width: `${client.value / maxClient * 100}%` }} /></i><strong>{shortMoney(client.value)}</strong><small>{pct(client.share)}</small></div>)}</div>
     </Slide>,
     <Slide key="products" page={8} total={total} tone="dark">
@@ -211,6 +221,7 @@ function CommercialSlides({ data, period, previousLabel, generatedAt, comparison
     <Slide key="close" page={11} total={total} tone="dark" className="deck-close">
       <span>RECOMENDAÇÕES COMERCIAIS</span><EditableText as="h2" editKey="comercial.close.title" value={cur.ordersValue < prev.ordersValue ? `Recuperar o ritmo: pedidos ${pct(Math.abs(variation(cur.ordersValue, prev.ordersValue)))} abaixo do ${comparisonNoun}.` : cur.openPortfolio > 0 ? `Converter a carteira de ${shortMoney(cur.openPortfolio)} e sustentar a geração de pedidos.` : 'Recompor a carteira de pedidos do próximo período.'} editor={editor} /><EditableText as="p" editKey="comercial.close.body" value={`1. Atacar o saldo de ${shortMoney(Math.max(cur.goal - cur.ordersValue, 0))} da meta de pedidos. 2. Proteger a receita dos principais clientes e ampliar a diversificação. 3. Replicar o mix e a execução dos vendedores líderes. 4. Completar a segmentação da carteira para orientar a prospecção.`} editor={editor} /><div><i /> direcionamento para o próximo ciclo</div>
     </Slide>,
+    <IntegratedExecutiveSlide key="integrated" page={12} total={total} commercial={cur} financial={financial.current} period={period} editor={editor}/>,
   ]
 }
 
@@ -331,8 +342,8 @@ function DreComparison({ current: cur, previous: prev, previousHasData, comparis
   </div>
 }
 
-function CFOFinancialSlides({ data, period, previousLabel, generatedAt, comparisonNoun, editor }) {
-  const total = 15
+function CFOFinancialSlides({ data, commercial, period, previousLabel, generatedAt, comparisonNoun, editor }) {
+  const total = 16
   const { current: cur, previous: prev, series, hasData, previousHasData } = data
   const pos = cur.position
   const gap = cur.revenue - cur.breakEven
@@ -362,6 +373,7 @@ function CFOFinancialSlides({ data, period, previousLabel, generatedAt, comparis
     <Slide key="liquidity" page={13} total={total}>{title('liquidity','LIQUIDEZ E BALANÇO','A cobertura das obrigações operacionais permanece sob controle?',pos?`posição em ${new Date(`${pos.date}T12:00:00`).toLocaleDateString('pt-BR')}`:'posição não carregada')}<div className="deck-liquidity"><div className="deck-liquidity-main"><span>LIQUIDEZ CORRENTE</span><strong>{pos?`${pos.currentRatio.toFixed(2).replace('.',',')}x`:'—'}</strong><p>{pos?.currentRatio>=1?'Os recursos circulantes cobrem as obrigações operacionais.':'As obrigações operacionais superam os recursos circulantes.'}</p></div><div><BigNumber label="Capital de giro" value={shortMoney(pos?.workingCapital)} note={<small>ativo circulante − passivo operacional</small>}/><BigNumber label="Disponibilidades" value={shortMoney(pos?.cash)} note={<small>caixa e bancos</small>}/><BigNumber label="Endividamento operacional" value={pct(pos?.debtRatio)} note={<small>obrigações ajustadas ÷ ativos</small>}/></div></div></Slide>,
     <Slide key="maturity" page={14} total={total} tone="dark">{title('maturity','PRESSÃO DE CAIXA','A curva acumulada revela quando os vencimentos passam a consumir liquidez.','faixas mensais disponíveis no ULTRA')}<MetricStrip dark items={[{label:'Caixa inicial',value:shortMoney(pos?.cash),note:'disponibilidades'},{label:'Saldo em 60 dias',value:shortMoney(pos?.cashAt60),note:'caixa após receber e pagar'},{label:'Primeiro aperto',value:pos?.firstNegative||'Não projetado',note:'primeira faixa com saldo negativo'},{label:'Necessidade máxima',value:shortMoney(Math.max(0,-number(pos?.minimumCash))),note:'pior saldo acumulado'}]} /><div className="deck-chart-stage deck-cash-pressure"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={pos?.maturity||[]} margin={{top:35,right:18,left:8,bottom:0}}><CartesianGrid vertical={false} stroke="rgba(255,255,255,.12)" strokeDasharray="3 7"/><XAxis dataKey="label" axisLine={false} tickLine={false} stroke="#aaa199"/><YAxis axisLine={false} tickLine={false} tickFormatter={v=>`${Math.round(v/1000)}k`} stroke="#aaa199"/><Tooltip formatter={v=>money(v)}/><Bar dataKey="A receber" fill="#f47b20" radius={[7,7,0,0]}><LabelList dataKey="A receber" position="top" formatter={chartLabel} className="deck-bar-label light"/></Bar><Bar dataKey="A pagar" fill="#e4ddd6" radius={[7,7,0,0]}><LabelList dataKey="A pagar" position="top" formatter={chartLabel} className="deck-bar-label light"/></Bar><Line type="monotone" dataKey="Saldo acumulado" stroke="#68c998" strokeWidth={3} dot={{r:4,fill:'#68c998',stroke:'#1e1b19',strokeWidth:2}}/></ComposedChart></ResponsiveContainer></div><div className="deck-chart-legend"><i className="orange"/> A receber <i style={{background:'#e4ddd6'}}/> A pagar <i className="cash-line"/> Saldo acumulado</div><div className="deck-maturity-method">Faixas calculadas pela competência mensal disponível no relatório do ULTRA. * Valor anual consolidado, sem abertura mensal.</div></Slide>,
     <Slide key="close" page={15} total={total} tone="dark" className="deck-close"><span>RECOMENDAÇÕES FINANCEIRAS</span><EditableText as="h2" editKey="financeiro.close.title" value={cur.result<0?'Recuperar resultado sem perder o controle do caixa.':'Preservar margem e transformar resultado em caixa recorrente.'} editor={editor}/><EditableText as="p" editKey="financeiro.close.body" value={cur.result<0?'1. Reaproximar a receita do ponto de equilíbrio, protegendo margem e mix. 2. Atuar sobre os custos que mais cresceram. 3. Compatibilizar pagamentos com recebimentos. 4. Reduzir capital imobilizado em estoque e clientes.':'1. Proteger margem e disciplina de custos fixos. 2. Converter resultado em caixa recorrente. 3. Monitorar vencimentos e concentração de recebíveis. 4. Preservar giro de estoque e capital de giro.'} editor={editor}/><div><i/> direcionamento para o próximo ciclo</div></Slide>,
+    <IntegratedExecutiveSlide key="integrated" page={16} total={total} commercial={commercial.current} financial={cur} period={period} editor={editor}/>,
   ]
 }
 
@@ -436,9 +448,16 @@ function aggregateCommercialPeriod(bounds, range, ctx) {
     age: Math.max(0, Math.floor((Date.now() - new Date(`${row.sale_date}T12:00:00`).getTime()) / 86400000)),
   })).sort((a, b) => b.value - a.value)
   const openPortfolio = openOrders.reduce((sum, row) => sum + row.value, 0)
+  const openBySeller = new Map()
+  openOrders.forEach(order => {
+    const key = String(order.seller || '').trim().toLocaleLowerCase('pt-BR')
+    openBySeller.set(key, (openBySeller.get(key) || 0) + order.value)
+  })
+  sellerMap.forEach(seller => { seller.openPortfolio = openBySeller.get(String(seller.name || '').trim().toLocaleLowerCase('pt-BR')) || 0 })
+  const clientIds = [...new Set(periodDocs.filter(row => fiscalDocumentValue(row) > 0).map(row => row.partner_id).filter(Boolean))]
 
   return {
-    ordersValue, billing, goal, returns, billedClients,
+    ordersValue, billing, goal, returns, billedClients, clientIds,
     orderCount: periodOrders.length,
     averageTicket: periodOrders.length ? ordersValue / periodOrders.length : 0,
     attainment: goal ? ordersValue / goal * 100 : 0,
@@ -716,8 +735,8 @@ export default function Fechamentos() {
   const slides = useMemo(() => {
     if (!data.commercial || !data.financial) return []
     return type === 'comercial'
-      ? CommercialSlides({ data: data.commercial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun, editor })
-      : CFOFinancialSlides({ data: data.financial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun, editor })
+      ? CommercialSlides({ data: data.commercial, financial: data.financial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun, editor })
+      : CFOFinancialSlides({ data: data.financial, commercial: data.commercial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun, editor })
   }, [data.commercial, data.financial, type, period, previousLabelText, generatedAt, comparisonNoun, editor])
 
   useEffect(() => {
