@@ -92,7 +92,7 @@ export default function Vendas() {
 
     let fiscalQuery = supabase
       .from('fiscal_documents')
-      .select('ultra_document_id,invoice_number,issue_date,partner_name,seller_id,ultra_salesman_id,salesman_name,operation_nature,movement_type,document_total')
+      .select('ultra_document_id,invoice_number,issue_date,partner_name,seller_id,ultra_salesman_id,salesman_name,operation_nature,movement_type,document_total,sales_fiscal_links(sale_id,link_type,confidence,link_method,sales(ultra_order_id,ultra_order_number))')
       .gte('issue_date', start)
       .lte('issue_date', end)
       .order('issue_date', { ascending: false })
@@ -276,8 +276,7 @@ export default function Vendas() {
 
         <section className="commerce-story">
           <header>
-            <span>Leitura do mês</span>
-            <h2>Da intenção comercial ao caixa</h2>
+            <span>Leitura do mês</span><h2>Da intenção comercial ao caixa</h2>
             <p>O pedido mede o trabalho vendido. A nota confirma o faturamento. A carteira mostra o que ainda falta realizar.</p>
           </header>
           <div className="commerce-flow" aria-label="Fluxo comercial do mês">
@@ -354,13 +353,22 @@ export default function Vendas() {
                 <strong>{money(summary.netBilling)}</strong>
               </div>
               <div className="commerce-ledger">
-                {documents.map(row => (
-                  <div className={`commerce-ledger-row ${row.movement_type}`} key={row.ultra_document_id}>
-                    <div className="commerce-ledger-mark">{row.movement_type === 'devolucao' ? '↩' : 'NF'}</div>
-                    <div><strong>Nota {row.invoice_number}</strong><span>{row.partner_name || 'Cliente'} · {dateBR(row.issue_date)}</span></div>
-                    <strong>{money(row.document_total)}</strong>
-                  </div>
-                ))}
+                {documents.map(row => {
+                  const link = Array.isArray(row.sales_fiscal_links) ? row.sales_fiscal_links[0] : row.sales_fiscal_links
+                  const linkedOrder = Array.isArray(link?.sales) ? link.sales[0] : link?.sales
+                  const orderNumber = linkedOrder?.ultra_order_number || linkedOrder?.ultra_order_id
+                  return (
+                    <div className={`commerce-ledger-row ${row.movement_type}`} key={row.ultra_document_id}>
+                      <div className="commerce-ledger-mark">{row.movement_type === 'devolucao' ? '↩' : 'NF'}</div>
+                      <div>
+                        <strong>Nota {row.invoice_number}</strong>
+                        <span>{row.partner_name || 'Cliente'} · {dateBR(row.issue_date)}</span>
+                        <small>{orderNumber ? `Pedido #${orderNumber}` : 'Sem pedido vinculado'}</small>
+                      </div>
+                      <strong>{money(row.document_total)}</strong>
+                    </div>
+                  )
+                })}
                 {!documents.length && <Empty>Nenhum movimento fiscal nesta competência.</Empty>}
               </div>
             </section>
