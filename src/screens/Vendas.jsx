@@ -75,6 +75,7 @@ export default function Vendas() {
   const [goals, setGoals] = useState([])
   const [orderItems, setOrderItems] = useState({})
   const [expandedOrder, setExpandedOrder] = useState(null)
+  const [tableView, setTableView] = useState('pedidos')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -244,6 +245,8 @@ export default function Vendas() {
     link.click()
   }
 
+  const salesDocuments = documents.filter(row => row.movement_type === 'venda')
+
   return (
     <div className="commerce-shell">
       <Topbar title="Gestão comercial" subtitle="Pedidos, faturamento fiscal e carteira em aberto">
@@ -319,82 +322,119 @@ export default function Vendas() {
         </section>
 
         {loading ? <Empty>Atualizando movimentos comerciais…</Empty> : (
-          <div className="commerce-columns">
-            <section className="commerce-panel commerce-panel-wide">
-              <div className="commerce-panel-head">
-                <div><span>Pedidos do mês</span><h3>Valor líquido de pedidos válidos</h3></div>
-                <strong>{money(summary.generated)}</strong>
+          <section className="commerce-panel commerce-panel-full">
+            <div className="commerce-panel-head" style={{ alignItems: 'flex-end', gap: 16 }}>
+              <div>
+                <span>Detalhamento comercial</span>
+                <h3>
+                  {tableView === 'pedidos' && 'Pedidos do mês'}
+                  {tableView === 'faturados' && 'Faturados do mês'}
+                  {tableView === 'abertos' && 'Pedidos em aberto'}
+                </h3>
               </div>
-              <div className="commerce-table-wrap">
-                <table className="commerce-table">
-                  <thead><tr><th>Pedido</th><th>Data / cliente</th><th>Vendedor</th><th>Situação</th><th className="num">Valor</th></tr></thead>
-                  <tbody>
-                    {orders.map(row => (
-                      <Fragment key={row.id}>
-                      <tr className="commerce-order-row" onClick={() => setExpandedOrder(current => current === row.id ? null : row.id)}>
-                        <td><button className="commerce-order-toggle" aria-expanded={expandedOrder === row.id}><strong>#{row.ultra_order_number}</strong>{expandedOrder === row.id ? <IconChevronUp size={15} /> : <IconChevronDown size={15} />}</button></td>
-                        <td><strong>{row.customer_name || 'Cliente não identificado'}</strong><small>{dateBR(row.sale_date)}</small></td>
-                        <td>{row.ultra_salesman_name || '—'}</td>
-                        <td><span className={`commerce-status ${row.order_stage}`}>{stageLabel[row.order_stage] || row.order_stage}</span></td>
-                        <td className="num"><strong>{money(row.order_value)}</strong></td>
-                      </tr>
-                      {expandedOrder === row.id && <tr className="commerce-order-items"><td colSpan="5"><div><span>Itens faturados deste pedido</span>{(orderItems[row.id] || []).length ? <table><thead><tr><th>Produto</th><th className="num">Quantidade</th><th className="num">Valor unitário</th><th className="num">Total</th></tr></thead><tbody>{orderItems[row.id].map((item, index) => <tr key={`${item.product_code}-${index}`}><td><strong>{item.product_name || 'Produto'}</strong><small>{item.product_code || '—'}</small></td><td className="num">{integer(item.quantity)} {item.unit || ''}</td><td className="num">{money(item.unit_value)}</td><td className="num"><strong>{money(item.product_total)}</strong></td></tr>)}</tbody></table> : <p>Os itens ainda não foram vinculados a uma nota fiscal deste pedido.</p>}</div></td></tr>}
-                      </Fragment>
-                    ))}
-                  </tbody>
-                </table>
-                {!orders.length && <Empty>Nenhum pedido gerado nesta competência.</Empty>}
-              </div>
-            </section>
+              <strong>
+                {tableView === 'pedidos' && money(summary.generated)}
+                {tableView === 'faturados' && money(summary.netBilling)}
+                {tableView === 'abertos' && money(summary.openValue)}
+              </strong>
+            </div>
 
-            <section className="commerce-panel">
-              <div className="commerce-panel-head">
-                <div><span>Movimento fiscal</span><h3>Notas e devoluções</h3></div>
-                <strong>{money(summary.netBilling)}</strong>
-              </div>
-              <div className="commerce-ledger">
-                {documents.map(row => {
-                  const link = Array.isArray(row.sales_fiscal_links) ? row.sales_fiscal_links[0] : row.sales_fiscal_links
-                  const linkedOrder = Array.isArray(link?.sales) ? link.sales[0] : link?.sales
-                  const orderNumber = linkedOrder?.ultra_order_number || linkedOrder?.ultra_order_id
-                  return (
-                    <div className={`commerce-ledger-row ${row.movement_type}`} key={row.ultra_document_id}>
-                      <div className="commerce-ledger-mark">{row.movement_type === 'devolucao' ? '↩' : 'NF'}</div>
-                      <div>
-                        <strong>Nota {row.invoice_number}</strong>
-                        <span>{row.partner_name || 'Cliente'} · {dateBR(row.issue_date)}</span>
-                        <small>{orderNumber ? `Pedido #${orderNumber}` : 'Sem pedido vinculado'}</small>
-                      </div>
-                      <strong>{money(row.document_total)}</strong>
-                    </div>
-                  )
-                })}
-                {!documents.length && <Empty>Nenhum movimento fiscal nesta competência.</Empty>}
-              </div>
-            </section>
+            <div style={{
+              display: 'inline-flex', gap: 4, padding: 4, margin: '0 0 18px',
+              borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--line)'
+            }}>
+              {[
+                ['pedidos', 'Pedidos do mês', orders.length],
+                ['faturados', 'Faturados do mês', salesDocuments.length],
+                ['abertos', 'Pedidos em aberto', portfolio.length],
+              ].map(([id, label, count]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => { setTableView(id); setExpandedOrder(null) }}
+                  style={{
+                    border: 'none', borderRadius: 9, padding: '9px 14px', cursor: 'pointer',
+                    fontFamily: 'inherit', fontSize: 12, fontWeight: 700,
+                    background: tableView === id ? 'var(--surface)' : 'transparent',
+                    color: tableView === id ? 'var(--text)' : 'var(--text-dim)',
+                    boxShadow: tableView === id ? '0 1px 4px rgba(20,18,16,.08)' : 'none'
+                  }}
+                >
+                  {label} <span style={{ opacity: .55, marginLeft: 4 }}>{count}</span>
+                </button>
+              ))}
+            </div>
 
-            <section className="commerce-panel commerce-panel-full">
-              <div className="commerce-panel-head">
-                <div><span>Carteira atual</span><h3>Pedidos aguardando faturamento</h3></div>
-                <strong>{money(summary.openValue)}</strong>
-              </div>
-              <div className="commerce-portfolio">
-                {portfolio.map(row => {
-                  const progress = row.quantity_ordered > 0
-                    ? Math.min(100, Math.max(0, (Number(row.quantity_invoiced) / Number(row.quantity_ordered)) * 100))
-                    : 0
-                  return (
-                    <article key={row.id}>
-                      <div><span>Pedido #{row.ultra_order_number}</span><strong>{row.customer_name || 'Cliente não identificado'}</strong><small>{row.ultra_salesman_name || 'Sem vendedor'} · gerado em {dateBR(row.sale_date)}</small></div>
-                      <div className="commerce-progress"><span style={{ width: `${progress}%` }} /></div>
-                      <div className="commerce-portfolio-value"><strong>{money(row.open_value)}</strong><small>{integer(row.quantity_open)} em aberto</small></div>
-                    </article>
-                  )
-                })}
-                {!portfolio.length && <Empty>A carteira está totalmente faturada.</Empty>}
-              </div>
-            </section>
-          </div>
+            <div className="commerce-table-wrap">
+              {tableView === 'pedidos' && (
+                <>
+                  <table className="commerce-table">
+                    <thead><tr><th>Pedido</th><th>Data / cliente</th><th>Vendedor</th><th>Situação</th><th className="num">Valor</th></tr></thead>
+                    <tbody>
+                      {orders.map(row => (
+                        <Fragment key={row.id}>
+                          <tr className="commerce-order-row" onClick={() => setExpandedOrder(current => current === row.id ? null : row.id)}>
+                            <td><button className="commerce-order-toggle" aria-expanded={expandedOrder === row.id}><strong>#{row.ultra_order_number}</strong>{expandedOrder === row.id ? <IconChevronUp size={15} /> : <IconChevronDown size={15} />}</button></td>
+                            <td><strong>{row.customer_name || 'Cliente não identificado'}</strong><small>{dateBR(row.sale_date)}</small></td>
+                            <td>{row.ultra_salesman_name || '—'}</td>
+                            <td><span className={`commerce-status ${row.order_stage}`}>{stageLabel[row.order_stage] || row.order_stage}</span></td>
+                            <td className="num"><strong>{money(row.order_value)}</strong></td>
+                          </tr>
+                          {expandedOrder === row.id && <tr className="commerce-order-items"><td colSpan="5"><div><span>Itens faturados deste pedido</span>{(orderItems[row.id] || []).length ? <table><thead><tr><th>Produto</th><th className="num">Quantidade</th><th className="num">Valor unitário</th><th className="num">Total</th></tr></thead><tbody>{orderItems[row.id].map((item, index) => <tr key={`${item.product_code}-${index}`}><td><strong>{item.product_name || 'Produto'}</strong><small>{item.product_code || '—'}</small></td><td className="num">{integer(item.quantity)} {item.unit || ''}</td><td className="num">{money(item.unit_value)}</td><td className="num"><strong>{money(item.product_total)}</strong></td></tr>)}</tbody></table> : <p>Os itens ainda não foram vinculados a uma nota fiscal deste pedido.</p>}</div></td></tr>}
+                        </Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                  {!orders.length && <Empty>Nenhum pedido gerado nesta competência.</Empty>}
+                </>
+              )}
+
+              {tableView === 'faturados' && (
+                <>
+                  <table className="commerce-table">
+                    <thead><tr><th>NF</th><th>Data / cliente</th><th>Pedido vinculado</th><th>Vendedor</th><th className="num">Valor</th></tr></thead>
+                    <tbody>
+                      {salesDocuments.map(row => {
+                        const link = Array.isArray(row.sales_fiscal_links) ? row.sales_fiscal_links[0] : row.sales_fiscal_links
+                        const linkedOrder = Array.isArray(link?.sales) ? link.sales[0] : link?.sales
+                        const orderNumber = linkedOrder?.ultra_order_number || linkedOrder?.ultra_order_id
+                        return (
+                          <tr key={row.ultra_document_id}>
+                            <td><strong>NF {row.invoice_number}</strong></td>
+                            <td><strong>{row.partner_name || 'Cliente'}</strong><small>{dateBR(row.issue_date)}</small></td>
+                            <td>{orderNumber ? <strong>Pedido #{orderNumber}</strong> : <span style={{ color: 'var(--text-faint)' }}>Sem pedido vinculado</span>}</td>
+                            <td>{row.salesman_name || '—'}</td>
+                            <td className="num"><strong>{money(row.document_total)}</strong></td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                  {!salesDocuments.length && <Empty>Nenhum faturamento nesta competência.</Empty>}
+                </>
+              )}
+
+              {tableView === 'abertos' && (
+                <>
+                  <table className="commerce-table">
+                    <thead><tr><th>Pedido</th><th>Data / cliente</th><th>Vendedor</th><th className="num">Quantidade aberta</th><th className="num">Saldo em aberto</th></tr></thead>
+                    <tbody>
+                      {portfolio.map(row => (
+                        <tr key={row.id}>
+                          <td><strong>#{row.ultra_order_number}</strong></td>
+                          <td><strong>{row.customer_name || 'Cliente não identificado'}</strong><small>{dateBR(row.sale_date)}</small></td>
+                          <td>{row.ultra_salesman_name || '—'}</td>
+                          <td className="num">{integer(row.quantity_open)}</td>
+                          <td className="num"><strong>{money(row.open_value)}</strong></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {!portfolio.length && <Empty>A carteira está totalmente faturada.</Empty>}
+                </>
+              )}
+            </div>
+          </section>
         )}
       </main>
     </div>
