@@ -22,6 +22,8 @@ const daysBetween = value => {
   return Math.max(0, Math.round((today - base) / 86400000))
 }
 
+const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key)
+
 function stockKgFromRaw(raw) {
   const stock = Number(raw?.QTD_ESTOQUE || 0)
   const unit = String(raw?.UND_MEDIDA || '').toUpperCase()
@@ -31,10 +33,15 @@ function stockKgFromRaw(raw) {
 }
 
 function stockRiskLabel({ stockKg, theoreticalBalance, minimumStock }) {
+  if (theoreticalBalance === null || minimumStock === null) return 'Sem base'
   if (stockKg <= 0 || theoreticalBalance <= 0) return 'Critico'
   if (minimumStock > 0 && theoreticalBalance <= minimumStock) return 'Alto'
   if (minimumStock > 0 && stockKg <= minimumStock) return 'Atencao'
   return 'Controlado'
+}
+
+function stockRiskClass(value) {
+  return String(value || '').toLowerCase().replace(/\s+/g, '-')
 }
 
 function Metric({ icon: Icon, label, value, note, tone = '' }) {
@@ -83,9 +90,9 @@ export default function Estoque() {
       const raw = product.ultra_raw || {}
       const stock = Number(raw.QTD_ESTOQUE || 0)
       const stockKg = stockKgFromRaw(raw)
-      const pendingOrders = Number(raw.QTD_PEDIDO || 0)
-      const theoreticalBalance = Number(raw.QTD_SALDO_TEORICO || 0)
-      const minimumStock = Number(raw.ESTOQUE_MINIMO || 0)
+      const pendingOrders = hasOwn(raw, 'QTD_PEDIDO') ? Number(raw.QTD_PEDIDO || 0) : null
+      const theoreticalBalance = hasOwn(raw, 'QTD_SALDO_TEORICO') ? Number(raw.QTD_SALDO_TEORICO || 0) : null
+      const minimumStock = hasOwn(raw, 'ESTOQUE_MINIMO') ? Number(raw.ESTOQUE_MINIMO || 0) : null
       const cost = Number(raw.CUSTO || 0)
       const price = Number(raw.PRECO || product.price || 0)
       const sold = sold90.get(String(product.ultra_codproduto)) || 0
@@ -180,14 +187,14 @@ export default function Estoque() {
                       <td><strong>{row.name}</strong></td>
                       <td>{row.category}</td>
                       <td style={{ textAlign: 'right' }}>{weight(row.stockKg)} kg</td>
-                      <td style={{ textAlign: 'right' }}>{weight(row.pendingOrders)}</td>
-                      <td style={{ textAlign: 'right' }}>{weight(row.theoreticalBalance)}</td>
-                      <td style={{ textAlign: 'right' }}>{weight(row.minimumStock)}</td>
+                      <td style={{ textAlign: 'right' }}>{row.pendingOrders === null ? '—' : weight(row.pendingOrders)}</td>
+                      <td style={{ textAlign: 'right' }}>{row.theoreticalBalance === null ? '—' : weight(row.theoreticalBalance)}</td>
+                      <td style={{ textAlign: 'right' }}>{row.minimumStock === null ? '—' : weight(row.minimumStock)}</td>
                       <td style={{ textAlign: 'right' }}>{money(row.cost)}</td>
                       <td style={{ textAlign: 'right' }}>{moneyShort(row.costValue)}</td>
                       <td style={{ textAlign: 'right' }}>{row.monthlyAverageSold > 0 ? `${weight(row.monthlyAverageSold)} kg` : 'Sem venda'}</td>
                       <td style={{ textAlign: 'right' }}>{row.days === null ? 'Sem giro' : `${numberInt(row.days)} dias`}</td>
-                      <td style={{ textAlign: 'right' }}><span className={`stock-risk ${row.stockRisk.toLowerCase()}`}>{row.stockRisk}</span></td>
+                      <td style={{ textAlign: 'right' }}><span className={`stock-risk ${stockRiskClass(row.stockRisk)}`}>{row.stockRisk}</span></td>
                       <td style={{ textAlign: 'right' }}>{row.idleDays === null ? 'Sem saída' : `${numberInt(row.idleDays)} dias`}</td>
                     </tr>
                   ))}

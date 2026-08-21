@@ -8754,6 +8754,10 @@ td,
   color: #a54235;
   background: #fbeae7;
 }
+.stock-risk.sem-base {
+  color: #746c65;
+  background: #f0ece8;
+}
 .stock-table-empty {
   display: grid;
   place-items: center;
