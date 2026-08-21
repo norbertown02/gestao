@@ -292,10 +292,12 @@ export default function Vendedores() {
       ? farms
       : farms.filter(f => String(f.segment || '').toLowerCase() === segmento)
 
-    const docs = segmento === 'todos' ? documents : []
-    const docsAnt = segmento === 'todos' ? documentsAnt : []
-    const totalFat = segmento === 'todos' ? docs.reduce((sum, doc) => sum + fiscalValue(doc), 0) : vendas.reduce((a, s) => a + Number(s.total || 0), 0)
-    const totalFatAnt = segmento === 'todos' ? docsAnt.reduce((sum, doc) => sum + fiscalValue(doc), 0) : vendasAnt.reduce((a, s) => a + Number(s.total || 0), 0)
+    // Antes só contava faturamento (fiscal_documents) quando "todos", deixando
+    // de fora pedido colocado e ainda não faturado. Agora conta sempre pelos
+    // pedidos (management_order_overview via netOrderValue), que já cobre
+    // faturado e não faturado, só exclui cancelado.
+    const totalFat = vendas.reduce((a, s) => a + Number(s.total || 0), 0)
+    const totalFatAnt = vendasAnt.reduce((a, s) => a + Number(s.total || 0), 0)
     const totalVisitas = visitas.length
     const totalVisitasAnt = visitasAnt.length
     const totalCotacoes = cotacoes.length
@@ -325,16 +327,16 @@ export default function Vendedores() {
       const fazendas = carteiraFiltrada.filter(f => f.seller_id === id)
       const vendasSeller = vendas.filter(s => saleSellerKey(s) === id)
       const vendasSellerAnt = vendasAnt.filter(s => saleSellerKey(s) === id)
-      const docsSeller = docs.filter(doc => saleSellerKey(doc) === id)
-      const docsSellerAnt = docsAnt.filter(doc => saleSellerKey(doc) === id)
       const visitasSeller = visitas.filter(v => (v.seller_id || v.user_id || v.created_by) === id)
       const visitasSellerAnt = visitasAnt.filter(v => (v.seller_id || v.user_id || v.created_by) === id)
       const cotacoesSeller = cotacoes.filter(q => q.seller_id === id)
       const cotacoesSellerAnt = cotacoesAnt.filter(q => q.seller_id === id)
       const convertidasSeller = cotacoesSeller.filter(q => normalizarStatus(q.status) === 'convertida').length
       const convertidasSellerAnt = cotacoesSellerAnt.filter(q => normalizarStatus(q.status) === 'convertida').length
-      const fat = segmento === 'todos' ? docsSeller.reduce((sum, doc) => sum + fiscalValue(doc), 0) : vendasSeller.reduce((a, s) => a + Number(s.total || 0), 0)
-      const fatAnt = segmento === 'todos' ? docsSellerAnt.reduce((sum, doc) => sum + fiscalValue(doc), 0) : vendasSellerAnt.reduce((a, s) => a + Number(s.total || 0), 0)
+      // Mesmo motivo do totalFat acima: pedidos colocados (faturados ou não),
+      // não só o que já foi faturado.
+      const fat = vendasSeller.reduce((a, s) => a + Number(s.total || 0), 0)
+      const fatAnt = vendasSellerAnt.reduce((a, s) => a + Number(s.total || 0), 0)
       const pedidos = vendasSeller.length
       const ticket = pedidos ? fat / pedidos : 0
       const fazComVenda = new Set(vendasSeller.map(s => s.farm_id).filter(Boolean)).size
