@@ -532,6 +532,7 @@ export default function Financeiro() {
           <div className="dash-segment-list">
             {bm.buckets.map(seg => <div key={seg.key} className="dash-segment-item"><strong>{seg.displayLabel}</strong><span>{money(seg.ap)} · {pct(bm.contasPagarTotalAjustado ? seg.ap / bm.contasPagarTotalAjustado * 100 : 0)}</span><div className="dash-segment-bar"><span style={{ width: `${bm.contasPagarTotalAjustado ? seg.ap / bm.contasPagarTotalAjustado * 100 : 0}%`, background: seg.color }} /></div></div>)}
           </div>
+          <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 12, lineHeight: 1.5 }}>Fonte: Previsão Financeira do Contas a Pagar (despesas previstas + faturas a pagar, geração até 2031) — inclui recorrentes como salários e aluguel até dezembro, não só o já faturado. Substitui o contas a pagar do balanço formal a partir deste fechamento.</p>
         </div>
       </section>
 
