@@ -5,6 +5,8 @@ import Topbar from '../components/Topbar'
 import { supabaseAdmin } from '../lib/supabase'
 
 const number = value => Number(value || 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })
+const numberInt = value => Number(value || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+const weight = value => Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 1 })
 const money = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const moneyShort = value => {
   const n = Number(value || 0)
@@ -13,6 +15,21 @@ const moneyShort = value => {
   return money(n)
 }
 const code = value => String(value || '').split('/')[0]
+const dateBR = value => value ? new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR') : '—'
+const daysBetween = value => {
+  if (!value) return null
+  const today = new Date()
+  const base = new Date(`${value}T12:00:00`)
+  return Math.max(0, Math.round((today - base) / 86400000))
+}
+
+function stockKgFromRaw(raw) {
+  const stock = Number(raw?.QTD_ESTOQUE || 0)
+  const unit = String(raw?.UND_MEDIDA || '').toUpperCase()
+  if (unit === 'KG') return stock
+  const weightPerUnit = Number(raw?.PESO_PRODUTO || 0)
+  return weightPerUnit > 0 ? stock * weightPerUnit : stock
+}
 
 function Metric({ icon: Icon, label, value, note, tone = '' }) {
   return <article className={`stock-metric ${tone}`}><Icon size={18} /><span>{label}</span><strong>{value}</strong><small>{note}</small></article>
@@ -47,34 +64,50 @@ export default function Estoque() {
 
   const data = useMemo(() => {
     const sold90 = new Map()
-    items.forEach(item => sold90.set(code(item.product_code), (sold90.get(code(item.product_code)) || 0) + Number(item.quantity || 0)))
+    const lastMovement = new Map()
+    items.forEach(item => {
+      const productCode = code(item.product_code)
+      const quantity = Number(item.quantity || 0)
+      sold90.set(productCode, (sold90.get(productCode) || 0) + quantity)
+      const issueDate = item.fiscal_documents?.issue_date || null
+      const current = lastMovement.get(productCode)
+      if (issueDate && (!current || issueDate > current)) lastMovement.set(productCode, issueDate)
+    })
     const rows = products.map(product => {
       const raw = product.ultra_raw || {}
       const stock = Number(raw.QTD_ESTOQUE || 0)
+      const stockKg = stockKgFromRaw(raw)
       const cost = Number(raw.CUSTO || 0)
       const price = Number(raw.PRECO || product.price || 0)
       const sold = sold90.get(String(product.ultra_codproduto)) || 0
       const daily = Math.max(0, sold / 90)
-      const days = daily > 0 ? Math.max(0, stock) / daily : null
+      const days = daily > 0 ? Math.max(0, stockKg) / daily : null
+      const lastSaleDate = lastMovement.get(String(product.ultra_codproduto)) || null
+      const idleDays = daysBetween(lastSaleDate)
+      const turnover90 = stockKg > 0 ? sold / stockKg : 0
       return {
         ...product,
         category: raw.DSCGRUPO || raw.DSCGRUPO_NIVEL1 || 'Outros',
-        unit: raw.UND_MEDIDA || 'UN', stock, cost, price, sold,
-        costValue: Math.max(0, stock) * cost,
-        billingCapacity: Math.max(0, stock) * price,
-        potentialMargin: Math.max(0, stock) * Math.max(0, price - cost),
+        unit: raw.UND_MEDIDA || 'UN', stock, stockKg, cost, price, sold,
+        costValue: Math.max(0, stockKg) * cost,
+        billingCapacity: Math.max(0, stockKg) * price,
+        potentialMargin: Math.max(0, stockKg) * Math.max(0, price - cost),
         marginPct: price > 0 ? ((price - cost) / price) * 100 : 0,
         days,
+        turnover90,
+        lastSaleDate,
+        lastEntryDate: null,
+        idleDays,
       }
     })
     const filtered = category === 'todas' ? rows : rows.filter(row => row.category === category)
-    const positive = filtered.filter(row => row.stock > 0)
-    const stock = positive.reduce((sum, row) => sum + row.stock, 0)
+    const positive = filtered.filter(row => row.stockKg > 0)
+    const stock = positive.reduce((sum, row) => sum + row.stockKg, 0)
     const costValue = positive.reduce((sum, row) => sum + row.costValue, 0)
     const billingCapacity = positive.reduce((sum, row) => sum + row.billingCapacity, 0)
     const potentialMargin = positive.reduce((sum, row) => sum + row.potentialMargin, 0)
-    const withoutStock = filtered.filter(row => row.stock <= 0).length
-    const slow = filtered.filter(row => row.stock > 0 && (row.days === null || row.days > 90)).length
+    const withoutStock = filtered.filter(row => row.stockKg <= 0).length
+    const slow = filtered.filter(row => row.stockKg > 0 && (row.days === null || row.days > 90)).length
     const sold90Total = filtered.reduce((sum, row) => sum + row.sold, 0)
     const annualizedTurnover = stock > 0 ? (sold90Total / stock) * 4 : 0
     return {
@@ -92,7 +125,7 @@ export default function Estoque() {
       {loading ? <div className="empty">Carregando estoque do Ultra...</div> : <>
         <section className="stock-hero"><div><span>Capacidade comercial do estoque</span><h2>{moneyShort(data.billingCapacity)}</h2><small>potencial de faturamento pelo preço atual do Ultra</small></div><div><span>Margem bruta potencial</span><strong>{moneyShort(data.potentialMargin)}</strong><small>antes de impostos, frete e despesas</small></div></section>
         <section className="stock-metrics stock-metrics-expanded">
-          <Metric icon={IconPackage} label="Saldo em estoque" value={number(data.stock)} note="quantidade disponível" />
+          <Metric icon={IconPackage} label="Saldo em estoque" value={`${weight(data.stock)} kg`} note="quantidade disponível" />
           <Metric icon={IconCoins} label="Valor pelo custo" value={moneyShort(data.costValue)} note="capital imobilizado" />
           <Metric icon={IconTrendingUp} label="Capacidade de venda" value={moneyShort(data.billingCapacity)} note="saldo multiplicado pelo preço" />
           <Metric icon={IconAlertTriangle} label="Sem estoque" value={data.withoutStock} note="produtos zerados ou negativos" tone="danger" />
@@ -103,7 +136,7 @@ export default function Estoque() {
           <div className="stock-card"><div className="stock-card-head"><div><span>Capital imobilizado</span><h3>Produtos com maior valor em estoque</h3></div></div><ResponsiveContainer width="100%" height={330}><BarChart data={data.topValue} layout="vertical" margin={{ left: 18, right: 26 }}><defs><linearGradient id="stockBar" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#C85F18" /><stop offset="100%" stopColor="#F39A55" /></linearGradient></defs><CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" horizontal={false} /><XAxis type="number" tickFormatter={value => `R$ ${Math.round(value / 1000)}k`} /><YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11 }} /><Tooltip formatter={value => money(value)} /><Bar dataKey="costValue" name="Valor pelo custo" fill="url(#stockBar)" radius={[0, 7, 7, 0]} /></BarChart></ResponsiveContainer></div>
           <div className="stock-card stock-alert-list"><div className="stock-card-head"><div><span>Reposição</span><h3>Rupturas e saldos negativos</h3></div></div>{data.rows.filter(row => row.stock <= 0).slice(0, 12).map(row => <div key={row.id}><IconBox size={15} /><span><strong>{row.name}</strong><small>{row.category}</small></span><b>{number(row.stock)} {row.unit}</b></div>)}</div>
         </section>
-        <section className="stock-card"><div className="stock-card-head"><div><span>Inventário gerencial</span><h3>Estoque, giro e capacidade por produto</h3></div><small>{data.rows.length} produtos</small></div><div className="table-wrap"><table><thead><tr><th>Produto</th><th>Categoria</th><th style={{textAlign:'right'}}>Saldo</th><th style={{textAlign:'right'}}>Custo unit.</th><th style={{textAlign:'right'}}>Valor custo</th><th style={{textAlign:'right'}}>Preço</th><th style={{textAlign:'right'}}>Margem</th><th style={{textAlign:'right'}}>Capacidade</th><th style={{textAlign:'right'}}>Cobertura</th></tr></thead><tbody>{data.rows.map(row => <tr key={row.id}><td><strong>{row.name}</strong></td><td>{row.category}</td><td style={{textAlign:'right'}} className={row.stock <= 0 ? 'stock-negative' : ''}>{number(row.stock)} {row.unit}</td><td style={{textAlign:'right'}}>{money(row.cost)}</td><td style={{textAlign:'right'}}>{moneyShort(row.costValue)}</td><td style={{textAlign:'right'}}>{money(row.price)}</td><td style={{textAlign:'right'}}>{row.marginPct.toFixed(1)}%</td><td style={{textAlign:'right'}}>{moneyShort(row.billingCapacity)}</td><td style={{textAlign:'right'}}>{row.days === null ? 'Sem giro' : `${Math.round(row.days)} dias`}</td></tr>)}</tbody></table></div></section>
+        <section className="stock-card"><div className="stock-card-head"><div><span>Inventário gerencial</span><h3>Estoque em kg, custo, giro e permanência por produto</h3></div><small>{data.rows.filter(row => row.stockKg > 0).length} produtos com saldo</small></div><p style={{ margin: '0 0 12px', color: 'var(--text-faint)', fontSize: 11 }}>A base atual do Supabase ainda não espelha notas de entrada do Ultra. Por isso, a coluna de última entrada fica vazia até essa sincronização existir.</p><div className="table-wrap"><table><thead><tr><th>Produto</th><th>Categoria</th><th style={{textAlign:'right'}}>Estoque (kg)</th><th style={{textAlign:'right'}}>Custo/kg</th><th style={{textAlign:'right'}}>Total custo</th><th style={{textAlign:'right'}}>Giro 90d</th><th style={{textAlign:'right'}}>Última entrada</th><th style={{textAlign:'right'}}>Tempo parado</th></tr></thead><tbody>{data.rows.filter(row => row.stockKg > 0).map(row => <tr key={row.id}><td><strong>{row.name}</strong></td><td>{row.category}</td><td style={{textAlign:'right'}}>{weight(row.stockKg)} kg</td><td style={{textAlign:'right'}}>{money(row.cost)}</td><td style={{textAlign:'right'}}>{moneyShort(row.costValue)}</td><td style={{textAlign:'right'}}>{row.turnover90 > 0 ? `${row.turnover90.toFixed(2)}x` : 'Sem giro'}</td><td style={{textAlign:'right'}}>{row.lastEntryDate ? dateBR(row.lastEntryDate) : 'Indisponível'}</td><td style={{textAlign:'right'}}>{row.idleDays === null ? 'Sem saída' : `${numberInt(row.idleDays)} dias`}</td></tr>)}</tbody></table></div></section>
       </>}
     </div>
   </div>
