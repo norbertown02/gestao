@@ -15,7 +15,6 @@ const moneyShort = value => {
   return money(n)
 }
 const code = value => String(value || '').split('/')[0]
-const dateBR = value => value ? new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR') : '—'
 const daysBetween = value => {
   if (!value) return null
   const today = new Date()
@@ -77,6 +76,9 @@ export default function Estoque() {
       const raw = product.ultra_raw || {}
       const stock = Number(raw.QTD_ESTOQUE || 0)
       const stockKg = stockKgFromRaw(raw)
+      const pendingOrders = Number(raw.QTD_PEDIDO || 0)
+      const theoreticalBalance = Number(raw.QTD_SALDO_TEORICO || 0)
+      const minimumStock = Number(raw.ESTOQUE_MINIMO || 0)
       const cost = Number(raw.CUSTO || 0)
       const price = Number(raw.PRECO || product.price || 0)
       const sold = sold90.get(String(product.ultra_codproduto)) || 0
@@ -88,7 +90,7 @@ export default function Estoque() {
       return {
         ...product,
         category: raw.DSCGRUPO || raw.DSCGRUPO_NIVEL1 || 'Outros',
-        unit: raw.UND_MEDIDA || 'UN', stock, stockKg, cost, price, sold,
+        unit: raw.UND_MEDIDA || 'UN', stock, stockKg, pendingOrders, theoreticalBalance, minimumStock, cost, price, sold,
         costValue: Math.max(0, stockKg) * cost,
         billingCapacity: Math.max(0, stockKg) * price,
         potentialMargin: Math.max(0, stockKg) * Math.max(0, price - cost),
@@ -96,7 +98,6 @@ export default function Estoque() {
         days,
         turnover90,
         lastSaleDate,
-        lastEntryDate: null,
         idleDays,
       }
     })
@@ -144,7 +145,7 @@ export default function Estoque() {
             </div>
             <small>{data.rows.filter(row => row.stockKg > 0).length} produtos com saldo</small>
           </div>
-          <p className="stock-table-note">A base atual do Supabase ainda não espelha notas de entrada do Ultra. Por isso, a coluna de última entrada fica vazia até essa sincronização existir.</p>
+          <p className="stock-table-note">Esta visão usa o saldo atual do Ultra e o histórico de saídas fiscais para mostrar estoque, pedidos pendentes, saldo teórico, estoque mínimo e dias desde a última saída.</p>
           {data.rows.filter(row => row.stockKg > 0).length > 0 ? (
             <div className="table-wrap stock-table-wrap">
               <table className="stock-table">
@@ -153,11 +154,13 @@ export default function Estoque() {
                     <th>Produto</th>
                     <th>Categoria</th>
                     <th style={{ textAlign: 'right' }}>Estoque (kg)</th>
+                    <th style={{ textAlign: 'right' }}>Pendente pedido</th>
+                    <th style={{ textAlign: 'right' }}>Saldo teórico</th>
+                    <th style={{ textAlign: 'right' }}>Estoque mínimo</th>
                     <th style={{ textAlign: 'right' }}>Custo/kg</th>
                     <th style={{ textAlign: 'right' }}>Total custo</th>
                     <th style={{ textAlign: 'right' }}>Giro 90d</th>
-                    <th style={{ textAlign: 'right' }}>Última entrada</th>
-                    <th style={{ textAlign: 'right' }}>Tempo parado</th>
+                    <th style={{ textAlign: 'right' }}>Dias desde a última saída</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -166,10 +169,12 @@ export default function Estoque() {
                       <td><strong>{row.name}</strong></td>
                       <td>{row.category}</td>
                       <td style={{ textAlign: 'right' }}>{weight(row.stockKg)} kg</td>
+                      <td style={{ textAlign: 'right' }}>{weight(row.pendingOrders)}</td>
+                      <td style={{ textAlign: 'right' }}>{weight(row.theoreticalBalance)}</td>
+                      <td style={{ textAlign: 'right' }}>{weight(row.minimumStock)}</td>
                       <td style={{ textAlign: 'right' }}>{money(row.cost)}</td>
                       <td style={{ textAlign: 'right' }}>{moneyShort(row.costValue)}</td>
                       <td style={{ textAlign: 'right' }}>{row.turnover90 > 0 ? `${row.turnover90.toFixed(2)}x` : 'Sem giro'}</td>
-                      <td style={{ textAlign: 'right' }}>{row.lastEntryDate ? dateBR(row.lastEntryDate) : 'Indisponível'}</td>
                       <td style={{ textAlign: 'right' }}>{row.idleDays === null ? 'Sem saída' : `${numberInt(row.idleDays)} dias`}</td>
                     </tr>
                   ))}
