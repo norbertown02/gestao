@@ -8673,6 +8673,27 @@ td,
 .stock-card-head span { color: #78857d; font-size: 9px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
 .stock-card-head h3 { margin: 4px 0 0; font-size: 16px; }
 .stock-card-head small { color: var(--text-faint); font-size: 11px; }
+.stock-inventory-card {
+  overflow: visible;
+}
+.stock-inventory-card .stock-card-head {
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+.stock-inventory-head-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.stock-inventory-head-copy h3 {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.2;
+}
+.stock-inventory-card .stock-card-head small {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
 .stock-alert-list > div:not(.stock-card-head) { display: grid; grid-template-columns: 28px 1fr auto; gap: 9px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
 .stock-alert-list > div:not(.stock-card-head) > svg { color: #a54235; }
 .stock-alert-list > div:not(.stock-card-head) > span { display: grid; gap: 2px; letter-spacing: 0; text-transform: none; }
@@ -8686,9 +8707,12 @@ td,
   font-size: 11px;
 }
 .stock-table-wrap {
+  margin-top: 14px;
   min-height: 340px;
   max-height: 560px;
   overflow: auto;
+  background: #faf7f3;
+  box-shadow: inset 0 0 0 1px #e7dfd7;
 }
 .stock-table thead th {
   position: sticky;
@@ -8715,7 +8739,7 @@ td,
   background: #faf7f3;
 }
 @media (max-width: 1100px) { .stock-metrics { grid-template-columns: repeat(3, 1fr); } .stock-grid { grid-template-columns: 1fr; } }
-@media (max-width: 700px) { .stock-toolbar, .stock-hero { grid-template-columns: 1fr; flex-direction: column; align-items: stretch; } .stock-toolbar select { width: 100%; } .stock-metrics { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px) { .stock-toolbar, .stock-hero { grid-template-columns: 1fr; flex-direction: column; align-items: stretch; } .stock-toolbar select { width: 100%; } .stock-metrics { grid-template-columns: 1fr 1fr; } .stock-inventory-card .stock-card-head { flex-direction: column; } }
 
 /* DASHBOARD MACRO · VISÃO DO NEGÓCIO */
 .macro-page { display: grid; gap: 16px; }
