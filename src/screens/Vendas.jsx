@@ -15,7 +15,7 @@ import {
 } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 import Topbar from '../components/Topbar'
-import { fiscalDocumentValue, hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
+import { fiscalDocumentValue, grossOrderValue, hasNetOrderValue, netOrderValue, orderBaseValue } from '../lib/commercialMetrics'
 import { useVendedores } from '../lib/sellers'
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
@@ -158,15 +158,9 @@ export default function Vendas() {
   }
 
   useEffect(() => {
-    // Recarrega a competência quando os filtros mudam.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, seller])
 
-  // Só existe vendedor que vem do Ultra: o filtro passa a listar sempre a
-  // lista canônica (erp_vendedores), não só quem teve pedido/documento no
-  // mês selecionado -- assim um vendedor sem movimento ainda aparece.
   const { vendedores } = useVendedores()
   const sellers = useMemo(() => (
     vendedores.map(v => [`ultra:${v.id}`, v.name]).sort((a, b) => a[1].localeCompare(b[1]))
@@ -199,7 +193,7 @@ export default function Vendas() {
       valid,
       validOrderCount: validOrders.length,
       reversedCount: reversedOrders.length,
-      reversedValue: reversedOrders.reduce((sum, row) => sum + Number(row.order_value || 0), 0),
+      reversedValue: reversedOrders.reduce((sum, row) => sum + orderBaseValue(row), 0),
       invoices: salesDocs.length,
       grossBilling,
       returns,
@@ -225,14 +219,15 @@ export default function Vendas() {
 
   function exportCSV() {
     const rows = [
-      ['Pedido', 'Data', 'Cliente', 'Vendedor', 'Situação', 'Valor gerado', 'Faturado', 'Devolvido', 'Saldo em aberto'],
+      ['Pedido', 'Data', 'Cliente', 'Vendedor', 'Situação', 'Valor líquido do pedido', 'Valor bruto do pedido', 'Faturado', 'Devolvido', 'Saldo em aberto'],
       ...orders.map(row => [
         row.ultra_order_number,
         row.sale_date,
         row.customer_name,
         row.ultra_salesman_name,
         stageLabel[row.order_stage] || row.order_stage,
-        row.order_value,
+        orderBaseValue(row),
+        grossOrderValue(row),
         row.fiscal_billed_value,
         row.fiscal_returned_value,
         row.open_value,
@@ -292,7 +287,7 @@ export default function Vendas() {
         </section>
 
         <section className="commerce-metrics">
-          <Metric icon={IconShoppingCart} label="Pedidos válidos" value={money(summary.valid)} note="Exclui cancelados, estornados e devolvidos" tone="blue" />
+          <Metric icon={IconShoppingCart} label="Pedidos válidos" value={money(summary.valid)} note="Usa valor líquido do Ultra quando disponível" tone="blue" />
           <Metric icon={IconFileInvoice} label="Faturamento bruto" value={money(summary.grossBilling)} note="Notas emitidas no mês" tone="orange" />
           <Metric icon={IconRotateClockwise} label="Devoluções" value={money(summary.returns)} note={`${summary.reversedCount} pedido(s) totalmente estornado(s)`} tone="red" />
           <Metric icon={IconCash} label="Faturamento líquido" value={money(summary.netBilling)} note="Vendas menos devoluções" tone="ink" />
@@ -369,7 +364,7 @@ export default function Vendas() {
               {tableView === 'pedidos' && (
                 <>
                   <table className="commerce-table">
-                    <thead><tr><th>Pedido</th><th>Data / cliente</th><th>Vendedor</th><th>Situação</th><th className="num">Valor</th></tr></thead>
+                    <thead><tr><th>Pedido</th><th>Data / cliente</th><th>Vendedor</th><th>Situação</th><th className="num">Valor líquido</th></tr></thead>
                     <tbody>
                       {orders.map(row => (
                         <Fragment key={row.id}>
@@ -378,9 +373,9 @@ export default function Vendas() {
                             <td><strong>{row.customer_name || 'Cliente não identificado'}</strong><small>{dateBR(row.sale_date)}</small></td>
                             <td>{row.ultra_salesman_name || '—'}</td>
                             <td><span className={`commerce-status ${row.order_stage}`}>{stageLabel[row.order_stage] || row.order_stage}</span></td>
-                            <td className="num"><strong>{money(row.order_value)}</strong></td>
+                            <td className="num"><strong>{money(orderBaseValue(row))}</strong></td>
                           </tr>
-                          {expandedOrder === row.id && <tr className="commerce-order-items"><td colSpan="5"><div><span>Itens faturados deste pedido</span>{(orderItems[row.id] || []).length ? <table><thead><tr><th>Produto</th><th className="num">Quantidade</th><th className="num">Valor unitário</th><th className="num">Total</th></tr></thead><tbody>{orderItems[row.id].map((item, index) => <tr key={`${item.product_code}-${index}`}><td><strong>{item.product_name || 'Produto'}</strong><small>{item.product_code || '—'}</small></td><td className="num">{integer(item.quantity)} {item.unit || ''}</td><td className="num">{money(item.unit_value)}</td><td className="num"><strong>{money(item.product_total)}</strong></td></tr>)}</tbody></table> : <p>Os itens ainda não foram vinculados a uma nota fiscal deste pedido.</p>}</div></td></tr>}
+                          {expandedOrder === row.id && <tr className="commerce-order-items"><td colSpan="5"><div><span>Itens faturados deste pedido</span><p style={{ margin: '0 0 12px', color: 'var(--text-dim)' }}>Valor líquido do pedido: <strong>{money(orderBaseValue(row))}</strong>{grossOrderValue(row) && grossOrderValue(row) !== orderBaseValue(row) ? ` · Valor bruto de referência: ${money(grossOrderValue(row))}` : ''}</p>{(orderItems[row.id] || []).length ? <table><thead><tr><th>Produto</th><th className="num">Quantidade</th><th className="num">Valor unitário</th><th className="num">Total</th></tr></thead><tbody>{orderItems[row.id].map((item, index) => <tr key={`${item.product_code}-${index}`}><td><strong>{item.product_name || 'Produto'}</strong><small>{item.product_code || '—'}</small></td><td className="num">{integer(item.quantity)} {item.unit || ''}</td><td className="num">{money(item.unit_value)}</td><td className="num"><strong>{money(item.product_total)}</strong></td></tr>)}</tbody></table> : <p>Os itens ainda não foram vinculados a uma nota fiscal deste pedido.</p>}</div></td></tr>}
                         </Fragment>
                       ))}
                     </tbody>
