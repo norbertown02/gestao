@@ -136,7 +136,50 @@ export default function Estoque() {
           <div className="stock-card"><div className="stock-card-head"><div><span>Capital imobilizado</span><h3>Produtos com maior valor em estoque</h3></div></div><ResponsiveContainer width="100%" height={330}><BarChart data={data.topValue} layout="vertical" margin={{ left: 18, right: 26 }}><defs><linearGradient id="stockBar" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#C85F18" /><stop offset="100%" stopColor="#F39A55" /></linearGradient></defs><CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" horizontal={false} /><XAxis type="number" tickFormatter={value => `R$ ${Math.round(value / 1000)}k`} /><YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11 }} /><Tooltip formatter={value => money(value)} /><Bar dataKey="costValue" name="Valor pelo custo" fill="url(#stockBar)" radius={[0, 7, 7, 0]} /></BarChart></ResponsiveContainer></div>
           <div className="stock-card stock-alert-list"><div className="stock-card-head"><div><span>Reposição</span><h3>Rupturas e saldos negativos</h3></div></div>{data.rows.filter(row => row.stock <= 0).slice(0, 12).map(row => <div key={row.id}><IconBox size={15} /><span><strong>{row.name}</strong><small>{row.category}</small></span><b>{number(row.stock)} {row.unit}</b></div>)}</div>
         </section>
-        <section className="stock-card"><div className="stock-card-head"><div><span>Inventário gerencial</span><h3>Estoque em kg, custo, giro e permanência por produto</h3></div><small>{data.rows.filter(row => row.stockKg > 0).length} produtos com saldo</small></div><p style={{ margin: '0 0 12px', color: 'var(--text-faint)', fontSize: 11 }}>A base atual do Supabase ainda não espelha notas de entrada do Ultra. Por isso, a coluna de última entrada fica vazia até essa sincronização existir.</p><div className="table-wrap"><table><thead><tr><th>Produto</th><th>Categoria</th><th style={{textAlign:'right'}}>Estoque (kg)</th><th style={{textAlign:'right'}}>Custo/kg</th><th style={{textAlign:'right'}}>Total custo</th><th style={{textAlign:'right'}}>Giro 90d</th><th style={{textAlign:'right'}}>Última entrada</th><th style={{textAlign:'right'}}>Tempo parado</th></tr></thead><tbody>{data.rows.filter(row => row.stockKg > 0).map(row => <tr key={row.id}><td><strong>{row.name}</strong></td><td>{row.category}</td><td style={{textAlign:'right'}}>{weight(row.stockKg)} kg</td><td style={{textAlign:'right'}}>{money(row.cost)}</td><td style={{textAlign:'right'}}>{moneyShort(row.costValue)}</td><td style={{textAlign:'right'}}>{row.turnover90 > 0 ? `${row.turnover90.toFixed(2)}x` : 'Sem giro'}</td><td style={{textAlign:'right'}}>{row.lastEntryDate ? dateBR(row.lastEntryDate) : 'Indisponível'}</td><td style={{textAlign:'right'}}>{row.idleDays === null ? 'Sem saída' : `${numberInt(row.idleDays)} dias`}</td></tr>)}</tbody></table></div></section>
+        <section className="stock-card">
+          <div className="stock-card-head">
+            <div>
+              <span>Inventário gerencial</span>
+              <h3>Estoque em kg, custo, giro e permanência por produto</h3>
+            </div>
+            <small>{data.rows.filter(row => row.stockKg > 0).length} produtos com saldo</small>
+          </div>
+          <p className="stock-table-note">A base atual do Supabase ainda não espelha notas de entrada do Ultra. Por isso, a coluna de última entrada fica vazia até essa sincronização existir.</p>
+          {data.rows.filter(row => row.stockKg > 0).length > 0 ? (
+            <div className="table-wrap stock-table-wrap">
+              <table className="stock-table">
+                <thead>
+                  <tr>
+                    <th>Produto</th>
+                    <th>Categoria</th>
+                    <th style={{ textAlign: 'right' }}>Estoque (kg)</th>
+                    <th style={{ textAlign: 'right' }}>Custo/kg</th>
+                    <th style={{ textAlign: 'right' }}>Total custo</th>
+                    <th style={{ textAlign: 'right' }}>Giro 90d</th>
+                    <th style={{ textAlign: 'right' }}>Última entrada</th>
+                    <th style={{ textAlign: 'right' }}>Tempo parado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.rows.filter(row => row.stockKg > 0).map(row => (
+                    <tr key={row.id}>
+                      <td><strong>{row.name}</strong></td>
+                      <td>{row.category}</td>
+                      <td style={{ textAlign: 'right' }}>{weight(row.stockKg)} kg</td>
+                      <td style={{ textAlign: 'right' }}>{money(row.cost)}</td>
+                      <td style={{ textAlign: 'right' }}>{moneyShort(row.costValue)}</td>
+                      <td style={{ textAlign: 'right' }}>{row.turnover90 > 0 ? `${row.turnover90.toFixed(2)}x` : 'Sem giro'}</td>
+                      <td style={{ textAlign: 'right' }}>{row.lastEntryDate ? dateBR(row.lastEntryDate) : 'Indisponível'}</td>
+                      <td style={{ textAlign: 'right' }}>{row.idleDays === null ? 'Sem saída' : `${numberInt(row.idleDays)} dias`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="stock-table-empty">Nenhum produto com saldo disponível no Ultra para exibir nesta visão.</div>
+          )}
+        </section>
       </>}
     </div>
   </div>
