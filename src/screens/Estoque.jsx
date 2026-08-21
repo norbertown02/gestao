@@ -30,6 +30,13 @@ function stockKgFromRaw(raw) {
   return weightPerUnit > 0 ? stock * weightPerUnit : stock
 }
 
+function stockRiskLabel({ stockKg, theoreticalBalance, minimumStock }) {
+  if (stockKg <= 0 || theoreticalBalance <= 0) return 'Critico'
+  if (minimumStock > 0 && theoreticalBalance <= minimumStock) return 'Alto'
+  if (minimumStock > 0 && stockKg <= minimumStock) return 'Atencao'
+  return 'Controlado'
+}
+
 function Metric({ icon: Icon, label, value, note, tone = '' }) {
   return <article className={`stock-metric ${tone}`}><Icon size={18} /><span>{label}</span><strong>{value}</strong><small>{note}</small></article>
 }
@@ -84,9 +91,10 @@ export default function Estoque() {
       const sold = sold90.get(String(product.ultra_codproduto)) || 0
       const daily = Math.max(0, sold / 90)
       const days = daily > 0 ? Math.max(0, stockKg) / daily : null
+      const monthlyAverageSold = sold / 3
       const lastSaleDate = lastMovement.get(String(product.ultra_codproduto)) || null
       const idleDays = daysBetween(lastSaleDate)
-      const turnover90 = stockKg > 0 ? sold / stockKg : 0
+      const stockRisk = stockRiskLabel({ stockKg, theoreticalBalance, minimumStock })
       return {
         ...product,
         category: raw.DSCGRUPO || raw.DSCGRUPO_NIVEL1 || 'Outros',
@@ -96,9 +104,10 @@ export default function Estoque() {
         potentialMargin: Math.max(0, stockKg) * Math.max(0, price - cost),
         marginPct: price > 0 ? ((price - cost) / price) * 100 : 0,
         days,
-        turnover90,
+        monthlyAverageSold,
         lastSaleDate,
         idleDays,
+        stockRisk,
       }
     })
     const filtered = category === 'todas' ? rows : rows.filter(row => row.category === category)
@@ -159,7 +168,9 @@ export default function Estoque() {
                     <th style={{ textAlign: 'right' }}>Estoque mínimo</th>
                     <th style={{ textAlign: 'right' }}>Custo/kg</th>
                     <th style={{ textAlign: 'right' }}>Total custo</th>
-                    <th style={{ textAlign: 'right' }}>Giro 90d</th>
+                    <th style={{ textAlign: 'right' }}>Media mensal vendida</th>
+                    <th style={{ textAlign: 'right' }}>Cobertura em dias</th>
+                    <th style={{ textAlign: 'right' }}>Risco de ruptura</th>
                     <th style={{ textAlign: 'right' }}>Dias desde a última saída</th>
                   </tr>
                 </thead>
@@ -174,7 +185,9 @@ export default function Estoque() {
                       <td style={{ textAlign: 'right' }}>{weight(row.minimumStock)}</td>
                       <td style={{ textAlign: 'right' }}>{money(row.cost)}</td>
                       <td style={{ textAlign: 'right' }}>{moneyShort(row.costValue)}</td>
-                      <td style={{ textAlign: 'right' }}>{row.turnover90 > 0 ? `${row.turnover90.toFixed(2)}x` : 'Sem giro'}</td>
+                      <td style={{ textAlign: 'right' }}>{row.monthlyAverageSold > 0 ? `${weight(row.monthlyAverageSold)} kg` : 'Sem venda'}</td>
+                      <td style={{ textAlign: 'right' }}>{row.days === null ? 'Sem giro' : `${numberInt(row.days)} dias`}</td>
+                      <td style={{ textAlign: 'right' }}><span className={`stock-risk ${row.stockRisk.toLowerCase()}`}>{row.stockRisk}</span></td>
                       <td style={{ textAlign: 'right' }}>{row.idleDays === null ? 'Sem saída' : `${numberInt(row.idleDays)} dias`}</td>
                     </tr>
                   ))}

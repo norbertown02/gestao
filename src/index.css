@@ -8726,6 +8726,34 @@ td,
 .stock-table tbody td {
   vertical-align: middle;
 }
+.stock-risk {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 84px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.stock-risk.controlado {
+  color: #5d6b63;
+  background: #edf3ef;
+}
+.stock-risk.atencao {
+  color: #9a671c;
+  background: #fff4de;
+}
+.stock-risk.alto {
+  color: #b05b16;
+  background: #fff0e4;
+}
+.stock-risk.critico {
+  color: #a54235;
+  background: #fbeae7;
+}
 .stock-table-empty {
   display: grid;
   place-items: center;
