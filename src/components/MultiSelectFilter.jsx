@@ -26,7 +26,8 @@ export default function MultiSelectFilter({ label, options = [], values = [], on
     const next = new Set(selected)
     if (next.has(id)) next.delete(id)
     else next.add(id)
-    onChange([...next])
+    if (options.length > 0 && next.size === options.length) onChange([])
+    else onChange([...next])
   }
 
   return (
