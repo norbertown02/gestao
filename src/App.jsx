@@ -4,7 +4,7 @@ import Sidebar from './components/Sidebar'
 import SplashScreen from './components/SplashScreen'
 import Login from './screens/Login'
 import Dashboard from './screens/Dashboard'
-import VendasFiltradas from './screens/VendasFiltradas'
+import VendasFiltradasV2 from './screens/VendasFiltradasV2'
 import Visitas from './screens/Visitas'
 import Checklists from './screens/Checklists'
 import Carteira from './screens/Carteira'
@@ -34,7 +34,7 @@ function AppContent() {
       <div className="main">
         <Routes>
           <Route path="/"           element={<Dashboard />} />
-          <Route path="/vendas"     element={<VendasFiltradas />} />
+          <Route path="/vendas"     element={<VendasFiltradasV2 />} />
           <Route path="/visitas"    element={<Visitas />} />
           <Route path="/checklists" element={<Checklists />} />
           <Route path="/carteira"   element={<Carteira />} />
