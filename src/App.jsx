@@ -13,7 +13,7 @@ import Produtos from './screens/Produtos'
 import Regioes from './screens/Regioes'
 import Config from './screens/Config'
 import Pipeline from './screens/Pipeline'
-import RelatorioMensal from './screens/RelatorioMensal'
+import RelatorioMensalFiltrado from './screens/RelatorioMensalFiltrado'
 import Cotacoes from './screens/Cotacoes'
 import DashboardTime from './screens/DashboardTime'
 import Metas from './screens/Metas'
@@ -49,7 +49,7 @@ function AppContent() {
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/time" element={<DashboardTime />} />
           <Route path="/metas" element={<Metas />} />
-          <Route path="/relatorio" element={<RelatorioMensal />} />
+          <Route path="/relatorio" element={<RelatorioMensalFiltrado />} />
           <Route path="/fechamentos" element={<Fechamentos />} />
           <Route path="/cotacoes" element={<Cotacoes />} />
           <Route path="/config"     element={<Config />} />
