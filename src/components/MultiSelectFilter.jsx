@@ -15,7 +15,8 @@ export default function MultiSelectFilter({ label, options = [], values = [], on
 
   const selected = new Set(values || [])
   const selectedOptions = options.filter(option => selected.has(option.id))
-  const summary = selectedOptions.length === 0
+  const allSelected = options.length > 0 && selectedOptions.length === options.length
+  const summary = selectedOptions.length === 0 || allSelected
     ? allLabel
     : selectedOptions.length === 1
       ? selectedOptions[0].name
@@ -65,7 +66,7 @@ export default function MultiSelectFilter({ label, options = [], values = [], on
             }}
           >
             <span>{allLabel}</span>
-            {selected.size > 0 && <IconX size={13} />}
+            {selected.size > 0 && !allSelected && <IconX size={13} />}
           </button>
 
           <div style={{ height: 1, background: 'var(--line)', margin: '4px 0' }} />
