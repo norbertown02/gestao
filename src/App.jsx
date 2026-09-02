@@ -4,7 +4,7 @@ import Sidebar from './components/Sidebar'
 import SplashScreen from './components/SplashScreen'
 import Login from './screens/Login'
 import Dashboard from './screens/Dashboard'
-import Vendas from './screens/Vendas'
+import VendasFiltradas from './screens/VendasFiltradas'
 import Visitas from './screens/Visitas'
 import Checklists from './screens/Checklists'
 import Carteira from './screens/Carteira'
@@ -34,7 +34,7 @@ function AppContent() {
       <div className="main">
         <Routes>
           <Route path="/"           element={<Dashboard />} />
-          <Route path="/vendas"     element={<Vendas />} />
+          <Route path="/vendas"     element={<VendasFiltradas />} />
           <Route path="/visitas"    element={<Visitas />} />
           <Route path="/checklists" element={<Checklists />} />
           <Route path="/carteira"   element={<Carteira />} />
@@ -59,9 +59,6 @@ function AppContent() {
   )
 }
 
-// Roda tanto direto (gestao-three-virid.vercel.app, sem prefixo) quanto
-// atras do proxy do Painel (painel.nutrialle.com.br/gestao) -- o basename
-// do router precisa acompanhar por qual caminho a pagina foi carregada.
 const basename = window.location.pathname.indexOf('/gestao') === 0 ? '/gestao' : '/'
 
 export default function App() {
