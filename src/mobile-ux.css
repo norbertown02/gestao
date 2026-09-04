@@ -1,0 +1,215 @@
+/* Nutrialle Gestão — UX mobile v2: leitura sem arraste lateral */
+@media (max-width: 780px) {
+  html, body { width: 100%; max-width: 100%; overflow-x: hidden !important; }
+  #root, .layout, .main, .page { width: 100%; max-width: 100%; min-width: 0 !important; overflow-x: hidden !important; }
+  * { min-width: 0; }
+
+  .page { padding: 12px 12px 104px !important; }
+  .topbar { padding-left: 12px !important; padding-right: 12px !important; }
+
+  /* Cabeçalhos e filtros: foco em toque, uma coluna e largura integral */
+  .macro-toolbar,
+  .commerce-toolbar,
+  .vendas-toolbar,
+  .produtos-toolbar,
+  .vendedores-toolbar,
+  .regioes-toolbar,
+  .financeiro-toolbar,
+  .dre-toolbar {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    align-items: stretch !important;
+  }
+  .macro-toolbar > div { width: 100%; display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .macro-toolbar > div > :nth-child(3) { grid-column: 1 / -1; }
+  .macro-toolbar select,
+  .macro-toolbar input,
+  .commerce-toolbar select,
+  .commerce-toolbar input,
+  .vendas-toolbar select,
+  .vendas-toolbar input,
+  .produtos-toolbar select,
+  .produtos-toolbar input,
+  .vendedores-toolbar select,
+  .vendedores-toolbar input,
+  .regioes-toolbar select,
+  .regioes-toolbar input,
+  .financeiro-toolbar select,
+  .financeiro-toolbar input,
+  .dre-toolbar select,
+  .dre-toolbar input,
+  .commerce-toolbar button {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 46px !important;
+    font-size: 14px !important;
+  }
+
+  /* KPIs: dois por linha; números grandes continuam legíveis */
+  .macro-metrics,
+  .macro-metrics-primary,
+  .macro-metrics-operational,
+  .commerce-metrics,
+  .kpi-grid,
+  .vendas-kpi-grid,
+  .produtos-kpi-grid,
+  .vendedores-kpi-grid,
+  .regioes-kpi-grid,
+  .financeiro-kpi-grid,
+  .dre-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 9px !important;
+  }
+  .macro-metric { padding: 14px !important; min-height: 128px; }
+  .macro-metric strong { font-size: clamp(20px, 6.2vw, 28px) !important; overflow-wrap: anywhere; }
+  .macro-metric span, .macro-metric small { line-height: 1.3; }
+
+  /* Hero: fluxo vertical no celular */
+  .macro-hero { padding: 18px !important; border-radius: 20px !important; }
+  .macro-hero header h2 { font-size: 27px !important; }
+  .macro-hero-flow { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .macro-hero-flow > svg { transform: rotate(90deg); margin: 0 auto; }
+  .macro-hero-flow > div { width: 100%; }
+
+  /* Gráficos: viewport próprio, menos altura e sem esmagar o eixo */
+  .macro-chart,
+  .commerce-panel,
+  .vendas-card,
+  .produtos-card,
+  .vendedores-card,
+  .regioes-card,
+  .card {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+  .macro-chart { padding: 16px 8px 10px !important; }
+  .macro-card-head { padding: 0 8px; flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+  .macro-card-head h3 { font-size: 18px !important; }
+  .chart-meta { width: 100%; align-items: flex-start !important; }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: 6px 9px; font-size: 10px; }
+  .macro-chart .recharts-responsive-container { height: 270px !important; }
+  .recharts-wrapper, .recharts-surface { max-width: 100% !important; }
+  .recharts-cartesian-axis-tick text { font-size: 10px; }
+
+  /* Grids de desktop nunca devem forçar a largura da página */
+  .macro-grid,
+  .macro-bottom-grid,
+  .commerce-grid,
+  .commerce-forecast,
+  .dashboard-grid,
+  .content-grid,
+  .grid-2,
+  .grid-3,
+  .grid-4 {
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+  }
+
+  /* Tabelas: no mobile viram blocos verticais, sem arrastar horizontalmente */
+  .commerce-table-wrap,
+  .vendas-table-wrap,
+  .produtos-table-wrap,
+  .vendedores-table-wrap,
+  .regioes-table-wrap,
+  .table-wrap,
+  .table-responsive {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+  .commerce-table-wrap table,
+  .vendas-table-wrap table,
+  .produtos-table-wrap table,
+  .vendedores-table-wrap table,
+  .regioes-table-wrap table,
+  .table-wrap table,
+  .table-responsive table {
+    min-width: 0 !important;
+    width: 100% !important;
+    display: block;
+  }
+  .commerce-table-wrap thead,
+  .vendas-table-wrap thead,
+  .produtos-table-wrap thead,
+  .vendedores-table-wrap thead,
+  .regioes-table-wrap thead,
+  .table-wrap thead,
+  .table-responsive thead { display: none; }
+  .commerce-table-wrap tbody,
+  .vendas-table-wrap tbody,
+  .produtos-table-wrap tbody,
+  .vendedores-table-wrap tbody,
+  .regioes-table-wrap tbody,
+  .table-wrap tbody,
+  .table-responsive tbody { display: grid; gap: 9px; width: 100%; }
+  .commerce-table-wrap tr,
+  .vendas-table-wrap tr,
+  .produtos-table-wrap tr,
+  .vendedores-table-wrap tr,
+  .regioes-table-wrap tr,
+  .table-wrap tr,
+  .table-responsive tr {
+    display: grid !important;
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+    width: 100%;
+    padding: 12px !important;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+  }
+  .commerce-table-wrap td,
+  .vendas-table-wrap td,
+  .produtos-table-wrap td,
+  .vendedores-table-wrap td,
+  .regioes-table-wrap td,
+  .table-wrap td,
+  .table-responsive td {
+    display: block !important;
+    width: auto !important;
+    max-width: 100%;
+    padding: 2px 0 !important;
+    border: 0 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    text-align: right;
+    font-size: 12px !important;
+  }
+  .commerce-table-wrap td:first-child,
+  .vendas-table-wrap td:first-child,
+  .produtos-table-wrap td:first-child,
+  .vendedores-table-wrap td:first-child,
+  .regioes-table-wrap td:first-child,
+  .table-wrap td:first-child,
+  .table-responsive td:first-child {
+    grid-column: 1 / -1;
+    text-align: left;
+    font-size: 13px !important;
+    font-weight: 750;
+    padding-bottom: 5px !important;
+  }
+
+  /* Evita componentes inline maiores que a tela */
+  canvas, svg, img { max-width: 100%; }
+  [style*="min-width"], [style*="minWidth"] { max-width: 100% !important; }
+}
+
+@media (max-width: 390px) {
+  .macro-metrics,
+  .macro-metrics-primary,
+  .macro-metrics-operational,
+  .commerce-metrics,
+  .kpi-grid,
+  .vendas-kpi-grid,
+  .produtos-kpi-grid,
+  .vendedores-kpi-grid,
+  .regioes-kpi-grid,
+  .financeiro-kpi-grid,
+  .dre-kpi-grid { grid-template-columns: 1fr !important; }
+  .macro-metric { min-height: 112px; }
+}
