@@ -58,13 +58,18 @@
   .vendedores-kpi-grid,
   .regioes-kpi-grid,
   .financeiro-kpi-grid,
-  .dre-kpi-grid {
+  .dre-kpi-grid,
+  .dash-kpi-row {
+    display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 9px !important;
   }
-  .macro-metric { padding: 14px !important; min-height: 128px; }
-  .macro-metric strong { font-size: clamp(20px, 6.2vw, 28px) !important; overflow-wrap: anywhere; }
-  .macro-metric span, .macro-metric small { line-height: 1.3; }
+  .macro-metric,
+  .dash-kpi-card { padding: 14px !important; min-height: 124px; }
+  .macro-metric strong,
+  .dash-kpi-card strong { font-size: clamp(19px, 5.7vw, 27px) !important; overflow-wrap: anywhere; line-height: 1.08 !important; }
+  .macro-metric span, .macro-metric small,
+  .dash-kpi-card span, .dash-kpi-card small { line-height: 1.3; }
 
   /* Hero: fluxo vertical no celular */
   .macro-hero { padding: 18px !important; border-radius: 20px !important; }
@@ -80,19 +85,28 @@
   .produtos-card,
   .vendedores-card,
   .regioes-card,
-  .card {
+  .card,
+  .chart-card {
     width: 100% !important;
     max-width: 100% !important;
     overflow: hidden !important;
   }
-  .macro-chart { padding: 16px 8px 10px !important; }
-  .macro-card-head { padding: 0 8px; flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
-  .macro-card-head h3 { font-size: 18px !important; }
+  .macro-chart,
+  .chart-card { padding: 15px 8px 11px !important; border-radius: 18px !important; }
+  .macro-card-head,
+  .chart-head { padding: 0 8px; flex-direction: column !important; align-items: flex-start !important; gap: 7px !important; }
+  .macro-card-head h3,
+  .chart-title { font-size: 17px !important; line-height: 1.25 !important; }
+  .chart-subtitle { font-size: 10.5px !important; line-height: 1.4 !important; }
   .chart-meta { width: 100%; align-items: flex-start !important; }
   .chart-legend { display: flex; flex-wrap: wrap; gap: 6px 9px; font-size: 10px; }
-  .macro-chart .recharts-responsive-container { height: 270px !important; }
+  .macro-chart .recharts-responsive-container { height: 255px !important; }
+  .chart-card .recharts-responsive-container { height: 245px !important; }
+  .dash-chart-trio .chart-card .recharts-responsive-container { height: 205px !important; }
   .recharts-wrapper, .recharts-surface { max-width: 100% !important; }
-  .recharts-cartesian-axis-tick text { font-size: 10px; }
+  .recharts-cartesian-axis-tick text { font-size: 9.5px !important; }
+  .recharts-legend-wrapper { max-width: calc(100% - 12px) !important; font-size: 9.5px !important; line-height: 1.35 !important; }
+  .recharts-xAxis .recharts-cartesian-axis-tick:nth-child(even) { display: none; }
 
   /* Grids de desktop nunca devem forçar a largura da página */
   .macro-grid,
@@ -103,10 +117,70 @@
   .content-grid,
   .grid-2,
   .grid-3,
-  .grid-4 {
+  .grid-4,
+  .dash-main-grid,
+  .dash-chart-trio,
+  .dash-two-col,
+  .dash-stat-duo,
+  .dash-gap-row {
+    display: grid !important;
     grid-template-columns: 1fr !important;
     width: 100% !important;
+    gap: 10px !important;
   }
+
+  /* Seções: título e ação não competem pela mesma linha */
+  .macro-section-title,
+  .macro-section-title-compact {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+    margin-top: 20px !important;
+  }
+  .macro-section-title h3 { font-size: 19px !important; line-height: 1.2 !important; }
+  .macro-section-title > small,
+  .macro-section-title .btn { align-self: stretch; }
+  .macro-section-title .btn { min-height: 42px; justify-content: center; }
+
+  /* Financeiro: blocos e resumo pensados para leitura rápida */
+  .dash-segment-item,
+  .dash-ranking-row { min-height: 48px; }
+  .dash-segment-item > span,
+  .dash-ranking-value { font-size: 11px !important; text-align: right; }
+  .dash-insights-list,
+  .dash-insights-list-wide { display: grid !important; grid-template-columns: 1fr !important; gap: 8px !important; }
+  .dash-insight { padding: 12px !important; }
+  .dre-cta { flex-direction: column !important; align-items: stretch !important; padding: 15px !important; }
+  .dre-cta .btn { width: 100%; min-height: 44px; justify-content: center; }
+
+  /* DRE: elimina a lógica de planilha no telefone; cada linha vira leitura de resumo */
+  .dre-section-row,
+  .dre-subtotal-row,
+  .dre-account-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 10px !important;
+    align-items: center !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+  .dre-group-row {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 18px minmax(0, 1fr) auto !important;
+    gap: 7px !important;
+    align-items: center !important;
+    padding: 11px 10px !important;
+  }
+  .dre-group-row .dre-group-bar { display: none !important; }
+  .dre-group-row .dre-line-pct { display: none !important; }
+  .dre-group-row strong { grid-column: 3; font-size: 12px !important; white-space: nowrap; }
+  .dre-line-right { display: flex !important; gap: 7px !important; align-items: baseline; justify-content: flex-end; }
+  .dre-line-pct { font-size: 9.5px !important; }
+  .dre-account-list { padding-left: 12px !important; }
+  .dre-account-row { font-size: 11px !important; }
+  .dre-account-row > span:first-child { overflow-wrap: anywhere; }
 
   /* Tabelas: no mobile viram blocos verticais, sem arrastar horizontalmente */
   .commerce-table-wrap,
@@ -210,6 +284,7 @@
   .vendedores-kpi-grid,
   .regioes-kpi-grid,
   .financeiro-kpi-grid,
-  .dre-kpi-grid { grid-template-columns: 1fr !important; }
-  .macro-metric { min-height: 112px; }
+  .dre-kpi-grid,
+  .dash-kpi-row { grid-template-columns: 1fr !important; }
+  .macro-metric, .dash-kpi-card { min-height: 110px; }
 }
