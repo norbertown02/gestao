@@ -1,0 +1,200 @@
+/* =========================================================
+   NUTRIALLE GESTÃO — MOBILE APP EXPERIENCE
+========================================================= */
+
+.mobile-bottom-nav,
+.mobile-more-sheet,
+.mobile-nav-backdrop { display: none; }
+
+@media (max-width: 780px) {
+  html, body, #root { min-height: 100%; }
+  body { background: var(--bg); }
+
+  .layout { min-height: 100dvh; display: block; }
+  .sidebar { display: none !important; }
+  .main { width: 100%; min-width: 0; padding-bottom: calc(82px + env(safe-area-inset-bottom)); }
+  .page { padding: 14px !important; }
+
+  .topbar {
+    min-height: 68px !important;
+    padding: calc(10px + env(safe-area-inset-top)) 14px 10px !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+  .topbar h1 { font-size: 20px !important; letter-spacing: -.04em; }
+  .topbar p { font-size: 11px !important; line-height: 1.3; }
+  .topbar .btn { min-height: 38px; border-radius: 11px; }
+
+  .kpi-grid,
+  .commerce-metrics,
+  .vendas-kpi-grid,
+  .produtos-kpi-grid,
+  .vendedores-kpi-grid,
+  .regioes-kpi-grid,
+  .financeiro-kpi-grid,
+  .dre-kpi-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  .card,
+  .commerce-panel,
+  .commerce-story,
+  .commerce-forecast,
+  .vendas-card,
+  .produtos-card,
+  .vendedores-card,
+  .regioes-card {
+    border-radius: 18px !important;
+  }
+
+  .commerce-page,
+  .vendas-page,
+  .produtos-page,
+  .vendedores-page,
+  .regioes-page,
+  .financeiro-page,
+  .dre-page { gap: 12px !important; }
+
+  .commerce-toolbar,
+  .vendas-toolbar,
+  .produtos-toolbar,
+  .vendedores-toolbar,
+  .regioes-toolbar {
+    border-radius: 16px !important;
+    padding: 12px !important;
+  }
+
+  .commerce-story { padding: 20px !important; }
+  .commerce-story header h2 { font-size: 28px !important; }
+  .commerce-flow { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .commerce-flow > svg { transform: rotate(90deg); margin: 0 auto; }
+  .commerce-forecast { grid-template-columns: 1fr !important; }
+  .commerce-forecast-main { grid-column: auto !important; }
+
+  .commerce-panel-head,
+  .vendas-card-head,
+  .produtos-card-head,
+  .vendedores-card-head,
+  .regioes-card-head {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+  }
+
+  .commerce-table-wrap,
+  .vendas-table-wrap,
+  .produtos-table-wrap,
+  .vendedores-table-wrap,
+  .regioes-table-wrap {
+    overflow-x: auto;
+    margin-left: -4px;
+    margin-right: -4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  table { min-width: 680px; }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    z-index: 1000;
+    left: 10px;
+    right: 10px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    height: 66px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: center;
+    padding: 6px;
+    border-radius: 20px;
+    background: rgba(8,8,8,.96);
+    border: 1px solid rgba(255,255,255,.08);
+    box-shadow: 0 18px 44px rgba(0,0,0,.28);
+    backdrop-filter: blur(18px);
+  }
+
+  .mobile-bottom-item {
+    height: 54px;
+    border: 0;
+    background: transparent;
+    color: rgba(255,255,255,.52);
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border-radius: 15px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .mobile-bottom-item span { font-size: 9px; font-weight: 700; line-height: 1; }
+  .mobile-bottom-item.active { color: #fff; background: rgba(232,119,34,.13); }
+  .mobile-bottom-item.active svg { color: var(--orange); }
+
+  .mobile-nav-backdrop {
+    display: block;
+    position: fixed;
+    z-index: 1001;
+    inset: 0;
+    border: 0;
+    background: rgba(0,0,0,.42);
+    backdrop-filter: blur(3px);
+  }
+
+  .mobile-more-sheet {
+    display: block;
+    position: fixed;
+    z-index: 1002;
+    left: 10px;
+    right: 10px;
+    bottom: calc(82px + env(safe-area-inset-bottom));
+    max-height: min(70dvh, 620px);
+    overflow-y: auto;
+    padding: 16px;
+    border-radius: 24px;
+    background: #fff;
+    border: 1px solid var(--line);
+    box-shadow: 0 24px 70px rgba(0,0,0,.28);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(18px) scale(.985);
+    transition: .18s ease;
+  }
+  .mobile-more-sheet.open { opacity: 1; pointer-events: auto; transform: none; }
+
+  .mobile-more-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .mobile-more-head span { display: block; color: var(--orange); text-transform: uppercase; font-size: 9px; font-weight: 800; letter-spacing: .1em; }
+  .mobile-more-head strong { display: block; margin-top: 3px; font-size: 20px; letter-spacing: -.04em; }
+  .mobile-more-head button { width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--text); display: grid; place-items: center; }
+
+  .mobile-more-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .mobile-more-item {
+    min-height: 64px;
+    padding: 12px;
+    border-radius: 15px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text-dim);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .mobile-more-item svg { color: var(--orange); flex: 0 0 auto; }
+  .mobile-more-item.active { background: var(--orange-bg); border-color: rgba(232,119,34,.22); color: var(--text); }
+  .mobile-more-note { margin: 12px 2px 0; color: var(--text-faint); font-size: 10px; line-height: 1.45; }
+}
+
+@media (max-width: 420px) {
+  .kpi-grid,
+  .commerce-metrics,
+  .vendas-kpi-grid,
+  .produtos-kpi-grid,
+  .vendedores-kpi-grid,
+  .regioes-kpi-grid,
+  .financeiro-kpi-grid,
+  .dre-kpi-grid { grid-template-columns: 1fr !important; }
+  .mobile-bottom-item span { font-size: 8.5px; }
+}
