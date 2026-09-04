@@ -1,12 +1,17 @@
 {
+  "id": "./",
   "name": "Nutrialle Gestão",
   "short_name": "Gestão",
-  "start_url": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
   "background_color": "#F6F3EF",
   "theme_color": "#050505",
   "description": "Gestão comercial e financeira Nutrialle",
   "icons": [
-    { "src": "/favicon-180.png", "sizes": "180x180", "type": "image/png" }
+    { "src": "./favicon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]
 }
