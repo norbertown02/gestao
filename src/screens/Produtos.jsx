@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
+import { hasNetOrderValue } from '../lib/commercialMetrics'
 import { CURRENT_MONTH, CURRENT_YEAR, historyStart, monthOptions, periodRange, previousPeriodRange, yearOptions } from '../lib/commercialPeriod'
 import {
   IconAlertTriangle,
@@ -230,27 +231,35 @@ export default function Produtos() {
       const [ini, fim] = periodRange(periodo, anoReferencia, mesReferencia)
       const [iniAnt, fimAnt] = previousPeriodRange(periodo, anoReferencia, mesReferencia)
       const histIni = historyStart(anoReferencia, mesReferencia)
-
       const earliest = new Date(Math.min(iniAnt.getTime(), histIni.getTime()))
-      const result = await supabaseAdmin
-        .from('fiscal_documents')
-        .select('ultra_document_id,issue_date,partner_id,partner_name,movement_type,fiscal_document_items(item_number,product_code,product_name,quantity,unit,unit_value,product_total,raw)')
-        .gte('issue_date', toISO(earliest))
-        .lte('issue_date', toISO(fim))
 
-      if (result.error) throw result.error
+      const overview = await supabaseAdmin
+        .from('management_order_overview')
+        .select('*')
+        .gte('sale_date', toISO(earliest))
+        .lte('sale_date', toISO(fim))
 
-      const documentos = (result.data || []).map(doc => ({
-        ...doc,
-        sale_date: doc.issue_date,
-        farm_id: doc.partner_id ? `ultra:${doc.partner_id}` : doc.partner_name,
-        items: doc.fiscal_document_items || [],
+      if (overview.error) throw overview.error
+
+      const validOrders = (overview.data || []).filter(hasNetOrderValue)
+      const ids = validOrders.map(row => row.id).filter(Boolean)
+      let itemsById = new Map()
+      if (ids.length) {
+        const itemResult = await supabaseAdmin.from('sales').select('id,items').in('id', ids)
+        if (itemResult.error) throw itemResult.error
+        itemsById = new Map((itemResult.data || []).map(row => [String(row.id), parseItems(row.items)]))
+      }
+
+      const pedidos = validOrders.map(row => ({
+        ...row,
+        items: itemsById.get(String(row.id)) || [],
+        partner_name: row.customer_name || row.partner_name || 'Cliente não identificado',
       }))
-      const dentro = (doc, inicio, final) => doc.issue_date >= toISO(inicio) && doc.issue_date <= toISO(final)
+      const dentro = (row, inicio, final) => row.sale_date >= toISO(inicio) && row.sale_date <= toISO(final)
 
-      setSales(documentos.filter(doc => dentro(doc, ini, fim)))
-      setSalesAnt(documentos.filter(doc => dentro(doc, iniAnt, fimAnt)))
-      setSalesHistorico(documentos.filter(doc => doc.issue_date >= toISO(histIni)))
+      setSales(pedidos.filter(row => dentro(row, ini, fim)))
+      setSalesAnt(pedidos.filter(row => dentro(row, iniAnt, fimAnt)))
+      setSalesHistorico(pedidos.filter(row => row.sale_date >= toISO(histIni)))
     } catch (err) {
       console.error('Erro ao carregar produtos:', err)
       setSales([])
@@ -464,7 +473,7 @@ export default function Produtos() {
 
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Topbar title="Performance de Produtos" subtitle="Mix comercial, receita, volume e giro do catálogo">
+      <Topbar title="Performance de Produtos" subtitle="Mix comercial por pedidos de venda, volume e giro do catálogo">
         <button className="btn btn-ghost btn-sm" onClick={exportCSV}>
           <IconDownload size={14} />
           Exportar CSV
@@ -492,13 +501,6 @@ export default function Produtos() {
             <select aria-label="Ano de referência" value={anoReferencia} onChange={e => setAnoReferencia(Number(e.target.value))}>
               {yearOptions.map(value => <option key={value} value={value}>{value}</option>)}
             </select>
-
-            <select value={categoria} onChange={e => setCategoria(e.target.value)}>
-              <option value="todos">Todas as categorias</option>
-              {dados.categoriasDisponiveis.map(cat => (
-                <option key={cat} value={cat.toLowerCase()}>{cat}</option>
-              ))}
-            </select>
           </div>
 
           <div className="produtos-toolbar-count">
@@ -515,7 +517,7 @@ export default function Produtos() {
 
           <div className="produtos-hero-grid">
             <div>
-              <span>Receita em produtos</span>
+              <span>Valor em pedidos</span>
               <strong>{fmtK(dados.totalReceita)}</strong>
             </div>
 
@@ -532,9 +534,9 @@ export default function Produtos() {
         </section>
 
         <section className="produtos-kpi-grid">
-          <KpiCard icon={IconWallet} label="Receita total" value={fmtK(dados.totalReceita)} atual={dados.totalReceita} anterior={dados.totalReceitaAnt} />
+          <KpiCard icon={IconWallet} label="Valor dos pedidos" value={fmtK(dados.totalReceita)} atual={dados.totalReceita} anterior={dados.totalReceitaAnt} />
           <KpiCard icon={IconTrendingUp} label="Margem bruta estimada" value={fmtK(dados.totalMargem)} sub={`${dados.margemPct.toFixed(1)}% da receita · custo atual Ultra`} tone="success" />
-          <KpiCard icon={IconReceipt} label="Custo dos produtos" value={fmtK(dados.totalCusto)} sub="quantidade faturada × custo atual" />
+          <KpiCard icon={IconReceipt} label="Custo dos produtos" value={fmtK(dados.totalCusto)} sub="quantidade pedida × custo atual" />
           <KpiCard icon={IconPackage} label="Produtos vendidos" value={fmtInt(dados.porProduto.length)} sub={`${fmtInt(produtos.length)} produtos ativos`} />
           <KpiCard icon={IconBox} label="Volume vendido" value={fmtInt(dados.totalQtd)} atual={dados.totalQtd} anterior={dados.totalQtdAnt} />
           <KpiCard icon={IconReceipt} label="Ticket médio" value={fmtK(dados.ticketMedio)} sub="valor médio por item vendido" />
@@ -559,7 +561,7 @@ export default function Produtos() {
               <div className="produtos-card produtos-chart-card">
                 <div className="produtos-card-head">
                   <div><span className="produtos-eyebrow">Concentração do mix</span><h3>Quanto os principais produtos representam</h3></div>
-                  <small>barras: faturamento · linha: participação acumulada</small>
+                  <small>barras: valor de pedidos · linha: participação acumulada</small>
                 </div>
 
                 {dados.porProduto.length > 0 ? (
@@ -569,8 +571,8 @@ export default function Produtos() {
                       <XAxis dataKey="name" tickLine={false} axisLine={false} angle={-28} textAnchor="end" interval={0} height={70} tick={{ fontSize: 10 }} />
                       <YAxis yAxisId="money" tickLine={false} axisLine={false} tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} />
                       <YAxis yAxisId="share" orientation="right" domain={[0, 100]} tickLine={false} axisLine={false} tickFormatter={fmtPercent} />
-                      <Tooltip formatter={(value, name) => name === 'Acumulado' ? [fmtPercent(value), 'Participação acumulada'] : [`R$ ${fmt(value)}`, 'Faturamento']} />
-                      <Bar yAxisId="money" dataKey="receita" name="Faturamento" fill="var(--orange)" radius={[7, 7, 0, 0]} maxBarSize={34} />
+                      <Tooltip formatter={(value, name) => name === 'Acumulado' ? [fmtPercent(value), 'Participação acumulada'] : [`R$ ${fmt(value)}`, 'Valor de pedidos']} />
+                      <Bar yAxisId="money" dataKey="receita" name="Valor de pedidos" fill="var(--orange)" radius={[7, 7, 0, 0]} maxBarSize={34} />
                       <Line yAxisId="share" type="monotone" dataKey="Acumulado" stroke="#292623" strokeWidth={2.5} dot={{ r: 3, fill: '#292623' }} />
                     </ComposedChart>
                   </ResponsiveContainer>

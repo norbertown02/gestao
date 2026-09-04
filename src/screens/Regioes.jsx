@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
-import { fiscalDocumentValue, hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
+import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import { CURRENT_MONTH, CURRENT_YEAR, historyStart, monthOptions, periodRange, previousPeriodRange, yearOptions } from '../lib/commercialPeriod'
 import {
   IconAlertTriangle,
@@ -208,22 +208,32 @@ export default function Regioes() {
       const [iniAnt, fimAnt] = previousPeriodRange(periodo, anoReferencia, mesReferencia)
       const histIni = historyStart(anoReferencia, mesReferencia)
 
-      const fiscalSelect = 'issue_date,document_total,movement_type,partner_id,fiscal_document_items(product_name,product_total)'
-      const [rSales, rSalesAnt, rDocs, rDocsAnt, rDocsHist, rVisits, rQuotes] = await Promise.all([
-        supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(ini)).lte('sale_date', toISO(fim)),
-        supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(iniAnt)).lte('sale_date', toISO(fimAnt)),
-        supabaseAdmin.from('fiscal_documents').select(fiscalSelect).gte('issue_date', toISO(ini)).lte('issue_date', toISO(fim)),
-        supabaseAdmin.from('fiscal_documents').select(fiscalSelect).gte('issue_date', toISO(iniAnt)).lte('issue_date', toISO(fimAnt)),
-        supabaseAdmin.from('fiscal_documents').select(fiscalSelect).gte('issue_date', toISO(histIni)).lte('issue_date', toISO(fim)),
+      const [rOrders, rVisits, rQuotes] = await Promise.all([
+        supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(histIni < iniAnt ? histIni : iniAnt)).lte('sale_date', toISO(fim)),
         supabaseAdmin.from('visits').select('*').gte('visit_date', toISO(ini)).lte('visit_date', toISO(fim)),
         supabaseAdmin.from('quotes').select('*').gte('created_at', `${toISO(ini)}T00:00:00`).lte('created_at', `${toISO(fim)}T23:59:59`),
       ])
+      if (rOrders.error) throw rOrders.error
 
-      setSales(rSales.data || [])
-      setSalesAnt(rSalesAnt.data || [])
-      setDocuments(rDocs.data || [])
-      setDocumentsAnt(rDocsAnt.data || [])
-      setDocumentsHistorico(rDocsHist.data || [])
+      const validOrders = (rOrders.data || []).filter(hasNetOrderValue)
+      const ids = validOrders.map(row => row.id).filter(Boolean)
+      let itemsById = new Map()
+      if (ids.length) {
+        const itemResult = await supabaseAdmin.from('sales').select('id,items').in('id', ids)
+        if (itemResult.error) throw itemResult.error
+        itemsById = new Map((itemResult.data || []).map(row => [String(row.id), Array.isArray(row.items) ? row.items : []]))
+      }
+      const orders = validOrders.map(row => ({ ...row, items: itemsById.get(String(row.id)) || [] }))
+      const dentro = (row, inicio, final) => row.sale_date >= toISO(inicio) && row.sale_date <= toISO(final)
+      const atual = orders.filter(row => dentro(row, ini, fim))
+      const anterior = orders.filter(row => dentro(row, iniAnt, fimAnt))
+      const historico = orders.filter(row => row.sale_date >= toISO(histIni))
+
+      setSales(atual)
+      setSalesAnt(anterior)
+      setDocuments(atual)
+      setDocumentsAnt(anterior)
+      setDocumentsHistorico(historico)
       setVisits(rVisits.data || [])
       setQuotes(rQuotes.data || [])
     } catch (err) {
@@ -258,8 +268,8 @@ export default function Regioes() {
 
     const pedidos = sales.filter(filtrarPorSegmento).filter(hasNetOrderValue)
     const pedidosAnt = salesAnt.filter(filtrarPorSegmento).filter(hasNetOrderValue)
-    const faturamento = documents.filter(row => segmento === 'todos' || farmIdsFiltro.has(farmByPartnerId.get(Number(row.partner_id))?.id))
-    const faturamentoAnt = documentsAnt.filter(row => segmento === 'todos' || farmIdsFiltro.has(farmByPartnerId.get(Number(row.partner_id))?.id))
+    const faturamento = pedidos
+    const faturamentoAnt = pedidosAnt
     const visitas = visits.filter(filtrarPorSegmento)
     const cotacoes = quotes.filter(filtrarPorSegmento)
 
@@ -314,25 +324,23 @@ export default function Regioes() {
     })
 
     faturamento.forEach(doc => {
-      const farm = farmByPartnerId.get(Number(doc.partner_id))
+      const farm = farmById.get(doc.farm_id)
       const state = getState(farm)
       if (!state || !porEstado[state]) return
 
-      const multiplier = Math.sign(fiscalDocumentValue(doc))
-      porEstado[state].vendas += fiscalDocumentValue(doc)
-      if (!multiplier) return
-      ;(doc.fiscal_document_items || []).forEach(item => {
+      porEstado[state].vendas += netOrderValue(doc)
+      ;(doc.items || []).forEach(item => {
         const name = productName(item)
-        const subtotal = Math.abs(Number(item?.product_total || 0)) * multiplier
+        const subtotal = Math.abs(Number(item?.subtotal ?? item?.total ?? item?.value ?? (Number(item?.quantity || 0) * Number(item?.unitPrice || item?.unit_price || 0))))
         porEstado[state].produtos[name] = (porEstado[state].produtos[name] || 0) + subtotal
       })
     })
 
     faturamentoAnt.forEach(doc => {
-      const farm = farmByPartnerId.get(Number(doc.partner_id))
+      const farm = farmById.get(doc.farm_id)
       const state = getState(farm)
       if (!state || !porEstado[state]) return
-      porEstado[state].vendasAnt += fiscalDocumentValue(doc)
+      porEstado[state].vendasAnt += netOrderValue(doc)
     })
 
     visitas.forEach(v => {
@@ -410,12 +418,12 @@ export default function Regioes() {
 
     const mesMap = {}
     documentsHistorico.forEach(s => {
-      const farm = farmByPartnerId.get(Number(s.partner_id))
+      const farm = farmById.get(s.farm_id)
       if (segmento !== 'todos' && !farmIdsFiltro.has(farm?.id)) return
       const state = getState(farm)
       if (!state) return
 
-      const mes = s.issue_date?.slice(0, 7)
+      const mes = s.sale_date?.slice(0, 7)
       if (!mes) return
 
       if (!mesMap[mes]) {
@@ -430,7 +438,7 @@ export default function Regioes() {
         }
       }
 
-      mesMap[mes].Receita += fiscalDocumentValue(s)
+      mesMap[mes].Receita += netOrderValue(s)
       if (farm?.id) mesMap[mes].Clientes.add(farm.id)
     })
 
@@ -584,7 +592,7 @@ export default function Regioes() {
 
   function exportCSV() {
     const rows = [
-      ['Estado', 'Faturamento líquido', 'Faturamento líquido ant.', 'Crescimento %', 'Pedidos', 'Ticket', 'Clientes', 'Clientes com pedido', 'Cobertura venda %', 'Visitas', 'Cotações abertas', 'Valor cotado aberto', 'Produto líder'],
+      ['Estado', 'Valor de pedidos líquido', 'Valor de pedidos líquido ant.', 'Crescimento %', 'Pedidos', 'Ticket', 'Clientes', 'Clientes com pedido', 'Cobertura venda %', 'Visitas', 'Cotações abertas', 'Valor cotado aberto', 'Produto líder'],
       ...dados.estados.map(e => [
         e.state,
         e.vendas,
@@ -663,7 +671,7 @@ export default function Regioes() {
 
           <div className="regioes-hero-grid">
             <div>
-              <span>Faturamento líquido</span>
+              <span>Valor de pedidos líquido</span>
               <strong>{fmtK(dados.totalReceita)}</strong>
             </div>
 
@@ -682,7 +690,7 @@ export default function Regioes() {
         <section className="regioes-kpi-grid">
           <KpiCard
             icon={IconWallet}
-            label="Faturamento líquido"
+            label="Valor de pedidos líquido"
             value={fmtK(dados.totalReceita)}
             atual={dados.totalReceita}
             anterior={dados.totalReceitaAnt}
@@ -727,7 +735,7 @@ export default function Regioes() {
                 <div className="regioes-card-head">
                   <div>
                     <span className="regioes-eyebrow">Mapa comercial</span>
-                    <h3>Faturamento líquido por estado</h3>
+                    <h3>Valor de pedidos líquido por estado</h3>
                   </div>
 
                   <small>{estadoSel ? `Selecionado: ${estadoSel}` : 'Clique em um estado'}</small>
@@ -797,7 +805,7 @@ export default function Regioes() {
                     </div>
 
                     {[
-                      ['Faturamento', fmtK(estadoSelData.vendas)],
+                      ['Valor de pedidos', fmtK(estadoSelData.vendas)],
                       ['Pedidos', fmtInt(estadoSelData.pedidos)],
                       ['Clientes', fmtInt(estadoSelData.fazendas)],
                       ['Visitas', fmtInt(estadoSelData.visitas)],
@@ -819,7 +827,7 @@ export default function Regioes() {
                 <div className="regioes-card-head">
                   <div>
                     <span className="regioes-eyebrow">Evolução</span>
-                    <h3>Faturamento líquido regional</h3>
+                    <h3>Valor de pedidos líquido regional</h3>
                   </div>
                 </div>
 
@@ -973,7 +981,7 @@ export default function Regioes() {
                   <thead>
                     <tr>
                       <th>Estado</th>
-                      <th style={{ textAlign: 'right' }}>Faturamento líquido</th>
+                      <th style={{ textAlign: 'right' }}>Valor de pedidos líquido</th>
                       <th style={{ textAlign: 'right' }}>Pedidos</th>
                       <th style={{ textAlign: 'right' }}>Ticket</th>
                       <th style={{ textAlign: 'center' }}>Clientes</th>
