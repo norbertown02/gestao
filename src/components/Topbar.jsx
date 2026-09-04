@@ -1,4 +1,5 @@
 import { IconCalendar } from '@tabler/icons-react'
+import nutrialleLogo from '../assets/logo-nutrialle.png'
 
 function capitalizarPrimeiraLetra(texto) {
   if (!texto) return ''
@@ -17,9 +18,12 @@ export default function Topbar({ title, subtitle, children }) {
 
   return (
     <header className="topbar">
-      <div>
-        <div className="topbar-title">{title}</div>
-        {subtitle && <div className="topbar-subtitle">{subtitle}</div>}
+      <div className="topbar-branding">
+        <img className="topbar-mobile-logo" src={nutrialleLogo} alt="Nutrialle" />
+        <div>
+          <div className="topbar-title">{title}</div>
+          {subtitle && <div className="topbar-subtitle">{subtitle}</div>}
+        </div>
       </div>
 
       <div className="topbar-actions">
