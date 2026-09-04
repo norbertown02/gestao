@@ -1,0 +1,42 @@
+name: Apply remaining commercial fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-remaining-commercial-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply remaining order-based views
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          source = Path('.github/workflows/standardize-commercial-views.yml').read_text()
+          marker = '          # Vendedores: replace fiscal-document source with the canonical order overview.\n'
+          start = source.find(marker)
+          if start < 0:
+              raise SystemExit('Vendedores marker not found')
+          end_marker = '\n          PY'
+          end = source.rfind(end_marker)
+          if end < 0:
+              raise SystemExit('Python end marker not found')
+          body = source[start:end]
+          lines = []
+          for line in body.splitlines():
+              lines.append(line[10:] if line.startswith('          ') else line)
+          helpers = '''from pathlib import Path\nimport re\ndef read(path):\n    return Path(path).read_text()\ndef write(path, text):\n    Path(path).write_text(text)\ndef repl(text, old, new, label):\n    if old not in text:\n        raise SystemExit(f"Pattern not found for {label}")\n    return text.replace(old, new)\ndef sub(text, pattern, replacement, label, flags=0):\n    new, n = re.subn(pattern, replacement, text, flags=flags)\n    if n == 0:\n        raise SystemExit(f"Regex not found for {label}")\n    return new\n'''
+          script = helpers + '\n' + '\n'.join(lines)
+          exec(compile(script, 'remaining-commercial-fix', 'exec'))
+          PY
