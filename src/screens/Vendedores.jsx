@@ -224,9 +224,9 @@ export default function Vendedores() {
         supabaseAdmin.from('quotes').select('*').gte('created_at', `${toISO(ini)}T00:00:00`).lte('created_at', `${toISO(fim)}T23:59:59`),
         supabaseAdmin.from('quotes').select('*').gte('created_at', `${toISO(iniAnt)}T00:00:00`).lte('created_at', `${toISO(fimAnt)}T23:59:59`),
         supabaseAdmin.from('checklists').select('*').gte('applied_at', toISO(ini)).lte('applied_at', toISO(fim)),
-        supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type,seller_id,ultra_salesman_id,salesman_name').gte('issue_date', toISO(ini)).lte('issue_date', toISO(fim)),
-        supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type,seller_id,ultra_salesman_id,salesman_name').gte('issue_date', toISO(iniAnt)).lte('issue_date', toISO(fimAnt)),
-        supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type,seller_id,ultra_salesman_id,salesman_name').gte('issue_date', toISO(histIni)),
+        supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(ini)).lte('sale_date', toISO(fim)),
+        supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(iniAnt)).lte('sale_date', toISO(fimAnt)),
+        supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(histIni)),
       ])
 
       setSales((salesAtual.data || []).filter(hasNetOrderValue).map(normalizeOrder))
@@ -236,9 +236,9 @@ export default function Vendedores() {
       setQuotes(quotesAtual.data || [])
       setQuotesAnt(quotesAnterior.data || [])
       setChecklists(checksAtual.data || [])
-      setDocuments(documentsAtual.data || [])
-      setDocumentsAnt(documentsAnterior.data || [])
-      setDocumentsHistory(documentsHistoryResult.data || [])
+      setDocuments((documentsAtual.data || []).filter(hasNetOrderValue).map(normalizeOrder))
+      setDocumentsAnt((documentsAnterior.data || []).filter(hasNetOrderValue).map(normalizeOrder))
+      setDocumentsHistory((documentsHistoryResult.data || []).filter(hasNetOrderValue).map(normalizeOrder))
     } catch (err) {
       console.error('Erro ao carregar vendedores:', err)
       setSales([])
@@ -258,7 +258,6 @@ export default function Vendedores() {
 
   const dados = useMemo(() => {
     const sellerById = new Map(sellers.map(s => [s.id, s]))
-    const fiscalValue = doc => doc.movement_type === 'devolucao' ? -Math.abs(Number(doc.document_total || 0)) : Number(doc.document_total || 0)
     // Só existe vendedor que vem do Ultra: perfis sem ultra_salesman_id
     // válido (ex.: gestor puro, ou vínculo quebrado apontando pra um id que
     // não é vendedor real) não contam como vendedor nesta tela.
@@ -294,8 +293,8 @@ export default function Vendedores() {
 
     const docs = segmento === 'todos' ? documents : []
     const docsAnt = segmento === 'todos' ? documentsAnt : []
-    const totalFat = segmento === 'todos' ? docs.reduce((sum, doc) => sum + fiscalValue(doc), 0) : vendas.reduce((a, s) => a + Number(s.total || 0), 0)
-    const totalFatAnt = segmento === 'todos' ? docsAnt.reduce((sum, doc) => sum + fiscalValue(doc), 0) : vendasAnt.reduce((a, s) => a + Number(s.total || 0), 0)
+    const totalFat = segmento === 'todos' ? docs.reduce((sum, doc) => sum + Number(doc.total || 0), 0) : vendas.reduce((a, s) => a + Number(s.total || 0), 0)
+    const totalFatAnt = segmento === 'todos' ? docsAnt.reduce((sum, doc) => sum + Number(doc.total || 0), 0) : vendasAnt.reduce((a, s) => a + Number(s.total || 0), 0)
     const totalVisitas = visitas.length
     const totalVisitasAnt = visitasAnt.length
     const totalCotacoes = cotacoes.length
@@ -333,8 +332,8 @@ export default function Vendedores() {
       const cotacoesSellerAnt = cotacoesAnt.filter(q => q.seller_id === id)
       const convertidasSeller = cotacoesSeller.filter(q => normalizarStatus(q.status) === 'convertida').length
       const convertidasSellerAnt = cotacoesSellerAnt.filter(q => normalizarStatus(q.status) === 'convertida').length
-      const fat = segmento === 'todos' ? docsSeller.reduce((sum, doc) => sum + fiscalValue(doc), 0) : vendasSeller.reduce((a, s) => a + Number(s.total || 0), 0)
-      const fatAnt = segmento === 'todos' ? docsSellerAnt.reduce((sum, doc) => sum + fiscalValue(doc), 0) : vendasSellerAnt.reduce((a, s) => a + Number(s.total || 0), 0)
+      const fat = segmento === 'todos' ? docsSeller.reduce((sum, doc) => sum + Number(doc.total || 0), 0) : vendasSeller.reduce((a, s) => a + Number(s.total || 0), 0)
+      const fatAnt = segmento === 'todos' ? docsSellerAnt.reduce((sum, doc) => sum + Number(doc.total || 0), 0) : vendasSellerAnt.reduce((a, s) => a + Number(s.total || 0), 0)
       const pedidos = vendasSeller.length
       const ticket = pedidos ? fat / pedidos : 0
       const fazComVenda = new Set(vendasSeller.map(s => s.farm_id).filter(Boolean)).size
@@ -374,11 +373,11 @@ export default function Vendedores() {
         const date = new Date(today.getFullYear(), today.getMonth() - (5 - index), 1)
         const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
         const total = documentsHistory
-          .filter(doc => saleSellerKey(doc) === id && doc.issue_date?.startsWith(key))
-          .reduce((sum, doc) => sum + fiscalValue(doc), 0)
+          .filter(doc => saleSellerKey(doc) === id && doc.sale_date?.startsWith(key))
+          .reduce((sum, doc) => sum + Number(doc.total || 0), 0)
         return {
           mes: date.toLocaleDateString('pt-BR', { month: 'short' }),
-          Faturamento: total,
+          Pedidos: total,
         }
       })
 
@@ -647,7 +646,7 @@ export default function Vendedores() {
                 <div className="vendedores-card-head">
                   <div>
                     <span className="vendedores-eyebrow">Resultado</span>
-                    <h3>Faturamento por vendedor</h3>
+                    <h3>Valor de pedidos por vendedor</h3>
                   </div>
                 </div>
 
@@ -834,7 +833,7 @@ export default function Vendedores() {
                       <th>#</th>
                       <th>Vendedor</th>
                       <th>Fazendas</th>
-                      <th style={{ textAlign: 'right' }}>Faturamento</th>
+                      <th style={{ textAlign: 'right' }}>Valor de pedidos</th>
                       <th style={{ textAlign: 'right' }}>Pedidos</th>
                       <th style={{ textAlign: 'right' }}>Ticket</th>
                       <th style={{ textAlign: 'center' }}>Cotações</th>
@@ -899,7 +898,7 @@ export default function Vendedores() {
                               <td colSpan={11} className="vendedores-detail-cell">
                                 <div className="vendedores-detail-grid">
                                   <div className="vendedores-detail-box">
-                                    <span>Faturamento</span>
+                                    <span>Valor de pedidos</span>
                                     <strong>{fmtK(s.fat)}</strong>
                                     <VarBadge atual={s.fat} anterior={s.fatAnt} />
                                   </div>
