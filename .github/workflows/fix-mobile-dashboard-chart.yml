@@ -1,0 +1,50 @@
+name: Fix mobile dashboard chart
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-mobile-dashboard-chart.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Patch chart sizing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/screens/DashboardFiltrado.jsx')
+          s = p.read_text()
+          old = "  const maxSeller = Math.max(...data.topSellers.map(item => item.total), 1)\n"
+          new = old + "  const chartHeight = typeof window !== 'undefined' && window.matchMedia('(max-width: 780px)').matches ? 220 : 390\n"
+          if 'const chartHeight =' not in s:
+              if old not in s:
+                  raise SystemExit('maxSeller anchor not found')
+              s = s.replace(old, new, 1)
+          old_open = '<ResponsiveContainer width="100%" height={390}>'
+          new_open = '<div className="macro-chart-canvas" style={{ width: \'100%\', height: chartHeight }}><ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={180}>'
+          if old_open in s:
+              s = s.replace(old_open, new_open, 1)
+          elif 'className="macro-chart-canvas"' not in s:
+              raise SystemExit('ResponsiveContainer anchor not found')
+          old_close = '</ComposedChart></ResponsiveContainer></section>\n        <section className="macro-bottom">'
+          new_close = '</ComposedChart></ResponsiveContainer></div></section>\n        <section className="macro-bottom">'
+          if old_close in s:
+              s = s.replace(old_close, new_close, 1)
+          elif '</ResponsiveContainer></div></section>\n        <section className="macro-bottom">' not in s:
+              raise SystemExit('chart closing anchor not found')
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/screens/DashboardFiltrado.jsx
+          git commit -m 'fix: estabilizar grafico do dashboard no mobile'
+          git push
