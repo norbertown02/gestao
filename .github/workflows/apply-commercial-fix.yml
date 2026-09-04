@@ -1,0 +1,74 @@
+name: Apply commercial fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-commercial-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply focused commercial fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          def patch(path, replacements=(), regexes=()):
+              p = Path(path)
+              s = p.read_text()
+              for old, new in replacements:
+                  if old not in s:
+                      raise SystemExit(f'Pattern not found in {path}: {old[:80]}')
+                  s = s.replace(old, new)
+              for pattern, replacement in regexes:
+                  s, n = re.subn(pattern, replacement, s, flags=re.M|re.S)
+                  if not n:
+                      raise SystemExit(f'Regex not found in {path}: {pattern[:80]}')
+              p.write_text(s)
+
+          patch('src/screens/DashboardFiltrado.jsx', [
+              ("const sizes = { bimestre: 2, trimestre: 3, semestre: 6, ano: 12 }", "const sizes = { mes: 1, bimestre: 2, trimestre: 3, semestre: 6, ano: 12 }"),
+              ("const counts = { ano: 1, semestre: 2, trimestre: 4, bimestre: 6 }", "const counts = { ano: 1, semestre: 2, trimestre: 4, bimestre: 6, mes: 12 }"),
+              ("const labels = { ano: 'Ano completo', semestre: 'Semestre', trimestre: 'Trimestre', bimestre: 'Bimestre' }", "const labels = { ano: 'Ano completo', semestre: 'Semestre', trimestre: 'Trimestre', bimestre: 'Bimestre', mes: 'Mês' }"),
+              ('<option value="bimestre">Bimestre</option>', '<option value="bimestre">Bimestre</option><option value="mes">Mês</option>'),
+          ])
+
+          patch('src/screens/DashboardTime.jsx', [
+              ("import { supabase, supabaseAdmin } from '../lib/supabase'", "import { supabase, supabaseAdmin } from '../lib/supabase'\nimport { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'"),
+              ("supabaseAdmin.from('sales').select('*').gte('sale_date', inicioMes).lte('sale_date', fimMes)", "supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', inicioMes).lte('sale_date', fimMes)"),
+              ("const salesMes = rSalesMes.data || []", "const salesMes = (rSalesMes.data || []).filter(hasNetOrderValue)"),
+              ("const fat = vendas.reduce((a, v) => a + Number(v.total||0), 0)", "const fat = vendas.reduce((a, v) => a + netOrderValue(v), 0)"),
+              ('>Faturamento</th>', '>Valor dos pedidos</th>'),
+              ("label:'Fazendas com venda'", "label:'Fazendas com pedido'"),
+          ])
+
+          patch('src/screens/VendasFiltradasV2.jsx', regexes=[
+              (r'^\s*<MultiSelectFilter label="Aplicação"[^\n]*\n', ''),
+              (r'^\s*<MultiSelectFilter label="Categoria"[^\n]*\n', ''),
+          ])
+
+          patch('src/screens/DashboardFiltrado.jsx', regexes=[
+              (r'^\s*<MultiSelectFilter label="Aplicação"[^\n]*\n', ''),
+              (r'^\s*<MultiSelectFilter label="Categoria"[^\n]*\n', ''),
+          ])
+
+          import subprocess
+          subprocess.run(['npm','ci'], check=True)
+          subprocess.run(['npm','run','build'], check=True)
+          subprocess.run(['git','config','user.name','github-actions[bot]'], check=True)
+          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'], check=True)
+          subprocess.run(['git','add','src/screens/DashboardFiltrado.jsx','src/screens/DashboardTime.jsx','src/screens/VendasFiltradasV2.jsx'], check=True)
+          if subprocess.run(['git','diff','--cached','--quiet']).returncode != 0:
+              subprocess.run(['git','commit','-m','fix: padronizar dashboard e visoes comerciais'], check=True)
+              subprocess.run(['git','push'], check=True)
+          PY
