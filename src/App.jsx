@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/useAuth'
 import Sidebar from './components/Sidebar'
+import MobileNav from './components/MobileNav'
 import SplashScreen from './components/SplashScreen'
 import Login from './screens/Login'
 import DashboardFiltrado from './screens/DashboardFiltrado'
@@ -55,6 +56,7 @@ function AppContent() {
           <Route path="/config" element={<Config />} />
         </Routes>
       </div>
+      <MobileNav />
     </div>
   )
 }
