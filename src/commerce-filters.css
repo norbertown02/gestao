@@ -1,0 +1,101 @@
+/* Gestão Comercial — barra de filtros alinhada ao padrão visual Nutrialle/Relatório */
+.commerce-page .commerce-toolbar {
+  display: grid !important;
+  grid-template-columns: minmax(240px, .72fr) minmax(360px, 1.25fr) auto;
+  align-items: end !important;
+  gap: 14px !important;
+  padding: 18px 20px !important;
+  border-radius: 16px !important;
+  background: rgba(255,255,255,.9) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: 0 8px 24px rgba(35,25,15,.035) !important;
+}
+
+.commerce-page .commerce-toolbar > label {
+  display: grid !important;
+  grid-template-columns: 18px minmax(0,1fr);
+  grid-template-rows: auto 44px;
+  column-gap: 9px;
+  row-gap: 6px;
+  align-items: center;
+  min-width: 0;
+  color: var(--orange);
+}
+
+.commerce-page .commerce-toolbar > label:not(:has(svg)) {
+  grid-template-columns: 1fr;
+}
+
+.commerce-page .commerce-toolbar > label > svg {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+}
+
+.commerce-page .commerce-toolbar > label > span {
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--text-dim);
+  font-size: 10.5px;
+  line-height: 1;
+  font-weight: 750;
+  letter-spacing: .095em;
+  text-transform: uppercase;
+}
+
+.commerce-page .commerce-toolbar > label:not(:has(svg)) > span {
+  grid-column: 1;
+}
+
+.commerce-page .commerce-toolbar input,
+.commerce-page .commerce-toolbar select {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 44px !important;
+  padding: 0 14px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 11px !important;
+  background: #fff !important;
+  color: var(--text) !important;
+  font-family: inherit;
+  font-size: 13px !important;
+  font-weight: 650;
+  outline: none;
+  box-shadow: none !important;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.commerce-page .commerce-toolbar input:focus,
+.commerce-page .commerce-toolbar select:focus {
+  border-color: rgba(232,119,34,.6) !important;
+  box-shadow: 0 0 0 3px rgba(232,119,34,.09) !important;
+}
+
+.commerce-page .commerce-toolbar > button {
+  height: 44px;
+  min-width: 118px;
+  padding: 0 17px;
+  border-radius: 11px;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+@media (max-width: 1080px) {
+  .commerce-page .commerce-toolbar {
+    grid-template-columns: minmax(210px,.8fr) minmax(280px,1.2fr) auto;
+  }
+}
+
+@media (max-width: 780px) {
+  .commerce-page .commerce-toolbar {
+    grid-template-columns: 1fr !important;
+    padding: 15px !important;
+  }
+
+  .commerce-page .commerce-toolbar > button {
+    width: 100%;
+    justify-self: stretch;
+  }
+}
