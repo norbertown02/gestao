@@ -1,0 +1,270 @@
+name: Standardize commercial views
+
+on:
+  push:
+    paths:
+      - '.github/workflows/standardize-commercial-views.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  standardize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Apply commercial data-source standardization
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          def read(path):
+              return Path(path).read_text()
+          def write(path, text):
+              Path(path).write_text(text)
+          def repl(text, old, new, label):
+              if old not in text:
+                  raise SystemExit(f'Pattern not found for {label}')
+              return text.replace(old, new)
+          def sub(text, pattern, replacement, label, flags=0):
+              new, n = re.subn(pattern, replacement, text, flags=flags)
+              if n == 0:
+                  raise SystemExit(f'Regex not found for {label}')
+              return new
+
+          # Dashboard: preserve both order and billing views, add monthly period,
+          # remove application/category segmentation controls.
+          p = 'src/screens/DashboardFiltrado.jsx'
+          s = read(p)
+          s = repl(s, "const sizes = { bimestre: 2, trimestre: 3, semestre: 6, ano: 12 }", "const sizes = { mes: 1, bimestre: 2, trimestre: 3, semestre: 6, ano: 12 }", 'dashboard month size')
+          s = repl(s, "const counts = { ano: 1, semestre: 2, trimestre: 4, bimestre: 6 }", "const counts = { ano: 1, semestre: 2, trimestre: 4, bimestre: 6, mes: 12 }", 'dashboard month count')
+          s = repl(s, "const labels = { ano: 'Ano completo', semestre: 'Semestre', trimestre: 'Trimestre', bimestre: 'Bimestre' }", "const labels = { ano: 'Ano completo', semestre: 'Semestre', trimestre: 'Trimestre', bimestre: 'Bimestre', mes: 'Mês' }", 'dashboard month label')
+          s = repl(s, '<select value={type} onChange={event => { setType(event.target.value); setIndex(1) }}><option value="ano">Ano</option><option value="semestre">Semestre</option><option value="trimestre">Trimestre</option><option value="bimestre">Bimestre</option></select>', '<select value={type} onChange={event => { setType(event.target.value); setIndex(1) }}><option value="ano">Ano</option><option value="semestre">Semestre</option><option value="trimestre">Trimestre</option><option value="bimestre">Bimestre</option><option value="mes">Mês</option></select>', 'dashboard month option')
+          s = re.sub(r'^\s*<MultiSelectFilter label="Aplicação"[^\n]*\n', '', s, flags=re.M)
+          s = re.sub(r'^\s*<MultiSelectFilter label="Categoria"[^\n]*\n', '', s, flags=re.M)
+          s = re.sub(r'^\s*\{hasTaxonomyFilter && <div[^\n]*\n', '', s, flags=re.M)
+          write(p, s)
+
+          # Gestão Comercial: remains the one detailed screen where order and billing coexist,
+          # but without application/category segmentation.
+          p = 'src/screens/VendasFiltradasV2.jsx'
+          s = read(p)
+          s = re.sub(r'^\s*<MultiSelectFilter label="Aplicação"[^\n]*\n', '', s, flags=re.M)
+          s = re.sub(r'^\s*<MultiSelectFilter label="Categoria"[^\n]*\n', '', s, flags=re.M)
+          s = s.replace('Valor líquido correspondente aos produtos filtrados', 'Valor líquido dos pedidos válidos')
+          s = s.replace('Notas emitidas para o mix selecionado', 'Notas fiscais emitidas na competência')
+          s = s.replace('valores diários com os filtros aplicados', 'valores diários da competência')
+          write(p, s)
+
+          # Dashboard do Time: sales performance is order-based, never billing-based.
+          p = 'src/screens/DashboardTime.jsx'
+          s = read(p)
+          s = repl(s, "import { supabase, supabaseAdmin } from '../lib/supabase'", "import { supabase, supabaseAdmin } from '../lib/supabase'\nimport { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'", 'time metrics import')
+          s = repl(s, "supabaseAdmin.from('sales').select('*').gte('sale_date', inicioMes).lte('sale_date', fimMes)", "supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', inicioMes).lte('sale_date', fimMes)", 'time order source')
+          s = repl(s, "const salesMes = rSalesMes.data || []", "const salesMes = (rSalesMes.data || []).filter(hasNetOrderValue)", 'time valid orders')
+          s = repl(s, "const fat = vendas.reduce((a, v) => a + Number(v.total||0), 0)", "const fat = vendas.reduce((a, v) => a + netOrderValue(v), 0)", 'time order value')
+          s = s.replace('>Faturamento</th>', '>Valor dos pedidos</th>')
+          write(p, s)
+
+          # Vendedores: replace fiscal-document source with the canonical order overview.
+          p = 'src/screens/Vendedores.jsx'
+          s = read(p)
+          s = repl(s, "supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type,seller_id,ultra_salesman_id,salesman_name').gte('issue_date', toISO(ini)).lte('issue_date', toISO(fim))", "supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(ini)).lte('sale_date', toISO(fim))", 'vendedores current orders')
+          s = repl(s, "supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type,seller_id,ultra_salesman_id,salesman_name').gte('issue_date', toISO(iniAnt)).lte('issue_date', toISO(fimAnt))", "supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(iniAnt)).lte('sale_date', toISO(fimAnt))", 'vendedores previous orders')
+          s = repl(s, "supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type,seller_id,ultra_salesman_id,salesman_name').gte('issue_date', toISO(histIni))", "supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(histIni))", 'vendedores history orders')
+          s = sub(s, r"\s*const fiscalValue = doc => doc\.movement_type === 'devolucao' \? -Math\.abs\(Number\(doc\.document_total \|\| 0\)\) : Number\(doc\.document_total \|\| 0\)\n", "\n", 'remove fiscal value helper')
+          s = s.replace('fiscalValue(', 'netOrderValue(')
+          s = s.replace('.issue_date', '.sale_date')
+          s = s.replace("if (s.movement_type === 'venda') mesMap[mes].Pedidos += 1", "mesMap[mes].Pedidos += 1")
+          s = s.replace("['Nome', 'Email', 'Função', 'Fazendas', 'Faturamento', 'Pedidos'", "['Nome', 'Email', 'Função', 'Fazendas', 'Valor de pedidos', 'Pedidos'")
+          s = s.replace('>Faturamento</', '>Valor de pedidos</')
+          s = s.replace('Faturamento por vendedor', 'Valor de pedidos por vendedor')
+          s = s.replace('Top faturamento', 'Top valor de pedidos')
+          s = s.replace('faturamento no período', 'valor de pedidos no período')
+          write(p, s)
+
+          # Produtos: base performance on valid sales orders and their order items.
+          p = 'src/screens/Produtos.jsx'
+          s = read(p)
+          s = repl(s, "import Topbar from '../components/Topbar'", "import Topbar from '../components/Topbar'\nimport { hasNetOrderValue } from '../lib/commercialMetrics'", 'products metrics import')
+          new_load = '''  async function carregarVendas() {
+    setLoading(true)
+
+    try {
+      const [ini, fim] = periodRange(periodo, anoReferencia, mesReferencia)
+      const [iniAnt, fimAnt] = previousPeriodRange(periodo, anoReferencia, mesReferencia)
+      const histIni = historyStart(anoReferencia, mesReferencia)
+      const earliest = new Date(Math.min(iniAnt.getTime(), histIni.getTime()))
+
+      const overview = await supabaseAdmin
+        .from('management_order_overview')
+        .select('*')
+        .gte('sale_date', toISO(earliest))
+        .lte('sale_date', toISO(fim))
+
+      if (overview.error) throw overview.error
+
+      const validOrders = (overview.data || []).filter(hasNetOrderValue)
+      const ids = validOrders.map(row => row.id).filter(Boolean)
+      let itemsById = new Map()
+      if (ids.length) {
+        const itemResult = await supabaseAdmin.from('sales').select('id,items').in('id', ids)
+        if (itemResult.error) throw itemResult.error
+        itemsById = new Map((itemResult.data || []).map(row => [String(row.id), parseItems(row.items)]))
+      }
+
+      const pedidos = validOrders.map(row => ({
+        ...row,
+        items: itemsById.get(String(row.id)) || [],
+        partner_name: row.customer_name || row.partner_name || 'Cliente não identificado',
+      }))
+      const dentro = (row, inicio, final) => row.sale_date >= toISO(inicio) && row.sale_date <= toISO(final)
+
+      setSales(pedidos.filter(row => dentro(row, ini, fim)))
+      setSalesAnt(pedidos.filter(row => dentro(row, iniAnt, fimAnt)))
+      setSalesHistorico(pedidos.filter(row => row.sale_date >= toISO(histIni)))
+    } catch (err) {
+      console.error('Erro ao carregar produtos:', err)
+      setSales([])
+      setSalesAnt([])
+      setSalesHistorico([])
+    } finally {
+      setLoading(false)
+    }
+  }
+'''
+          s = sub(s, r"  async function carregarVendas\(\) \{.*?\n  \}\n\n  const dados = useMemo", new_load + "\n  const dados = useMemo", 'products load function', flags=re.S)
+          s = sub(s, r"\n\s*<select value=\{categoria\} onChange=\{e => setCategoria\(e\.target\.value\)\}>.*?</select>", '', 'remove product category filter', flags=re.S)
+          s = s.replace('Mix comercial, receita, volume e giro do catálogo', 'Mix comercial por pedidos de venda, volume e giro do catálogo')
+          s = s.replace('>Receita em produtos<', '>Valor em pedidos<')
+          s = s.replace('label="Receita total"', 'label="Valor dos pedidos"')
+          s = s.replace('quantidade faturada × custo atual', 'quantidade pedida × custo atual')
+          s = s.replace('barras: faturamento · linha: participação acumulada', 'barras: valor de pedidos · linha: participação acumulada')
+          s = s.replace("'Faturamento']", "'Valor de pedidos']")
+          s = s.replace('name="Faturamento"', 'name="Valor de pedidos"')
+          write(p, s)
+
+          # Regiões: use the same valid-order base for value, rankings and history.
+          p = 'src/screens/Regioes.jsx'
+          s = read(p)
+          s = repl(s, "import { fiscalDocumentValue, hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'", "import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'", 'regions metrics import')
+          new_period = '''  async function carregarPeriodo() {
+    setLoading(true)
+
+    try {
+      const [ini, fim] = periodRange(periodo, anoReferencia, mesReferencia)
+      const [iniAnt, fimAnt] = previousPeriodRange(periodo, anoReferencia, mesReferencia)
+      const histIni = historyStart(anoReferencia, mesReferencia)
+
+      const [rOrders, rVisits, rQuotes] = await Promise.all([
+        supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(histIni < iniAnt ? histIni : iniAnt)).lte('sale_date', toISO(fim)),
+        supabaseAdmin.from('visits').select('*').gte('visit_date', toISO(ini)).lte('visit_date', toISO(fim)),
+        supabaseAdmin.from('quotes').select('*').gte('created_at', `${toISO(ini)}T00:00:00`).lte('created_at', `${toISO(fim)}T23:59:59`),
+      ])
+      if (rOrders.error) throw rOrders.error
+
+      const validOrders = (rOrders.data || []).filter(hasNetOrderValue)
+      const ids = validOrders.map(row => row.id).filter(Boolean)
+      let itemsById = new Map()
+      if (ids.length) {
+        const itemResult = await supabaseAdmin.from('sales').select('id,items').in('id', ids)
+        if (itemResult.error) throw itemResult.error
+        itemsById = new Map((itemResult.data || []).map(row => [String(row.id), Array.isArray(row.items) ? row.items : []]))
+      }
+      const orders = validOrders.map(row => ({ ...row, items: itemsById.get(String(row.id)) || [] }))
+      const dentro = (row, inicio, final) => row.sale_date >= toISO(inicio) && row.sale_date <= toISO(final)
+      const atual = orders.filter(row => dentro(row, ini, fim))
+      const anterior = orders.filter(row => dentro(row, iniAnt, fimAnt))
+      const historico = orders.filter(row => row.sale_date >= toISO(histIni))
+
+      setSales(atual)
+      setSalesAnt(anterior)
+      setDocuments(atual)
+      setDocumentsAnt(anterior)
+      setDocumentsHistorico(historico)
+      setVisits(rVisits.data || [])
+      setQuotes(rQuotes.data || [])
+    } catch (err) {
+      console.error('Erro ao carregar regiões:', err)
+      setSales([])
+      setSalesAnt([])
+      setDocuments([])
+      setDocumentsAnt([])
+      setDocumentsHistorico([])
+      setVisits([])
+      setQuotes([])
+    } finally {
+      setLoading(false)
+    }
+  }
+'''
+          s = sub(s, r"  async function carregarPeriodo\(\) \{.*?\n  \}\n\n  const dados = useMemo", new_period + "\n  const dados = useMemo", 'regions load function', flags=re.S)
+          s = repl(s, "const faturamento = documents.filter(row => segmento === 'todos' || farmIdsFiltro.has(farmByPartnerId.get(Number(row.partner_id))?.id))", "const faturamento = pedidos", 'regions current order value')
+          s = repl(s, "const faturamentoAnt = documentsAnt.filter(row => segmento === 'todos' || farmIdsFiltro.has(farmByPartnerId.get(Number(row.partner_id))?.id))", "const faturamentoAnt = pedidosAnt", 'regions previous order value')
+          s = repl(s, "const farm = farmByPartnerId.get(Number(doc.partner_id))", "const farm = farmById.get(doc.farm_id)", 'regions order farm')
+          s = repl(s, "const multiplier = Math.sign(fiscalDocumentValue(doc))\n      porEstado[state].vendas += fiscalDocumentValue(doc)\n      if (!multiplier) return\n      ;(doc.fiscal_document_items || []).forEach(item => {\n        const name = productName(item)\n        const subtotal = Math.abs(Number(item?.product_total || 0)) * multiplier", "porEstado[state].vendas += netOrderValue(doc)\n      ;(doc.items || []).forEach(item => {\n        const name = productName(item)\n        const subtotal = Math.abs(Number(item?.subtotal ?? item?.total ?? item?.value ?? (Number(item?.quantity || 0) * Number(item?.unitPrice || item?.unit_price || 0))))", 'regions order products')
+          s = repl(s, "porEstado[state].vendasAnt += fiscalDocumentValue(doc)", "porEstado[state].vendasAnt += netOrderValue(doc)", 'regions previous order total')
+          s = repl(s, "const farm = farmByPartnerId.get(Number(s.partner_id))", "const farm = farmById.get(s.farm_id)", 'regions history farm')
+          s = s.replace("const mes = s.issue_date?.slice(0, 7)", "const mes = s.sale_date?.slice(0, 7)")
+          s = s.replace("mesMap[mes].Receita += fiscalDocumentValue(s)", "mesMap[mes].Receita += netOrderValue(s)")
+          s = s.replace('>Receita total<', '>Valor dos pedidos<')
+          s = s.replace('Receita por estado', 'Valor de pedidos por estado')
+          s = s.replace('Receita no período', 'Valor de pedidos no período')
+          s = s.replace('Faturamento', 'Valor de pedidos')
+          write(p, s)
+
+          # Monthly management report: order-only, while keeping product detail; remove app/category filters.
+          p = 'src/screens/RelatorioMensalFiltradoMulti.jsx'
+          s = read(p)
+          s = repl(s, "import Topbar from '../components/Topbar'", "import Topbar from '../components/Topbar'\nimport { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'", 'report metrics import')
+          s = repl(s, "function filteredSaleAmount(sale,byId,byUltra){const items=parseItems(sale.items);if(!applicationIds.length&&!categoryIds.length&&!product)return{amount:Number(sale.total||0),qty:items.reduce((a,i)=>a+itemQty(i),0),matched:items.length>0};", "function filteredSaleAmount(sale,byId,byUltra){const items=parseItems(sale.items);if(!hasNetOrderValue(sale))return{amount:0,qty:0,matched:false};if(!applicationIds.length&&!categoryIds.length&&!product)return{amount:netOrderValue(sale),qty:items.reduce((a,i)=>a+itemQty(i),0),matched:true};", 'report canonical order value')
+          s = s.replace("supabaseAdmin.from('sales').select('*').gte('sale_date',ini).lte('sale_date',fim)", "supabaseAdmin.from('management_order_overview').select('*').gte('sale_date',ini).lte('sale_date',fim)")
+          s = s.replace("supabaseAdmin.from('sales').select('*').gte('sale_date',iniAnt).lte('sale_date',fimAnt)", "supabaseAdmin.from('management_order_overview').select('*').gte('sale_date',iniAnt).lte('sale_date',fimAnt)")
+          s = s.replace("supabaseAdmin.from('sales').select('sale_date,total,items,farm_id,seller_id,ultra_salesman_id,comissao_pct').gte('sale_date',iso(d6)).lte('sale_date',fim)", "supabaseAdmin.from('management_order_overview').select('*').gte('sale_date',iso(d6)).lte('sale_date',fim)")
+          anchor = "      const current=(sa.data||[]).map(s=>({...s,...filteredSaleAmount(s,byId,byUltra)})).filter(s=>s.matched)"
+          if anchor not in s:
+              raise SystemExit('Pattern not found for report order item join')
+          join = '''      const orderRows=[...(sa.data||[]),...(sp.data||[]),...(evol.data||[])];const ids=[...new Set(orderRows.map(r=>r.id).filter(Boolean))];let itemsById=new Map();if(ids.length){const itemRes=await supabaseAdmin.from('sales').select('id,items,comissao_pct').in('id',ids);if(itemRes.error)throw itemRes.error;itemsById=new Map((itemRes.data||[]).map(r=>[String(r.id),r]))}const attach=rows=>(rows||[]).map(r=>{const raw=itemsById.get(String(r.id));return{...r,items:raw?.items||[],comissao_pct:raw?.comissao_pct||0}})
+      const currentRows=attach(sa.data),previousRows=attach(sp.data),evolutionRows=attach(evol.data)
+      const current=currentRows.map(s=>({...s,...filteredSaleAmount(s,byId,byUltra)})).filter(s=>s.matched)'''
+          s = s.replace(anchor, join)
+          s = s.replace("const previous=(sp.data||[]).map(s=>({...s,...filteredSaleAmount(s,byId,byUltra)})).filter(s=>s.matched)", "const previous=previousRows.map(s=>({...s,...filteredSaleAmount(s,byId,byUltra)})).filter(s=>s.matched)")
+          s = s.replace(";(evol.data||[]).forEach(s=>", ";evolutionRows.forEach(s=>")
+          s = re.sub(r'^\s*<MultiSelectFilter label="Aplicação"[^\n]*\n', '', s, flags=re.M)
+          s = re.sub(r'^\s*<MultiSelectFilter label="Categoria"[^\n]*\n', '', s, flags=re.M)
+          s = s.replace('Análise comercial por aplicação, categoria e produto', 'Análise comercial de pedidos de venda por competência e produto')
+          s = s.replace('Gestão comercial por mix de produto', 'Gestão comercial por pedidos de venda')
+          s = s.replace('Aplicação e categoria aceitam seleção múltipla e são calculadas item a item, sem duplicidade.', 'Todas as análises deste relatório usam pedidos de venda como base comercial.')
+          s = s.replace('<strong>{applicationIds.length?`${applicationIds.length} aplicação(ões)`:\'Todas\'}</strong><span>{categoryIds.length?`${categoryIds.length} categoria(s)`:\'Todas as categorias\'}</span>', '<strong>Pedidos de venda</strong><span>Competência selecionada</span>')
+          s = s.replace('<span className="relpremium-eyebrow">{appName} · {catName}</span>', '<span className="relpremium-eyebrow">Pedidos de venda</span>')
+          s = s.replace('<span>Faturamento</span>', '<span>Valor dos pedidos</span>')
+          s = s.replace('sobre faturamento filtrado', 'sobre o valor dos pedidos')
+          write(p, s)
+
+          print('Commercial views standardized successfully')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Commit changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/screens
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "fix: unificar visoes comerciais em pedidos"
+          git push
