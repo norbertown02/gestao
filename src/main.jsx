@@ -3,8 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import './commerce-filters.css'
 import './mobile.css'
-import './mobile-ux.css'
-import './mobile-brand.css'
+import './mobile-final.css'
 import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(
