@@ -13,6 +13,9 @@ export default function MultiSelectFilter({ label, options = [], values = [], on
     return () => document.removeEventListener('mousedown', outside)
   }, [])
 
+  const normalizedLabel = String(label || '').trim().toLowerCase()
+  if (normalizedLabel === 'aplicação' || normalizedLabel === 'aplicacao' || normalizedLabel === 'categoria') return null
+
   const selected = new Set(values || [])
   const selectedOptions = options.filter(option => selected.has(option.id))
   const allSelected = options.length > 0 && selectedOptions.length === options.length
