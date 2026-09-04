@@ -1,0 +1,35 @@
+@media (max-width: 780px) {
+  .topbar {
+    min-height: 64px !important;
+    padding: calc(9px + env(safe-area-inset-top)) 14px 9px !important;
+    background:
+      radial-gradient(circle at 88% 15%, rgba(232,119,34,.42), transparent 34%),
+      linear-gradient(115deg, #090807 0%, #17120f 55%, #6b2a0c 100%) !important;
+    border-bottom: 1px solid rgba(255,255,255,.08) !important;
+    box-shadow: 0 10px 26px rgba(0,0,0,.16) !important;
+    position: sticky !important;
+    top: 0 !important;
+  }
+
+  .topbar-branding {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .topbar-branding > div,
+  .topbar-actions {
+    display: none !important;
+  }
+
+  .topbar-mobile-logo {
+    display: block !important;
+    width: 128px !important;
+    height: 38px !important;
+    max-width: 46vw !important;
+    object-fit: contain !important;
+    border-radius: 0 !important;
+    filter: drop-shadow(0 5px 12px rgba(0,0,0,.28));
+  }
+}
