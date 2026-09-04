@@ -1,0 +1,220 @@
+/* Nutrialle Gestão — camada mobile consolidada */
+@media (max-width: 780px) {
+  html, body, #root { width:100%; min-height:100%; overflow-x:hidden !important; }
+  body { background:#f4f1ed; }
+  .layout { width:100%; min-height:100dvh; display:block; overflow:visible !important; }
+  .sidebar { display:none !important; }
+  .main { width:100%; min-width:0 !important; overflow:visible !important; padding-bottom:calc(78px + env(safe-area-inset-bottom)); }
+  .page { width:100% !important; max-width:100% !important; min-width:0 !important; padding:10px 10px 92px !important; margin:0 !important; overflow-x:hidden !important; }
+
+  /* Cabeçalho Nutrialle */
+  .topbar {
+    min-height:76px !important;
+    padding:calc(11px + env(safe-area-inset-top)) 14px 10px !important;
+    background:
+      radial-gradient(circle at 82% 12%, rgba(232,119,34,.58), transparent 34%),
+      linear-gradient(112deg,#050505 0%,#17120f 54%,#7a2d09 100%) !important;
+    border:0 !important;
+    border-bottom:1px solid rgba(255,255,255,.08) !important;
+    box-shadow:0 10px 28px rgba(0,0,0,.20) !important;
+    position:sticky !important;
+    top:0 !important;
+    z-index:50 !important;
+    justify-content:center !important;
+  }
+  .topbar-branding { width:100% !important; display:flex !important; align-items:center !important; justify-content:center !important; }
+  .topbar-branding > div, .topbar-actions { display:none !important; }
+  .topbar-mobile-logo {
+    display:block !important;
+    width:172px !important;
+    height:48px !important;
+    max-width:58vw !important;
+    object-fit:contain !important;
+    border-radius:0 !important;
+    filter:drop-shadow(0 6px 14px rgba(0,0,0,.30));
+  }
+
+  /* Estrutura comum */
+  .card,.card-sm,.chart-card,
+  .commerce-panel,.vendas-card,.produtos-card,.vendedores-card,.regioes-card,.carteira-card,.visitas-card,.checklists-card,
+  .goals-chart-card,.goals-team-table-card,.goals-editor,.stock-card {
+    max-width:100% !important; min-width:0 !important; border-radius:13px !important; box-shadow:none !important;
+  }
+  .commerce-page,.vendas-page,.produtos-page,.vendedores-page,.regioes-page,.carteira-page,.visitas-page,.checklists-page,.financeiro-page,.dre-page,.goals-page,.stock-page,.macro-page { gap:9px !important; }
+
+  /* Filtros — sempre cabem na largura */
+  .macro-toolbar,.commerce-toolbar,.vendas-toolbar,.produtos-toolbar,.vendedores-toolbar,.regioes-toolbar,
+  .carteira-toolbar,.visitas-toolbar,.checklists-toolbar,.financeiro-toolbar,.dre-toolbar,.goals-toolbar,.stock-toolbar {
+    width:100% !important; max-width:100% !important; min-width:0 !important; box-sizing:border-box !important;
+    border-radius:12px !important; padding:8px !important; gap:6px !important; overflow:hidden !important;
+  }
+  .macro-toolbar { display:grid !important; grid-template-columns:1fr !important; }
+  .macro-toolbar>div { display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)) !important; gap:6px !important; width:100% !important; }
+  .macro-toolbar select,.macro-toolbar input { width:100% !important; min-width:0 !important; height:36px !important; padding:0 7px !important; font-size:10px !important; }
+  .macro-toolbar>span { text-align:center !important; font-size:9px !important; }
+  .commerce-page .commerce-toolbar { display:grid !important; grid-template-columns:1fr 1fr !important; }
+  .commerce-page .commerce-toolbar>label { display:grid !important; grid-template-columns:1fr !important; gap:4px !important; min-width:0 !important; }
+  .commerce-page .commerce-toolbar>label>svg { display:none !important; }
+  .commerce-page .commerce-toolbar>label>span { font-size:8.5px !important; }
+  .commerce-page .commerce-toolbar input,.commerce-page .commerce-toolbar select { width:100% !important; min-width:0 !important; height:36px !important; padding:0 8px !important; font-size:11px !important; }
+  .commerce-page .commerce-toolbar>button { display:none !important; }
+
+  /* Dashboard */
+  .macro-hero { padding:12px !important; min-height:0 !important; border-radius:14px !important; grid-template-columns:1fr !important; gap:8px !important; }
+  .macro-hero header>span,.macro-hero header p { display:none !important; }
+  .macro-hero header h2 { margin:0 0 6px !important; font-size:16px !important; }
+  .macro-hero-flow { display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)) !important; gap:5px !important; }
+  .macro-hero-flow>svg { display:none !important; }
+  .macro-hero-flow>div { min-width:0 !important; padding:7px 5px !important; border-left:0 !important; background:rgba(255,255,255,.07); border-radius:9px !important; }
+  .macro-hero-flow span,.macro-hero-flow small { font-size:7.5px !important; line-height:1.15 !important; }
+  .macro-hero-flow strong { white-space:normal !important; overflow-wrap:anywhere !important; margin:4px 0 2px !important; font-size:clamp(13px,4vw,18px) !important; }
+  .macro-page>.macro-section-title:first-of-type,.macro-page>.macro-metrics-primary { display:none !important; }
+  .macro-section-title { margin:10px 1px 4px !important; }
+  .macro-section-title>div>span,.macro-section-title>small { display:none !important; }
+  .macro-section-title h3 { font-size:13px !important; margin:0 !important; }
+  .macro-metrics,.macro-metrics-operational { display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:6px !important; overflow:visible !important; }
+  .macro-metric { min-width:0 !important; min-height:70px !important; padding:8px !important; border-radius:11px !important; grid-template-columns:24px minmax(0,1fr) !important; gap:2px 7px !important; }
+  .macro-metric>svg { width:24px !important; height:24px !important; padding:5px !important; }
+  .macro-metric>span { font-size:8px !important; }
+  .macro-metric>strong { white-space:normal !important; overflow-wrap:anywhere !important; font-size:14px !important; }
+  .macro-metric small { font-size:7px !important; }
+  .macro-chart { width:100% !important; max-width:100% !important; min-width:0 !important; height:270px !important; min-height:270px !important; padding:9px 4px 4px !important; overflow:hidden !important; }
+  .macro-chart .macro-card-head { min-height:0 !important; margin-bottom:2px !important; padding:0 5px 3px !important; }
+  .macro-chart .macro-card-head>div>span,.macro-chart .chart-meta>small { display:none !important; }
+  .macro-chart .macro-card-head h3 { font-size:13px !important; }
+  .macro-chart > .recharts-responsive-container { width:100% !important; height:220px !important; min-width:1px !important; min-height:220px !important; }
+  .macro-chart .recharts-wrapper,.macro-chart .recharts-surface { width:100% !important; max-width:100% !important; }
+  .recharts-cartesian-axis-tick text { font-size:8px !important; }
+  .chart-legend { font-size:7.5px !important; gap:3px 5px !important; flex-wrap:wrap !important; }
+  .macro-reading { display:none !important; }
+  .macro-bottom { grid-template-columns:1fr !important; gap:7px !important; }
+  .macro-ranking { padding:9px !important; }
+  .macro-ranking>div:not(.macro-card-head):nth-of-type(n+5) { display:none !important; }
+
+  /* Gestão Comercial */
+  .commerce-story { padding:10px !important; min-height:0 !important; border-radius:13px !important; }
+  .commerce-story header { display:none !important; }
+  .commerce-flow { display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)) !important; gap:5px !important; }
+  .commerce-flow>svg { display:none !important; }
+  .commerce-flow>div { border-left:0 !important; background:rgba(255,255,255,.07); border-radius:9px; padding:7px 5px !important; }
+  .commerce-flow span,.commerce-flow small { font-size:7.5px !important; }
+  .commerce-flow strong { white-space:normal !important; font-size:13px !important; overflow-wrap:anywhere !important; }
+  .commerce-forecast { display:none !important; }
+  .commerce-metrics { display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:6px !important; overflow:visible !important; }
+  .commerce-metric { min-width:0 !important; min-height:68px !important; padding:8px !important; }
+  .commerce-metric-icon { width:26px !important; height:26px !important; margin-bottom:6px !important; }
+  .commerce-metric>span,.commerce-metric small { font-size:8px !important; }
+  .commerce-metric>strong { white-space:normal !important; overflow-wrap:anywhere !important; font-size:14px !important; }
+  .commerce-daily-chart { display:block !important; width:100% !important; min-width:0 !important; min-height:225px !important; padding:8px 4px !important; }
+  .commerce-daily-chart .commerce-panel-head { min-height:0 !important; padding:5px !important; margin:0 !important; }
+  .commerce-daily-chart .commerce-panel-head>div>span,.commerce-daily-chart .chart-meta>small { display:none !important; }
+  .commerce-daily-chart .commerce-panel-head h3 { font-size:13px !important; }
+  .commerce-daily-chart .recharts-responsive-container { height:180px !important; min-height:180px !important; min-width:1px !important; }
+  .commerce-columns { grid-template-columns:1fr !important; gap:7px !important; }
+
+  /* Metas */
+  .goals-page { display:grid !important; gap:7px !important; }
+  .goals-toolbar { display:grid !important; grid-template-columns:1fr !important; }
+  .goals-toolbar>div:first-child { width:100% !important; display:grid !important; grid-template-columns:1fr 1fr !important; gap:5px !important; }
+  .goals-toolbar select { width:100% !important; min-width:0 !important; height:34px !important; padding:0 6px !important; font-size:9.5px !important; }
+  .goals-toolbar select:last-child { grid-column:1/-1 !important; min-width:0 !important; }
+  .goals-source { display:none !important; }
+  .goals-tabs { display:grid !important; grid-template-columns:1fr 1fr !important; width:100% !important; gap:4px !important; }
+  .goals-tabs button { min-width:0 !important; min-height:32px !important; padding:5px !important; font-size:9px !important; }
+  .goals-command,.goals-year-card { min-height:0 !important; padding:10px !important; border-radius:13px !important; grid-template-columns:1fr !important; }
+  .goals-command-main,.goals-command-side { min-width:0 !important; padding:0 !important; }
+  .goals-command-values { display:grid !important; grid-template-columns:1fr 1fr !important; gap:7px !important; margin:6px 0 !important; }
+  .goals-command-values h2,.goals-command-values strong,.goals-command-side>strong,.goals-year-card h2 { font-size:18px !important; line-height:1 !important; overflow-wrap:anywhere !important; }
+  .goals-command-foot { font-size:7.5px !important; gap:5px !important; }
+  .goals-command-side { border-left:0 !important; border-top:1px solid rgba(255,255,255,.12) !important; margin-top:6px !important; padding-top:6px !important; display:flex !important; align-items:center !important; justify-content:space-between !important; }
+  .goals-command-side .goals-eyebrow { display:none !important; }
+  .goals-kpis,.goals-kpis-four { display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:6px !important; }
+  .goals-kpis article { min-width:0 !important; min-height:64px !important; padding:7px !important; grid-template-columns:22px minmax(0,1fr) !important; gap:2px 6px !important; }
+  .goals-kpis article svg { width:22px !important; height:22px !important; padding:4px !important; }
+  .goals-kpis article span { font-size:7.5px !important; }
+  .goals-kpis article strong { font-size:13px !important; overflow-wrap:anywhere !important; }
+  .goals-year-stats { grid-template-columns:repeat(3,minmax(0,1fr)) !important; margin-top:10px !important; }
+  .goals-year-stats div { padding:8px 5px !important; }
+  .goals-year-stats span { font-size:7px !important; }
+  .goals-year-stats strong { font-size:11px !important; }
+  .goals-chart-card,.goals-team-table-card,.goals-editor { padding:9px !important; }
+  .goals-card-head { margin-bottom:6px !important; }
+  .goals-card-head .goals-eyebrow,.goals-card-head small { display:none !important; }
+  .goals-card-head h3 { font-size:12px !important; }
+  .goals-chart-card .recharts-responsive-container { height:180px !important; min-height:180px !important; min-width:1px !important; }
+  .goals-team-table { width:100% !important; overflow-x:auto !important; -webkit-overflow-scrolling:touch !important; }
+  .goals-team-head,.goals-team-table button { min-width:560px !important; gap:8px !important; }
+
+  /* Heróis e KPIs das demais áreas */
+  :is(.vendas-hero,.produtos-hero,.vendedores-hero,.regioes-hero,.carteira-hero,.visitas-hero,.checklists-hero,.pipeline-hero) {
+    min-height:0 !important; padding:11px !important; border-radius:13px !important; gap:7px !important; align-items:flex-start !important;
+  }
+  :is(.vendas-hero,.produtos-hero,.vendedores-hero,.regioes-hero,.carteira-hero,.visitas-hero,.checklists-hero,.pipeline-hero) h2 { font-size:18px !important; margin:4px 0 !important; }
+  :is(.vendas-hero,.produtos-hero,.vendedores-hero,.regioes-hero,.carteira-hero,.visitas-hero,.checklists-hero,.pipeline-hero) small { font-size:8px !important; }
+  :is(.vendas-hero-grid,.produtos-hero-grid,.vendedores-hero-grid,.regioes-hero-grid,.carteira-hero-grid,.visitas-hero-grid,.checklists-hero-grid,.pipeline-hero-grid) {
+    width:100% !important; min-width:0 !important; display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)) !important; gap:5px !important;
+  }
+  :is(.vendas-hero-grid,.produtos-hero-grid,.vendedores-hero-grid,.regioes-hero-grid,.carteira-hero-grid,.visitas-hero-grid,.checklists-hero-grid,.pipeline-hero-grid)>div { min-width:0 !important; padding:7px 5px !important; border-radius:9px !important; }
+  :is(.vendas-hero-grid,.produtos-hero-grid,.vendedores-hero-grid,.regioes-hero-grid,.carteira-hero-grid,.visitas-hero-grid,.checklists-hero-grid,.pipeline-hero-grid) span { font-size:7.5px !important; }
+  :is(.vendas-hero-grid,.produtos-hero-grid,.vendedores-hero-grid,.regioes-hero-grid,.carteira-hero-grid,.visitas-hero-grid,.checklists-hero-grid,.pipeline-hero-grid) strong { font-size:13px !important; overflow-wrap:anywhere !important; }
+  :is(.vendas-kpi-grid,.produtos-kpi-grid,.vendedores-kpi-grid,.regioes-kpi-grid,.carteira-kpi-grid,.visitas-kpi-grid,.checklists-kpi-grid,.pipeline-kpi-grid,.financeiro-kpi-grid,.dre-kpi-grid,.dash-kpi-row,.stock-metrics) {
+    width:100% !important; display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:6px !important;
+  }
+  :is(.vendas-kpi,.produtos-kpi,.vendedores-kpi,.regioes-kpi,.carteira-kpi,.visitas-kpi,.checklists-kpi,.pipeline-kpi,.dash-kpi-card,.stock-metric) {
+    min-width:0 !important; min-height:68px !important; padding:8px !important; border-radius:11px !important;
+  }
+  :is(.vendas-kpi,.produtos-kpi,.vendedores-kpi,.regioes-kpi,.carteira-kpi,.visitas-kpi,.checklists-kpi,.pipeline-kpi) :is(strong,.vendas-kpi-top strong,.produtos-kpi-top strong,.vendedores-kpi-top strong,.regioes-kpi-top strong,.carteira-kpi-top strong,.visitas-kpi-top strong,.checklists-kpi-top strong,.pipeline-kpi-top strong) { font-size:14px !important; overflow-wrap:anywhere !important; }
+  :is(.vendas-main-grid,.vendas-grid-3,.produtos-main-grid,.produtos-grid-4,.vendedores-main-grid,.vendedores-grid-4,.regioes-map-grid,.regioes-main-grid,.regioes-grid-3,.carteira-main-grid,.carteira-grid-3,.visitas-main-grid,.visitas-grid-2,.checklists-main-grid,.checklists-technical-grid,.checklists-grid-3,.pipeline-main-grid,.pipeline-grid-2,.dash-main-grid,.dash-two-col,.dash-bottom-grid,.stock-grid) {
+    width:100% !important; min-width:0 !important; display:grid !important; grid-template-columns:1fr !important; gap:7px !important;
+  }
+
+  /* Equipe comercial — detalhe aberto */
+  .vendedores-detail-cell { padding:7px !important; min-width:0 !important; }
+  .vendedores-detail-grid { width:100% !important; max-width:100% !important; display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:5px !important; }
+  .vendedores-detail-box { min-width:0 !important; min-height:58px !important; padding:6px !important; border-radius:9px !important; }
+  .vendedores-detail-box span { font-size:7px !important; }
+  .vendedores-detail-box strong { font-size:13px !important; line-height:1.05 !important; overflow-wrap:anywhere !important; }
+  .vendedores-detail-box small { font-size:7px !important; }
+  .vendedores-detail-chart { width:100% !important; max-width:100% !important; min-width:0 !important; margin-top:6px !important; padding:6px !important; }
+  .vendedores-detail-chart .recharts-responsive-container { height:150px !important; min-height:150px !important; min-width:1px !important; }
+
+  /* Regiões e mapas */
+  .regioes-map-card { min-height:0 !important; }
+  .regioes-map-wrap,.regioes-map-svg { height:300px !important; min-height:300px !important; }
+  .regioes-donut-wrap { min-height:230px !important; }
+
+  /* Tabelas — não deformar; scroll somente dentro do bloco */
+  .commerce-table-wrap,.vendas-table-wrap,.produtos-table-wrap,.vendedores-table-wrap,.regioes-table-wrap,.carteira-table-wrap,.visitas-table-wrap,.checklists-table-wrap,.pipeline-table-wrap,.table-wrap,.table-responsive,.stock-table-wrap {
+    width:100% !important; max-width:100% !important; min-width:0 !important; overflow-x:auto !important; overflow-y:hidden !important; -webkit-overflow-scrolling:touch !important; border-radius:11px !important;
+  }
+  :is(.commerce-table-wrap,.vendas-table-wrap,.produtos-table-wrap,.vendedores-table-wrap,.regioes-table-wrap,.carteira-table-wrap,.visitas-table-wrap,.checklists-table-wrap,.pipeline-table-wrap,.table-wrap,.table-responsive) table {
+    display:table !important; width:max-content !important; min-width:560px !important; table-layout:auto !important; border-collapse:collapse !important;
+  }
+  .vendedores-table-wrap>table { min-width:760px !important; table-layout:auto !important; }
+  .stock-table-wrap table { min-width:900px !important; }
+  :is(.commerce-table-wrap,.vendas-table-wrap,.produtos-table-wrap,.vendedores-table-wrap,.regioes-table-wrap,.carteira-table-wrap,.visitas-table-wrap,.checklists-table-wrap,.pipeline-table-wrap,.table-wrap,.table-responsive) :is(th,td) {
+    white-space:nowrap !important; padding:7px 8px !important; font-size:9px !important; max-width:none !important;
+  }
+  :is(.commerce-table-wrap,.vendas-table-wrap,.produtos-table-wrap,.vendedores-table-wrap,.regioes-table-wrap,.carteira-table-wrap,.visitas-table-wrap,.checklists-table-wrap,.pipeline-table-wrap,.table-wrap,.table-responsive) th { font-size:7.5px !important; }
+
+  /* Financeiro / DRE */
+  .dash-chart-trio { display:none !important; }
+  .dash-kpi-card>strong { font-size:15px !important; line-height:1.05 !important; }
+  .dash-kpi-card>span,.dash-kpi-card small { font-size:8px !important; }
+  .dre-flow { padding:6px 8px !important; border-radius:13px !important; }
+  .dre-section-row,.dre-subtotal-row,.dre-account-row { padding:7px 6px !important; }
+  .dre-group-row { grid-template-columns:14px minmax(0,1fr) auto !important; gap:5px !important; padding:7px 4px !important; }
+  .dre-group-row .dre-group-bar,.dre-group-row .dre-line-pct,.dre-line-pct { display:none !important; }
+  .dre-group-row strong { font-size:10px !important; }
+
+  /* Reduz textos analíticos longos no celular */
+  .vendas-card p,.produtos-card p,.vendedores-card p,.regioes-card p,.carteira-card p,.visitas-card p,.checklists-card p,.dash-insight p,.dash-maturity-note,.chart-card>p { display:none !important; }
+
+  img,canvas,svg { max-width:100%; }
+}
+
+@media (max-width: 390px) {
+  .topbar-mobile-logo { width:156px !important; height:44px !important; }
+  .macro-hero-flow,.commerce-flow,:is(.vendas-hero-grid,.produtos-hero-grid,.vendedores-hero-grid,.regioes-hero-grid,.carteira-hero-grid,.visitas-hero-grid,.checklists-hero-grid,.pipeline-hero-grid) { grid-template-columns:repeat(3,minmax(0,1fr)) !important; }
+  .goals-kpis,.goals-kpis-four,.macro-metrics,.macro-metrics-operational,:is(.vendas-kpi-grid,.produtos-kpi-grid,.vendedores-kpi-grid,.regioes-kpi-grid,.carteira-kpi-grid,.visitas-kpi-grid,.checklists-kpi-grid,.pipeline-kpi-grid,.financeiro-kpi-grid,.dre-kpi-grid,.dash-kpi-row,.stock-metrics) { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+}
