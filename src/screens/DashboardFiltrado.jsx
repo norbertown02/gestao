@@ -18,7 +18,7 @@ const integer = value => Number(value || 0).toLocaleString('pt-BR', { maximumFra
 const iso = date => date.toISOString().slice(0, 10)
 
 function rangeFor(year, type, index) {
-  const sizes = { bimestre: 2, trimestre: 3, semestre: 6, ano: 12 }
+  const sizes = { mes: 1, bimestre: 2, trimestre: 3, semestre: 6, ano: 12 }
   const size = sizes[type]
   const startMonth = type === 'ano' ? 0 : (index - 1) * size
   const start = new Date(year, startMonth, 1)
@@ -276,8 +276,8 @@ export default function DashboardFiltrado() {
     return { orderValue, previousOrderValue, billing, previousBilling, goal, previousGoal, quantity, previousQuantity, orders: currentSales.length, previousOrders: previousSales.length, attainment: goal ? billing / goal * 100 : 0, salesAttainment: goal ? orderValue / goal * 100 : 0, invoices: currentDocs.length, previousInvoices: previousDocs.length, ticket, previousTicket, averageInvoice: currentDocs.length ? billing / currentDocs.length : 0, series, topSellers, openValue, billingRate, previousBillingRate, goalGap: goal ? Math.max(0, goal - orderValue) : 0, sellerCount: sellerMap.size }
   }, [sales, documents, goals, portfolio, range, vendedoresById])
 
-  const counts = { ano: 1, semestre: 2, trimestre: 4, bimestre: 6 }
-  const labels = { ano: 'Ano completo', semestre: 'Semestre', trimestre: 'Trimestre', bimestre: 'Bimestre' }
+  const counts = { ano: 1, semestre: 2, trimestre: 4, bimestre: 6, mes: 12 }
+  const labels = { ano: 'Ano completo', semestre: 'Semestre', trimestre: 'Trimestre', bimestre: 'Bimestre', mes: 'Mês' }
   const years = Array.from({ length: 5 }, (_, offset) => now.getFullYear() - offset)
   const maxSeller = Math.max(...data.topSellers.map(item => item.total), 1)
 
@@ -287,10 +287,8 @@ export default function DashboardFiltrado() {
       <section className="macro-toolbar" style={{ alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <select value={year} onChange={event => setYear(Number(event.target.value))}>{years.map(value => <option key={value}>{value}</option>)}</select>
-          <select value={type} onChange={event => { setType(event.target.value); setIndex(1) }}><option value="ano">Ano</option><option value="semestre">Semestre</option><option value="trimestre">Trimestre</option><option value="bimestre">Bimestre</option></select>
+          <select value={type} onChange={event => { setType(event.target.value); setIndex(1) }}><option value="ano">Ano</option><option value="semestre">Semestre</option><option value="trimestre">Trimestre</option><option value="bimestre">Bimestre</option><option value="mes">Mês</option></select>
           {type !== 'ano' && <select value={index} onChange={event => setIndex(Number(event.target.value))}>{Array.from({ length: counts[type] }, (_, value) => <option value={value + 1} key={value + 1}>{value + 1}º {labels[type].toLowerCase()}</option>)}</select>}
-          <MultiSelectFilter label="Aplicação" options={applications} values={applicationIds} onChange={setApplicationIds} allLabel="Todas as aplicações" />
-          <MultiSelectFilter label="Categoria" options={categories} values={categoryIds} onChange={setCategoryIds} allLabel="Todas as categorias" />
         </div>
         <span>{iso(range.start).split('-').reverse().join('/')} — {iso(range.end).split('-').reverse().join('/')}</span>
       </section>

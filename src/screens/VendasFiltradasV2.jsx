@@ -348,8 +348,6 @@ export default function VendasFiltradasV2() {
         <section className="commerce-toolbar" aria-label="Filtros" style={{ flexWrap: 'wrap', alignItems: 'flex-end', gap: 10 }}>
           <label><IconCalendar size={16} /><span>Competência</span><input type="month" value={month} onChange={event => setMonth(event.target.value)} /></label>
           <label><span>Vendedor</span><select value={seller} onChange={event => setSeller(event.target.value)}><option value="todos">Todos os vendedores</option>{sellers.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
-          <MultiSelectFilter label="Aplicação" options={applications} values={applicationIds} onChange={setApplicationIds} allLabel="Todas" />
-          <MultiSelectFilter label="Categoria" options={categories} values={categoryIds} onChange={setCategoryIds} allLabel="Todas" />
           <button className="btn btn-ghost btn-sm" onClick={load} disabled={loading}><IconRefresh size={15} className={loading ? 'commerce-spin' : ''} />Atualizar</button>
         </section>
 

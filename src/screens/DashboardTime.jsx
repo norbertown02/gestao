@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase, supabaseAdmin } from '../lib/supabase'
+import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import { isVendedorValido, useVendedores } from '../lib/sellers'
 import Topbar from '../components/Topbar'
 import { IconUsers, IconRoute, IconClipboardList, IconBuildingStore, IconAlertTriangle, IconCalendar, IconChartPie } from '@tabler/icons-react'
@@ -31,7 +32,7 @@ export default function DashboardTime() {
       supabaseAdmin.from('farms').select('*').eq('status', 'ativo'),
       supabaseAdmin.from('visits').select('*').gte('visit_date', inicioMes).lte('visit_date', fimMes),
       supabaseAdmin.from('visits').select('farm_id,visit_date,seller_id,outcome').gte('visit_date', d90),
-      supabaseAdmin.from('sales').select('*').gte('sale_date', inicioMes).lte('sale_date', fimMes),
+      supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', inicioMes).lte('sale_date', fimMes),
       supabaseAdmin.from('checklists').select('*').gte('applied_at', inicioMes).lte('applied_at', fimMes),
       supabaseAdmin.from('appointments').select('*').gte('appointment_date', toISO(hoje)).lte('appointment_date', d7f),
     ])
@@ -42,7 +43,7 @@ export default function DashboardTime() {
     const farms = rFarms.data || []
     const visitsMes = rVisitsMes.data || []
     const allVisits = rAllVisits.data || []
-    const salesMes = rSalesMes.data || []
+    const salesMes = (rSalesMes.data || []).filter(hasNetOrderValue)
     const checks = rChecks.data || []
     const appointments = rAppointments.data || []
 
@@ -55,7 +56,7 @@ export default function DashboardTime() {
     const porVendedor = sellers.map(s => {
       const visitas = visitsMes.filter(v => v.seller_id === s.id)
       const vendas = salesMes.filter(v => v.seller_id === s.id)
-      const fat = vendas.reduce((a, v) => a + Number(v.total||0), 0)
+      const fat = vendas.reduce((a, v) => a + netOrderValue(v), 0)
       const fazCarteira = new Set(allVisits.filter(v => v.seller_id === s.id).map(v => v.farm_id)).size
       const agendadas = appointments.filter(a => a.seller_id === s.id).length
       const positivas = visitas.filter(v => v.outcome === 'positiva').length
@@ -97,7 +98,7 @@ export default function DashboardTime() {
           {[
             {label:'Vendedores ativos',  value: porVendedor.length,              Icon: IconUsers},
             {label:'Visitas no mês',     value: visitsMes.length,                Icon: IconRoute},
-            {label:'Fazendas com venda', value: `${comVendaMes} / ${totalFarms}`,Icon: IconBuildingStore},
+            {label:'Fazendas com pedido', value: `${comVendaMes} / ${totalFarms}`,Icon: IconBuildingStore},
             {label:'Checklists no mês',  value: checks.length,                   Icon: IconClipboardList},
             {label:'Agendadas (7 dias)', value: appointments.length,             Icon: IconCalendar},
           ].map(k => (
@@ -134,7 +135,7 @@ export default function DashboardTime() {
                   <th style={{textAlign:'center'}}>Pedidos</th>
                   <th style={{textAlign:'center'}}>Agendadas</th>
                   <th style={{textAlign:'center'}}>Checklists</th>
-                  <th style={{textAlign:'right'}}>Faturamento</th>
+                  <th style={{textAlign:'right'}}>Valor dos pedidos</th>
                 </tr>
               </thead>
               <tbody>
