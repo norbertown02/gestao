@@ -1,0 +1,48 @@
+name: Fix vendedores orders
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-vendedores-orders.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/screens/Vendedores.jsx')
+          s=p.read_text()
+          s=s.replace("supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type,seller_id,ultra_salesman_id,salesman_name').gte('issue_date', toISO(ini)).lte('issue_date', toISO(fim))", "supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(ini)).lte('sale_date', toISO(fim))")
+          s=s.replace("supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type,seller_id,ultra_salesman_id,salesman_name').gte('issue_date', toISO(iniAnt)).lte('issue_date', toISO(fimAnt))", "supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(iniAnt)).lte('sale_date', toISO(fimAnt))")
+          s=s.replace("supabaseAdmin.from('fiscal_documents').select('issue_date,document_total,movement_type,seller_id,ultra_salesman_id,salesman_name').gte('issue_date', toISO(histIni))", "supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', toISO(histIni))")
+          s=s.replace("setDocuments(documentsAtual.data || [])", "setDocuments((documentsAtual.data || []).filter(hasNetOrderValue).map(normalizeOrder))")
+          s=s.replace("setDocumentsAnt(documentsAnterior.data || [])", "setDocumentsAnt((documentsAnterior.data || []).filter(hasNetOrderValue).map(normalizeOrder))")
+          s=s.replace("setDocumentsHistory(documentsHistoryResult.data || [])", "setDocumentsHistory((documentsHistoryResult.data || []).filter(hasNetOrderValue).map(normalizeOrder))")
+          s=s.replace("    const fiscalValue = doc => doc.movement_type === 'devolucao' ? -Math.abs(Number(doc.document_total || 0)) : Number(doc.document_total || 0)\n", "")
+          s=s.replace("docs.reduce((sum, doc) => sum + fiscalValue(doc), 0)", "docs.reduce((sum, doc) => sum + Number(doc.total || 0), 0)")
+          s=s.replace("docsAnt.reduce((sum, doc) => sum + fiscalValue(doc), 0)", "docsAnt.reduce((sum, doc) => sum + Number(doc.total || 0), 0)")
+          s=s.replace("docsSeller.reduce((sum, doc) => sum + fiscalValue(doc), 0)", "docsSeller.reduce((sum, doc) => sum + Number(doc.total || 0), 0)")
+          s=s.replace("docsSellerAnt.reduce((sum, doc) => sum + fiscalValue(doc), 0)", "docsSellerAnt.reduce((sum, doc) => sum + Number(doc.total || 0), 0)")
+          s=s.replace("doc.issue_date?.startsWith(key)", "doc.sale_date?.startsWith(key)")
+          s=s.replace(".reduce((sum, doc) => sum + fiscalValue(doc), 0)", ".reduce((sum, doc) => sum + Number(doc.total || 0), 0)")
+          s=s.replace("Faturamento: total", "Pedidos: total")
+          s=s.replace(">Faturamento</", ">Valor de pedidos</")
+          s=s.replace("Faturamento por vendedor", "Valor de pedidos por vendedor")
+          s=s.replace("Top faturamento", "Top valor de pedidos")
+          p.write_text(s)
+          PY
+          npm ci
+          npm run build
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/screens/Vendedores.jsx
+          if ! git diff --cached --quiet; then git commit -m 'fix: usar pedidos na visao de vendedores'; git push; fi
