@@ -142,7 +142,7 @@ function BrazilSalesMap({ regions }) {
       svg.append('text').attr('x', x).attr('y', y - 10).attr('text-anchor', 'middle').attr('font-size', 10).attr('font-weight', 900).attr('fill', '#292623').text(item.name)
     })
   }, [geo, regions])
-  return <div className="deck-brazil-map">{geo ? <svg ref={svgRef} aria-label="Mapa do faturamento líquido por estado" /> : <span>Mapa indisponível</span>}<div className="deck-map-scale"><i /><span>menor faturamento</span><b>maior faturamento</b></div></div>
+  return <div className="deck-brazil-map">{geo ? <svg ref={svgRef} aria-label="Mapa dos pedidos por estado" /> : <span>Mapa indisponível</span>}<div className="deck-map-scale"><i /><span>menor volume de pedidos</span><b>maior volume de pedidos</b></div></div>
 }
 
 function IntegratedExecutiveSlide({ page, total, commercial, financial, period, editor }) {
@@ -152,12 +152,11 @@ function IntegratedExecutiveSlide({ page, total, commercial, financial, period, 
 }
 
 function CommercialSlides({ data, financial, period, previousLabel, generatedAt, comparisonNoun, editor }) {
-  const total = 13
+  const total = 12
   const { current: cur, previous: prev, trajectory, trajectoryDaily } = data
   const maxSeller = Math.max(...cur.sellers.map(item => item.orders), 1)
   const maxProduct = Math.max(...cur.products.map(item => item.value), 1)
   const maxClient = Math.max(...cur.clients.map(item => item.value), 1)
-  const maxSegment = Math.max(...cur.segments.map(item => item.value), 1)
   const leaderChanged = cur.regions[0]?.name && prev.regions[0]?.name && cur.regions[0].name !== prev.regions[0].name
   const currentClientIds = new Set(cur.clientIds)
   const previousClientIds = new Set(prev.clientIds)
@@ -206,8 +205,8 @@ function CommercialSlides({ data, financial, period, previousLabel, generatedAt,
       })}</div>
     </Slide>,
     <Slide key="clients" page={7} total={total}>
-      <SlideTitle eyebrow="CARTEIRA DE CLIENTES" aside={`${cur.billedClients} clientes faturados`} editKey="comercial.clients.title" editor={editor}>{cur.clients.length ? `Os cinco maiores clientes representam ${pct(cur.top5ClientShare)} do faturamento.` : 'Ainda não há clientes faturados no período.'}</SlideTitle>
-      <MetricStrip items={[{ label: 'Maior cliente', value: pct(cur.topClientShare), note: 'participação na receita' }, { label: 'Top 3', value: pct(cur.top3ClientShare), note: 'concentração da receita' }, { label: 'Top 5', value: pct(cur.top5ClientShare), note: 'concentração da receita' }, { label: 'Clientes faturados', value: cur.billedClients, note: `vs. ${prev.billedClients} no ${comparisonNoun}` }]} />
+      <SlideTitle eyebrow="CARTEIRA DE CLIENTES" aside={`${cur.orderClientCount} clientes com pedidos`} editKey="comercial.clients.title" editor={editor}>{cur.clients.length ? `Os cinco maiores clientes representam ${pct(cur.top5ClientShare)} dos pedidos do período.` : 'Ainda não há clientes com pedidos no período.'}</SlideTitle>
+      <MetricStrip items={[{ label: 'Maior cliente', value: pct(cur.topClientShare), note: 'participação nos pedidos' }, { label: 'Top 3', value: pct(cur.top3ClientShare), note: 'concentração dos pedidos' }, { label: 'Top 5', value: pct(cur.top5ClientShare), note: 'concentração dos pedidos' }, { label: 'Clientes com pedidos', value: cur.orderClientCount, note: `vs. ${prev.orderClientCount} no ${comparisonNoun}` }]} />
       <div className="deck-client-bars">{cur.clients.slice(0, 7).map((client, index) => <div key={client.name}><b>{String(index + 1).padStart(2, '0')}</b><span>{client.name}</span><i><em style={{ width: `${client.value / maxClient * 100}%` }} /></i><strong>{shortMoney(client.value)}</strong><small>{pct(client.share)}</small></div>)}</div>
     </Slide>,
     <Slide key="client-health" page={8} total={total}>
@@ -218,22 +217,18 @@ function CommercialSlides({ data, financial, period, previousLabel, generatedAt,
       <div className="deck-forgotten-note">Total comprado considera o faturamento líquido acumulado disponível desde janeiro de 2026.</div>
     </Slide>,
     <Slide key="products" page={9} total={total} tone="dark">
-      <SlideTitle eyebrow="MIX DE PRODUTOS" aside="faturamento líquido" editKey="comercial.products.title" editor={editor}>Produtos que formaram o faturamento líquido do período.</SlideTitle>
-      <div className="deck-products"><div className="deck-product-hero"><span>PRODUTO LÍDER</span><h3>{cur.products[0]?.name || 'Sem faturamento'}</h3><strong>{shortMoney(cur.products[0]?.value)}</strong><small>{cur.billing ? pct((cur.products[0]?.value || 0) / cur.billing * 100) : '0%'} do faturamento{prev.products[0]?.name === cur.products[0]?.name ? ' · mesmo líder do período anterior' : ''}</small></div><div className="deck-product-bars">{cur.products.slice(1, 6).map(product => <div key={product.name}><span>{product.name}</span><i><em style={{ width: `${product.value / maxProduct * 100}%`, background: '#F1D58A' }} /></i><strong>{shortMoney(product.value)}</strong></div>)}</div></div>
+      <SlideTitle eyebrow="MIX DE PRODUTOS" aside="pedidos do período" editKey="comercial.products.title" editor={editor}>Produtos que formaram os pedidos do período.</SlideTitle>
+      <div className="deck-products"><div className="deck-product-hero"><span>PRODUTO LÍDER</span><h3>{cur.products[0]?.name || 'Sem pedidos'}</h3><strong>{shortMoney(cur.products[0]?.value)}</strong><small>{cur.ordersValue ? pct((cur.products[0]?.value || 0) / cur.ordersValue * 100) : '0%'} dos pedidos{prev.products[0]?.name === cur.products[0]?.name ? ' · mesmo líder do período anterior' : ''}</small></div><div className="deck-product-bars">{cur.products.slice(1, 6).map(product => <div key={product.name}><span>{product.name}</span><i><em style={{ width: `${product.value / maxProduct * 100}%`, background: '#F1D58A' }} /></i><strong>{shortMoney(product.value)}</strong></div>)}</div></div>
     </Slide>,
-    <Slide key="segments" page={10} total={total} tone="dark">
-      <SlideTitle eyebrow="SEGMENTOS" aside="faturamento líquido" editKey="comercial.segments.title" editor={editor}>{cur.segments.some(item => item.name !== 'Sem segmento') ? 'Distribuição do faturamento por segmento de cliente.' : 'A visão por segmento será preenchida conforme a classificação da carteira for concluída.'}</SlideTitle>
-      <div className="deck-segment-layout"><div><span>SEGMENTO LÍDER</span><strong>{cur.segments[0]?.name || 'Sem dados'}</strong><p>{cur.segments[0] && cur.billing ? `${shortMoney(cur.segments[0].value)} · ${pct(cur.segments[0].value / cur.billing * 100)} do faturamento.` : 'O conteúdo será atualizado automaticamente quando os clientes receberem sua classificação.'}</p></div><div className="deck-segment-bars">{cur.segments.slice(0, 7).map((segment, index) => <div key={segment.name}><span>{segment.name}</span><i><em style={{ width: `${segment.value / maxSegment * 100}%`, background: COLORS[index % COLORS.length] }} /></i><strong>{shortMoney(segment.value)}</strong><small>{segment.clients} clientes</small></div>)}</div></div>
+    <Slide key="regions" page={10} total={total}>
+      <SlideTitle eyebrow="PRESENÇA DE MERCADO" aside={`${cur.orderClientCount} clientes com pedidos`} editKey="comercial.regions.title" editor={editor}>Distribuição dos pedidos por estado{leaderChanged ? ' — liderança mudou no período' : ''}.</SlideTitle>
+      <MetricStrip items={[{ label: 'Estado líder', value: cur.regions[0]?.name || '—', note: shortMoney(cur.regions[0]?.value) }, { label: 'Participação do líder', value: cur.ordersValue ? pct((cur.regions[0]?.value || 0) / cur.ordersValue * 100) : '—' }, { label: `Líder — ${comparisonNoun}`, value: prev.regions[0]?.name || '—' }, { label: 'Estados com pedidos', value: cur.regions.length }]} />
+      <div className="deck-region-layout map"><BrazilSalesMap regions={cur.regions} /><div className="deck-region-list">{cur.regions.slice(0, 6).map((region, index) => <div key={region.name}><i style={{ background: COLORS[index % COLORS.length] }} /><strong>{region.name}</strong><span>{shortMoney(region.value)}</span><small>{cur.ordersValue ? pct(region.value / cur.ordersValue * 100) : '0%'}</small></div>)}</div></div>
     </Slide>,
-    <Slide key="regions" page={11} total={total}>
-      <SlideTitle eyebrow="PRESENÇA DE MERCADO" aside={`${cur.activeClients} clientes ativos`} editKey="comercial.regions.title" editor={editor}>Distribuição do faturamento líquido por estado{leaderChanged ? ' — liderança mudou no período' : ''}.</SlideTitle>
-      <MetricStrip items={[{ label: 'Estado líder', value: cur.regions[0]?.name || '—', note: shortMoney(cur.regions[0]?.value) }, { label: 'Participação do líder', value: cur.billing ? pct((cur.regions[0]?.value || 0) / cur.billing * 100) : '—' }, { label: `Líder — ${comparisonNoun}`, value: prev.regions[0]?.name || '—' }, { label: 'Estados faturados', value: cur.regions.length }]} />
-      <div className="deck-region-layout map"><BrazilSalesMap regions={cur.regions} /><div className="deck-region-list">{cur.regions.slice(0, 6).map((region, index) => <div key={region.name}><i style={{ background: COLORS[index % COLORS.length] }} /><strong>{region.name}</strong><span>{shortMoney(region.value)}</span><small>{cur.billing ? pct(region.value / cur.billing * 100) : '0%'}</small></div>)}</div></div>
-    </Slide>,
-    <Slide key="close" page={12} total={total} tone="dark" className="deck-close">
+    <Slide key="close" page={11} total={total} tone="dark" className="deck-close">
       <span>RECOMENDAÇÕES COMERCIAIS</span><EditableText as="h2" editKey="comercial.close.title" value={cur.ordersValue < prev.ordersValue ? `Recuperar o ritmo: pedidos ${pct(Math.abs(variation(cur.ordersValue, prev.ordersValue)))} abaixo do ${comparisonNoun}.` : cur.openPortfolio > 0 ? `Converter a carteira de ${shortMoney(cur.openPortfolio)} e sustentar a geração de pedidos.` : 'Recompor a carteira de pedidos do próximo período.'} editor={editor} /><EditableText as="p" editKey="comercial.close.body" value={`1. Atacar o saldo de ${shortMoney(Math.max(cur.goal - cur.ordersValue, 0))} da meta de pedidos. 2. Proteger a receita dos principais clientes e ampliar a diversificação. 3. Replicar o mix e a execução dos vendedores líderes. 4. Completar a segmentação da carteira para orientar a prospecção.`} editor={editor} /><div><i /> direcionamento para o próximo ciclo</div>
     </Slide>,
-    <IntegratedExecutiveSlide key="integrated" page={13} total={total} commercial={cur} financial={financial.current} period={period} editor={editor}/>,
+    <IntegratedExecutiveSlide key="integrated" page={12} total={total} commercial={cur} financial={financial.current} period={period} editor={editor}/>,
   ]
 }
 
@@ -447,23 +442,37 @@ function aggregateCommercialPeriod(bounds, range, ctx) {
   })
 
   const productMap = new Map()
-  periodDocs.forEach(doc => (doc.fiscal_document_items || []).forEach(item => {
-    const name = item.product_name || 'Produto não identificado'
-    const sign = Math.sign(fiscalDocumentValue(doc))
-    productMap.set(name, (productMap.get(name) || 0) + Math.abs(number(item.product_total)) * sign)
-  }))
+  periodOrders.forEach(order => {
+    const items = Array.isArray(order.items) ? order.items : []
+    const itemValue = item => {
+      const direct = number(item?.product_total ?? item?.subtotal ?? item?.total ?? item?.value)
+      if (direct) return Math.abs(direct)
+      return Math.abs(number(item?.quantity ?? item?.qty) * number(item?.unitPrice ?? item?.unit_price))
+    }
+    const grossItems = items.reduce((sum, item) => sum + itemValue(item), 0)
+    const scale = grossItems ? netOrderValue(order) / grossItems : 0
+    items.forEach(item => {
+      const rawName = item?.productName || item?.product_name || item?.name || item?.product || 'Produto não identificado'
+      const name = String(rawName).replace(/\s+-\s*$/, '').trim()
+      productMap.set(name, (productMap.get(name) || 0) + itemValue(item) * scale)
+    })
+  })
 
   const regionMap = new Map()
   const clientMap = new Map()
   const segmentMap = new Map()
+  periodOrders.forEach(order => {
+    const farm = ctx.farmById.get(order.farm_id)
+    const stateName = farm?.state || 'Sem UF'
+    const clientName = order.customer_name || order.partner_name || 'Cliente não identificado'
+    const value = netOrderValue(order)
+    regionMap.set(stateName, (regionMap.get(stateName) || 0) + value)
+    clientMap.set(clientName, (clientMap.get(clientName) || 0) + value)
+  })
   periodDocs.forEach(doc => {
     const farm = ctx.farmByPartner.get(number(doc.partner_id))
-    const stateName = farm?.state || 'Sem UF'
-    const clientName = doc.partner_name || 'Cliente não identificado'
     const segmentName = farm?.segment || 'Sem segmento'
     const value = fiscalDocumentValue(doc)
-    regionMap.set(stateName, (regionMap.get(stateName) || 0) + fiscalDocumentValue(doc))
-    clientMap.set(clientName, (clientMap.get(clientName) || 0) + value)
     const segment = segmentMap.get(segmentName) || { name: segmentName, value: 0, clients: new Set() }
     segment.value += value
     if (doc.partner_id) segment.clients.add(doc.partner_id)
@@ -519,7 +528,7 @@ function aggregateCommercialPeriod(bounds, range, ctx) {
   })).sort((a,b)=>b.historicalValue-a.historicalValue || b.age-a.age)
 
   return {
-    ordersValue, billing, goal, returns, billedClients, clientIds, newClientIds, newClientCount: newClientIds.length,
+    ordersValue, billing, goal, returns, billedClients, orderClientCount: currentOrderClients.size, clientIds, newClientIds, newClientCount: newClientIds.length,
     projectedOrders: ordersValue * projectionFactor,
     dailyPace: ordersValue / elapsedDays,
     requiredDailyPace: remainingDays ? Math.max(goal - ordersValue, 0) / remainingDays : 0,
@@ -723,7 +732,22 @@ function useClosingData(type, year, index) {
         const failure = [ordersRes, docsRes, goalsRes, portfolioRes, farmsRes, profilesRes, dreRes, dreAccountsRes, balanceRes, managerialRes, maturityRes].find(result => result.error)
         if (failure?.error) throw failure.error
 
-        const orders = ordersRes.data || []
+        const rawOrders = ordersRes.data || []
+        const orderIds = rawOrders.map(row => row.id).filter(Boolean)
+        const orderItemsById = new Map()
+        for (let offset = 0; offset < orderIds.length; offset += 250) {
+          const chunk = orderIds.slice(offset, offset + 250)
+          const salesItemsRes = await supabaseAdmin.from('sales').select('id,items').in('id', chunk)
+          if (salesItemsRes.error) throw salesItemsRes.error
+          ;(salesItemsRes.data || []).forEach(row => {
+            let items = row.items
+            if (typeof items === 'string') {
+              try { items = JSON.parse(items) } catch { items = [] }
+            }
+            orderItemsById.set(String(row.id), Array.isArray(items) ? items : [])
+          })
+        }
+        const orders = rawOrders.map(row => ({ ...row, items: orderItemsById.get(String(row.id)) || [] }))
         const docs = docsRes.data || []
         const goals = goalsRes.data || []
         const farms = farmsRes.data || []
@@ -731,8 +755,9 @@ function useClosingData(type, year, index) {
         const profileById = new Map(profiles.map(row => [row.id, row]))
         const profileByUltra = new Map(profiles.filter(row => row.ultra_salesman_id).map(row => [number(row.ultra_salesman_id), row]))
         const farmByPartner = new Map(farms.filter(row => row.ultra_partner_id).map(row => [number(row.ultra_partner_id), row]))
+        const farmById = new Map(farms.map(row => [row.id, row]))
         const ctx = {
-          orders, docs, goals, profileById, profileByUltra, farmByPartner, vendedoresById,
+          orders, docs, goals, profileById, profileByUltra, farmByPartner, farmById, vendedoresById,
           portfolio: portfolioRes.data || [],
           activeClients: farms.filter(row => row.status === 'ativo').length,
         }
