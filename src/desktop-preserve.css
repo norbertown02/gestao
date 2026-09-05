@@ -1,0 +1,6 @@
+/* Preserva o layout original do desktop: o logo do topo é exclusivo do app mobile. */
+@media (min-width: 781px) {
+  .topbar-mobile-logo {
+    display: none !important;
+  }
+}
