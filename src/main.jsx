@@ -4,6 +4,7 @@ import './index.css'
 import './commerce-filters.css'
 import './mobile.css'
 import './mobile-final.css'
+import './desktop-preserve.css'
 import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(
