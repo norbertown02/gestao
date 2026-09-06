@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import {
   IconLayoutDashboard,
   IconReceipt,
@@ -10,7 +10,7 @@ import {
   IconMapPin,
   IconBuildingStore,
   IconBox,
-  IconFileText,
+  IconPresentation,
   IconReportMoney,
   IconFileInvoice,
   IconChartPie,
@@ -34,7 +34,7 @@ const MORE = [
   { to: '/regioes', label: 'Regiões', Icon: IconMapPin },
   { to: '/produtos', label: 'Produtos', Icon: IconBuildingStore },
   { to: '/estoque', label: 'Estoque', Icon: IconBox },
-  { to: '/relatorio', label: 'Relatório Executivo', Icon: IconFileText },
+  { to: '/fechamentos', label: 'Apresentações', Icon: IconPresentation, roles: ['admin','gestor','gestor_comercial'] },
   { to: '/financeiro', label: 'Financeiro', Icon: IconReportMoney, roles: ['admin','gestor','gestor_comercial'] },
   { to: '/dre', label: 'DRE', Icon: IconFileInvoice, roles: ['admin','gestor','gestor_comercial'] },
   { to: '/carteira', label: 'Carteira de Clientes', Icon: IconChartBar },
@@ -46,7 +46,9 @@ const MORE = [
 export default function MobileNav() {
   const [open, setOpen] = useState(false)
   const { user } = useAuth()
+  const location = useLocation()
   const more = MORE.filter(item => !item.roles || item.roles.includes(user?.role))
+  const moreActive = more.some(item => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`))
 
   return (
     <>
@@ -74,7 +76,7 @@ export default function MobileNav() {
             <span>{item.label}</span>
           </NavLink>
         ))}
-        <button type="button" className={`mobile-bottom-item${open ? ' active' : ''}`} onClick={() => setOpen(value => !value)}>
+        <button type="button" aria-expanded={open} className={`mobile-bottom-item${open || moreActive ? ' active' : ''}`} onClick={() => setOpen(value => !value)}>
           <IconMenu2 size={20} />
           <span>Mais</span>
         </button>
