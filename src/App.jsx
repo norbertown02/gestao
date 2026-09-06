@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/useAuth'
 import Sidebar from './components/Sidebar'
 import MobileNav from './components/MobileNav'
@@ -25,14 +25,20 @@ import DRE from './screens/DRE'
 import ImportarFechamento from './screens/ImportarFechamento'
 import AuditoriaFinanceira from './screens/AuditoriaFinanceira'
 
+function routeKey(pathname) {
+  const clean = String(pathname || '').replace(/^\/+|\/+$/g, '')
+  return clean ? clean.replaceAll('/', '-') : 'dashboard'
+}
+
 function AppContent() {
   const { user, loading, showSplash } = useAuth()
+  const location = useLocation()
   if (loading || showSplash) return <SplashScreen />
   if (!user) return <Login />
   return (
     <div className="layout">
       <Sidebar />
-      <div className="main">
+      <div className={`main route-${routeKey(location.pathname)}`}>
         <Routes>
           <Route path="/" element={<DashboardFiltrado />} />
           <Route path="/vendas" element={<VendasFiltradasV2 />} />
