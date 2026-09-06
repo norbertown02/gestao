@@ -25,7 +25,6 @@ const MAIN = [
   { to: '/', label: 'Dashboard', Icon: IconLayoutDashboard },
   { to: '/vendas', label: 'Comercial', Icon: IconReceipt },
   { to: '/metas', label: 'Metas', Icon: IconTarget },
-  { to: '/relatorio', label: 'Análises', Icon: IconChartBar },
 ]
 
 const MORE = [
