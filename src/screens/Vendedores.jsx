@@ -423,8 +423,8 @@ export default function Vendedores() {
     const risco = [...rankingVendedores].filter(v => v.clientesRisco > 0).sort((a, b) => b.clientesRisco - a.clientesRisco).slice(0, 8)
 
     const mesMap = {}
-    documents.forEach(s => {
-      const mes = s.issue_date?.slice(0, 7)
+    documentsHistory.forEach(s => {
+      const mes = s.sale_date?.slice(0, 7)
       if (!mes) return
 
       if (!mesMap[mes]) {
@@ -434,13 +434,13 @@ export default function Vendedores() {
             month: 'short',
             year: '2-digit',
           }),
-          Faturamento: 0,
           Pedidos: 0,
+          Quantidade: 0,
         }
       }
 
-      mesMap[mes].Faturamento += fiscalValue(s)
-      if (s.movement_type === 'venda') mesMap[mes].Pedidos += 1
+      mesMap[mes].Pedidos += Number(s.total || 0)
+      mesMap[mes].Quantidade += 1
     })
 
     const evolucao = Object.values(mesMap)
@@ -449,7 +449,7 @@ export default function Vendedores() {
 
     const barData = topFaturamento.map(v => ({
       name: v.name || v.email || '—',
-      Faturamento: v.fat,
+      Pedidos: v.fat,
       Meta: Number(v.monthly_goal || v.goal || 0),
     }))
 
@@ -657,12 +657,12 @@ export default function Vendedores() {
                       <XAxis dataKey="name" tickLine={false} axisLine={false} />
                       <YAxis tickLine={false} axisLine={false} tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} />
                       <Tooltip formatter={(v, n) => [`R$ ${fmt(v)}`, n]} />
-                      <Bar dataKey="Faturamento" fill="var(--orange)" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="Pedidos" fill="#E87722" radius={[8, 8, 0, 0]} />
                       <Bar dataKey="Meta" fill="var(--surface-3)" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <Empty>Sem faturamento no período</Empty>
+                  <Empty>Sem pedidos no período</Empty>
                 )}
               </div>
 
@@ -670,7 +670,7 @@ export default function Vendedores() {
                 <div className="vendedores-card-head">
                   <div>
                     <span className="vendedores-eyebrow">Evolução</span>
-                    <h3>Faturamento do time</h3>
+                    <h3>Pedidos do time</h3>
                   </div>
                 </div>
 
@@ -679,19 +679,19 @@ export default function Vendedores() {
                     <AreaChart data={dados.evolucao} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
                       <defs>
                         <linearGradient id="vendedoresFat" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="var(--orange)" stopOpacity={0.23} />
-                          <stop offset="95%" stopColor="var(--orange)" stopOpacity={0.02} />
+                          <stop offset="5%" stopColor="#E87722" stopOpacity={0.23} />
+                          <stop offset="95%" stopColor="#E87722" stopOpacity={0.02} />
                         </linearGradient>
                       </defs>
 
                       <CartesianGrid strokeDasharray="4 6" />
                       <XAxis dataKey="label" tickLine={false} axisLine={false} />
                       <YAxis tickLine={false} axisLine={false} tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} />
-                      <Tooltip formatter={(v, n) => [n === 'Faturamento' ? `R$ ${fmt(v)}` : fmtInt(v), n]} />
+                      <Tooltip formatter={(v, n) => [n === 'Pedidos' ? `R$ ${fmt(v)}` : fmtInt(v), n]} />
                       <Area
                         type="monotone"
-                        dataKey="Faturamento"
-                        stroke="var(--orange)"
+                        dataKey="Pedidos"
+                        stroke="#E87722"
                         strokeWidth={2.5}
                         fill="url(#vendedoresFat)"
                         dot={{ r: 3 }}
@@ -710,7 +710,7 @@ export default function Vendedores() {
                 <div className="vendedores-card-head">
                   <div>
                     <span className="vendedores-eyebrow">Ranking</span>
-                    <h3>Maior faturamento</h3>
+                    <h3>Maior valor de pedidos</h3>
                   </div>
                 </div>
 
@@ -945,8 +945,8 @@ export default function Vendedores() {
                                     <AreaChart data={s.evolucao} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
                                       <defs>
                                         <linearGradient id={`sellerEvolution-${String(s.id).replace(/[^a-zA-Z0-9]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                                          <stop offset="5%" stopColor="var(--orange)" stopOpacity={0.28} />
-                                          <stop offset="95%" stopColor="var(--orange)" stopOpacity={0.02} />
+                                          <stop offset="5%" stopColor="#E87722" stopOpacity={0.28} />
+                                          <stop offset="95%" stopColor="#E87722" stopOpacity={0.02} />
                                         </linearGradient>
                                       </defs>
                                       <CartesianGrid strokeDasharray="4 6" vertical={false} />
