@@ -4,7 +4,6 @@ import {
   IconLayoutDashboard,
   IconReceipt,
   IconClipboardList,
-  IconFileText,
   IconChartBar,
   IconSettings,
   IconLogout,
@@ -49,17 +48,14 @@ const NAV = [
   { section: 'Operação comercial' },
   { to: '/vendas', label: 'Gestão Comercial', Icon: IconReceipt },
   { to: '/cotacoes', label: 'Oportunidades', Icon: IconChartPie },
+  { to: '/regioes', label: 'Regiões', Icon: IconMapPin },
+  { to: '/produtos', label: 'Produtos', Icon: IconBuildingStore },
+  { to: '/estoque', label: 'Estoque', Icon: IconBox },
+  { to: '/fechamentos', label: 'Apresentações', Icon: IconPresentation, roles: ['admin', 'gestor', 'gestor_comercial'] },
 
   { section: 'Equipe e metas' },
   { to: '/metas', label: 'Metas', Icon: IconTarget },
   { to: '/vendedores', label: 'Equipe Comercial', Icon: IconUsers },
-
-  { section: 'Análises' },
-  { to: '/regioes', label: 'Regiões', Icon: IconMapPin },
-  { to: '/produtos', label: 'Produtos', Icon: IconBuildingStore },
-  { to: '/estoque', label: 'Estoque', Icon: IconBox },
-  { to: '/relatorio', label: 'Relatório Executivo', Icon: IconFileText },
-  { to: '/fechamentos', label: 'Apresentações', Icon: IconPresentation, roles: ['admin', 'gestor', 'gestor_comercial'] },
 
   { section: 'Financeiro' },
   { to: '/financeiro', label: 'Financeiro', Icon: IconReportMoney, roles: ['admin', 'gestor', 'gestor_comercial'] },
@@ -109,8 +105,6 @@ export default function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-logo">
         <img src={logo} alt="Nutrialle" className="sidebar-logo-mark" />
-
-
       </div>
 
       <button
