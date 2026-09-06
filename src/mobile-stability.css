@@ -1,0 +1,255 @@
+/* Nutrialle Gestão — correções finais de estabilidade mobile.
+   Mantém o desktop intacto e evita colapso de gráficos/controles no celular. */
+
+@media (max-width: 780px) {
+  /* Agora a navegação principal tem Dashboard, Comercial, Metas e Mais. */
+  .mobile-bottom-nav {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  /* Barras de filtros: o grupo interno era flex e ainda conseguia estourar/sobrepor. */
+  :is(
+    .vendas-toolbar-left,
+    .produtos-toolbar-left,
+    .vendedores-toolbar-left,
+    .regioes-toolbar-left,
+    .carteira-toolbar-left,
+    .visitas-toolbar-left,
+    .checklists-toolbar-left,
+    .pipeline-toolbar-left
+  ) {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+    align-items: end !important;
+  }
+
+  :is(
+    .vendas-filter-icon,
+    .produtos-filter-icon,
+    .vendedores-filter-icon,
+    .regioes-filter-icon,
+    .carteira-filter-icon,
+    .visitas-filter-icon,
+    .checklists-filter-icon,
+    .pipeline-filter-icon
+  ) {
+    display: none !important;
+  }
+
+  :is(
+    .vendas-toolbar-left,
+    .produtos-toolbar-left,
+    .vendedores-toolbar-left,
+    .regioes-toolbar-left,
+    .carteira-toolbar-left,
+    .visitas-toolbar-left,
+    .checklists-toolbar-left,
+    .pipeline-toolbar-left
+  ) :is(select, input, label) {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Cabeçalhos de cards nunca dividem o mesmo espaço com textos auxiliares. */
+  :is(
+    .commerce-panel-head,
+    .vendas-card-head,
+    .produtos-card-head,
+    .vendedores-card-head,
+    .regioes-card-head,
+    .carteira-card-head,
+    .visitas-card-head,
+    .checklists-card-head,
+    .pipeline-card-head,
+    .goals-card-head,
+    .stock-card-head,
+    .macro-card-head,
+    .chart-head
+  ) {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 5px !important;
+  }
+
+  :is(
+    .commerce-panel-head,
+    .vendas-card-head,
+    .produtos-card-head,
+    .vendedores-card-head,
+    .regioes-card-head,
+    .carteira-card-head,
+    .visitas-card-head,
+    .checklists-card-head,
+    .pipeline-card-head,
+    .goals-card-head,
+    .stock-card-head,
+    .macro-card-head,
+    .chart-head
+  ) > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  :is(
+    .commerce-panel-head,
+    .vendas-card-head,
+    .produtos-card-head,
+    .vendedores-card-head,
+    .regioes-card-head,
+    .carteira-card-head,
+    .visitas-card-head,
+    .checklists-card-head,
+    .pipeline-card-head,
+    .goals-card-head,
+    .stock-card-head,
+    .macro-card-head,
+    .chart-head
+  ) :is(h2, h3, strong, small, span) {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    overflow-wrap: break-word !important;
+  }
+
+  .goals-command-foot,
+  .vendas-detail-row,
+  .regioes-selected-row,
+  .carteira-rfm-foot {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 4px !important;
+    align-items: start !important;
+  }
+
+  /*
+     Recharts: alguns cards tiveram min-height removido pelas camadas mobile.
+     ResponsiveContainer com altura percentual acabava recebendo 0px e o eixo
+     aparecia sem a curva. Aqui todo gráfico normal do app recebe viewport real.
+     A apresentação (/fechamentos) fica fora desta regra para não alterar os slides.
+  */
+  :is(
+    .route-vendas,
+    .route-metas,
+    .route-vendedores,
+    .route-produtos,
+    .route-regioes,
+    .route-time,
+    .route-estoque,
+    .route-financeiro,
+    .route-carteira,
+    .route-visitas,
+    .route-checklists,
+    .route-cotacoes
+  ) .recharts-responsive-container {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 220px !important;
+    min-height: 220px !important;
+    max-height: none !important;
+  }
+
+  :is(
+    .route-vendas,
+    .route-metas,
+    .route-vendedores,
+    .route-produtos,
+    .route-regioes,
+    .route-time,
+    .route-estoque,
+    .route-financeiro,
+    .route-carteira,
+    .route-visitas,
+    .route-checklists,
+    .route-cotacoes
+  ) .recharts-responsive-container > .recharts-wrapper {
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+  }
+
+  :is(
+    .route-vendas,
+    .route-metas,
+    .route-vendedores,
+    .route-produtos,
+    .route-regioes,
+    .route-time,
+    .route-estoque,
+    .route-financeiro,
+    .route-carteira,
+    .route-visitas,
+    .route-checklists,
+    .route-cotacoes
+  ) .recharts-surface {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    overflow: visible !important;
+  }
+
+  :is(
+    .route-vendas,
+    .route-metas,
+    .route-vendedores,
+    .route-produtos,
+    .route-regioes,
+    .route-time,
+    .route-estoque,
+    .route-financeiro,
+    .route-carteira,
+    .route-visitas,
+    .route-checklists,
+    .route-cotacoes
+  ) :is(.recharts-line-curve, .recharts-area-curve) {
+    visibility: visible !important;
+    opacity: 1 !important;
+    stroke-opacity: 1 !important;
+    vector-effect: non-scaling-stroke;
+  }
+
+  /* Não limitar genericamente todo SVG: isso também atingia o SVG interno do Recharts. */
+  .main img,
+  .main canvas {
+    max-width: 100%;
+  }
+
+  /* Exceções compactas. */
+  .route-vendedores .vendedores-detail-chart .recharts-responsive-container {
+    height: 180px !important;
+    min-height: 180px !important;
+  }
+
+  .route-regioes .regioes-donut-wrap .recharts-responsive-container {
+    height: 230px !important;
+    min-height: 230px !important;
+  }
+
+  /* O Dashboard mobile é executivo: o gráfico analítico continua removido. */
+  .route-dashboard .macro-chart,
+  .route-dashboard .macro-reading,
+  .route-dashboard .macro-metrics-operational,
+  .route-dashboard .macro-section-title-compact {
+    display: none !important;
+  }
+}
+
+@media (max-width: 420px) {
+  :is(
+    .vendas-toolbar-left,
+    .produtos-toolbar-left,
+    .vendedores-toolbar-left,
+    .regioes-toolbar-left,
+    .carteira-toolbar-left,
+    .visitas-toolbar-left,
+    .checklists-toolbar-left,
+    .pipeline-toolbar-left
+  ) {
+    grid-template-columns: 1fr !important;
+  }
+}
