@@ -810,6 +810,7 @@ export default function Fechamentos() {
   const [type, setType] = useState(() => new URLSearchParams(window.location.search).get('type') === 'financeiro' ? 'financeiro' : 'comercial')
   const [activeSlide, setActiveSlide] = useState(0)
   const [exporting, setExporting] = useState('')
+  const [exportProgress, setExportProgress] = useState(0)
   const [editing, setEditing] = useState(false)
   const [copy, setCopy] = useState({})
   const slideRefs = useRef([])
@@ -841,26 +842,71 @@ export default function Fechamentos() {
     return () => observer.disconnect()
   }, [data.loading])
 
+  const waitForPaint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0))
+
+  async function captureSlide(node, scale = 1.5) {
+    if (!node) throw new Error('Slide indisponível para captura.')
+    node.classList.add('capture')
+    try {
+      await waitForPaint()
+      return await html2canvas(node, {
+        scale,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#f7f3ef',
+        logging: false,
+        imageTimeout: 5000,
+        removeContainer: true,
+      })
+    } finally {
+      node.classList.remove('capture')
+    }
+  }
+
   async function renderSlides() {
     const images = []
-    for (const node of slideRefs.current.slice(0, slides.length)) {
-      node.classList.add('capture')
-      await new Promise(resolve => requestAnimationFrame(resolve))
-      const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: '#f7f3ef', logging: false })
-      images.push(canvas.toDataURL('image/png', 1))
-      node.classList.remove('capture')
+    if (document.fonts?.ready) await document.fonts.ready
+    const nodes = slideRefs.current.slice(0, slides.length)
+    for (let i = 0; i < nodes.length; i += 1) {
+      const canvas = await captureSlide(nodes[i], 1.35)
+      images.push(canvas.toDataURL('image/jpeg', 0.9))
+      canvas.width = 1
+      canvas.height = 1
+      setExportProgress(i + 1)
+      await yieldToBrowser()
     }
     return images
   }
 
   async function exportPDF() {
     setExporting('pdf')
+    setExportProgress(0)
     try {
-      const images = await renderSlides()
+      if (document.fonts?.ready) await document.fonts.ready
+      await waitForPaint()
+      const nodes = slideRefs.current.slice(0, slides.length)
+      if (!nodes.length || nodes.some(node => !node)) throw new Error('Os slides ainda não terminaram de renderizar.')
+
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [338.667, 190.5], compress: true })
-      images.forEach((image, i) => { if (i) pdf.addPage([338.667, 190.5], 'landscape'); pdf.addImage(image, 'PNG', 0, 0, 338.667, 190.5, undefined, 'FAST') })
+      for (let i = 0; i < nodes.length; i += 1) {
+        const canvas = await captureSlide(nodes[i], 1.5)
+        const image = canvas.toDataURL('image/jpeg', 0.92)
+        if (i) pdf.addPage([338.667, 190.5], 'landscape')
+        pdf.addImage(image, 'JPEG', 0, 0, 338.667, 190.5, undefined, 'FAST')
+        canvas.width = 1
+        canvas.height = 1
+        setExportProgress(i + 1)
+        await yieldToBrowser()
+      }
       pdf.save(`nutrialle-fechamento-${type}-${sanitizeName(period)}.pdf`)
-    } finally { setExporting('') }
+    } catch (error) {
+      console.error('Erro ao gerar PDF da apresentação:', error)
+      window.alert(`Não foi possível gerar o PDF. ${error?.message || 'Tente novamente.'}`)
+    } finally {
+      setExportProgress(0)
+      setExporting('')
+    }
   }
 
   async function exportPPTX() {
@@ -891,12 +937,12 @@ export default function Fechamentos() {
           {periodType !== 'anual' && <select value={index} onChange={event => { setIndex(Number(event.target.value)); setActiveSlide(0) }}>{indexOptionsFor(periodType).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>}
           <select value={year} onChange={event => { setYear(Number(event.target.value)); setActiveSlide(0) }}>{[year - 1, year, year + 1].map(value => <option key={value}>{value}</option>)}</select>
         </div>
-        <div className="closing-actions"><button className={`btn btn-ghost ${editing ? 'active' : ''}`} disabled={data.loading || !!exporting} onClick={() => setEditing(value => !value)}>{editing ? <IconCheck size={17} /> : <IconEdit size={17} />} {editing ? 'Concluir edição' : 'Editar textos'}</button><button className="btn btn-ghost" onClick={() => window.location.reload()}><IconRefresh size={17} /> Atualizar dados</button><button className="btn btn-ghost" disabled={data.loading || !!exporting} onClick={exportPDF}><IconFileTypePdf size={17} /> {exporting === 'pdf' ? 'Gerando…' : 'Baixar PDF'}</button><button className="btn btn-primary" disabled={data.loading || !!exporting} onClick={exportPPTX}><IconDownload size={17} /> {exporting === 'pptx' ? 'Gerando…' : 'Baixar PowerPoint'}</button></div>
+        <div className="closing-actions"><button className={`btn btn-ghost ${editing ? 'active' : ''}`} disabled={data.loading || !!exporting} onClick={() => setEditing(value => !value)}>{editing ? <IconCheck size={17} /> : <IconEdit size={17} />} {editing ? 'Concluir edição' : 'Editar textos'}</button><button className="btn btn-ghost" onClick={() => window.location.reload()}><IconRefresh size={17} /> Atualizar dados</button><button className="btn btn-ghost" disabled={data.loading || !!exporting} onClick={exportPDF}><IconFileTypePdf size={17} /> {exporting === 'pdf' ? `Gerando ${exportProgress}/${slides.length}…` : 'Baixar PDF'}</button><button className="btn btn-primary" disabled={data.loading || !!exporting} onClick={exportPPTX}><IconDownload size={17} /> {exporting === 'pptx' ? 'Gerando…' : 'Baixar PowerPoint'}</button></div>
       </section>
       {financialMissing && <div className="closing-warning">Nenhum fechamento contábil carregado para <b>{period}</b> ainda — a apresentação financeira vai mostrar zeros até o próximo fechamento ser lançado no Financeiro.</div>}
       {data.loading ? <div className="closing-state"><IconPresentation size={30} /><strong>Preparando o fechamento…</strong><span>Cruzando pedidos, faturamento, metas e dados financeiros.</span></div> : data.error ? <div className="closing-state error"><strong>Não foi possível montar a apresentação</strong><span>{data.error}</span></div> : <>
         <section className="closing-viewer"><div className="closing-stage" ref={stageRef}>{slides.map((slide, i) => <div key={i} className={`closing-slide-frame ${activeSlide === i ? 'active' : ''}`} style={{ transform: `scale(${slideScale})` }} ref={node => { slideRefs.current[i] = node }}>{slide}</div>)}</div><div className="closing-nav"><button disabled={!activeSlide} onClick={() => setActiveSlide(value => value - 1)}><IconArrowLeft size={18} /></button><span>{activeSlide + 1} de {slides.length}</span><button disabled={activeSlide === slides.length - 1} onClick={() => setActiveSlide(value => value + 1)}><IconArrowRight size={18} /></button></div></section>
-        <section className="closing-filmstrip">{slides.map((slide, i) => <button key={i} className={activeSlide === i ? 'active' : ''} onClick={() => setActiveSlide(i)}><span>{slide}</span><b>{String(i + 1).padStart(2, '0')}</b></button>)}</section>
+        {!exporting && <section className="closing-filmstrip">{slides.map((slide, i) => <button key={i} className={activeSlide === i ? 'active' : ''} onClick={() => setActiveSlide(i)}><span>{slide}</span><b>{String(i + 1).padStart(2, '0')}</b></button>)}</section>}
       </>}
     </main>
   </div>
