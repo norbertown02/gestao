@@ -1,0 +1,1601 @@
+/* Nutrialle Gestão — revisão mobile geral
+   Esta camada entra por último e corrige os layouts mobile sem alterar o desktop. */
+
+@media (max-width: 780px) {
+  html,
+  body,
+  #root,
+  .layout,
+  .main {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0 !important;
+  }
+
+  html,
+  body {
+    min-height: 100%;
+    overflow-x: hidden !important;
+    background: #f4f1ed;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    overscroll-behavior-x: none;
+  }
+
+  .layout {
+    min-height: 100dvh;
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  .sidebar {
+    display: none !important;
+  }
+
+  .main {
+    overflow: visible !important;
+    padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+
+  .main > div,
+  .main > main,
+  .main > section {
+    width: 100%;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .main > div {
+    min-height: 100dvh;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .page,
+  .closing-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 11px 11px 96px !important;
+  }
+
+  .page > *,
+  .closing-page > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Cabeçalho Nutrialle */
+  .topbar {
+    min-height: 86px !important;
+    height: auto !important;
+    padding: calc(12px + env(safe-area-inset-top)) 14px 11px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 60 !important;
+    overflow: hidden !important;
+    background:
+      radial-gradient(circle at 86% 8%, rgba(244, 123, 32, .62), transparent 33%),
+      radial-gradient(circle at 12% 120%, rgba(232, 119, 34, .18), transparent 38%),
+      linear-gradient(118deg, #050505 0%, #13100d 54%, #7e310c 100%) !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, .09) !important;
+    box-shadow: 0 8px 24px rgba(19, 13, 8, .20) !important;
+  }
+
+  .topbar::after {
+    content: '';
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(244, 123, 32, .62), transparent);
+    pointer-events: none;
+  }
+
+  .topbar-branding {
+    width: 100% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .topbar-branding > div,
+  .topbar-actions {
+    display: none !important;
+  }
+
+  .topbar-mobile-logo {
+    display: block !important;
+    width: 218px !important;
+    height: 60px !important;
+    max-width: 69vw !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    border-radius: 0 !important;
+    transform: scale(1.04);
+    transform-origin: center;
+    filter: drop-shadow(0 6px 13px rgba(0, 0, 0, .28));
+  }
+
+  /* Navegação inferior */
+  .mobile-bottom-nav {
+    left: 8px !important;
+    right: 8px !important;
+    bottom: max(7px, env(safe-area-inset-bottom)) !important;
+    height: 68px !important;
+    padding: 6px !important;
+    border-radius: 21px !important;
+    background: rgba(8, 8, 8, .975) !important;
+    border: 1px solid rgba(255, 255, 255, .08) !important;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, .28) !important;
+    backdrop-filter: blur(18px);
+  }
+
+  .mobile-bottom-item {
+    min-width: 0 !important;
+    height: 55px !important;
+    min-height: 55px !important;
+    gap: 4px !important;
+    border-radius: 15px !important;
+  }
+
+  .mobile-bottom-item span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 8.5px !important;
+  }
+
+  .mobile-bottom-item.active {
+    color: #fff !important;
+    background: linear-gradient(180deg, rgba(244, 123, 32, .18), rgba(244, 123, 32, .07)) !important;
+  }
+
+  .mobile-bottom-item.active svg {
+    color: #f47b20 !important;
+  }
+
+  .mobile-more-sheet {
+    left: 8px !important;
+    right: 8px !important;
+    bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+    max-height: min(72dvh, 650px) !important;
+    padding: 14px !important;
+    border-radius: 24px !important;
+  }
+
+  .mobile-more-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .mobile-more-item {
+    min-width: 0 !important;
+    min-height: 58px !important;
+    padding: 10px !important;
+    border-radius: 14px !important;
+    font-size: 11px !important;
+  }
+
+  .mobile-more-item span {
+    line-height: 1.2;
+  }
+
+  /* Tipografia, controles e superfícies */
+  .empty {
+    min-height: 72px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 16px !important;
+    border-radius: 13px;
+  }
+
+  .main input,
+  .main select,
+  .main textarea {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    font-size: 16px !important;
+    border-radius: 10px !important;
+  }
+
+  .main input,
+  .main select {
+    min-height: 40px !important;
+  }
+
+  .main textarea {
+    min-height: 88px !important;
+  }
+
+  .main .btn,
+  .main button {
+    touch-action: manipulation;
+  }
+
+  :is(
+    .card,.card-sm,.chart-card,
+    .commerce-panel,.commerce-story,.commerce-forecast,
+    .vendas-card,.produtos-card,.vendedores-card,.regioes-card,.carteira-card,.visitas-card,.checklists-card,.pipeline-card,
+    .goals-chart-card,.goals-team-table-card,.goals-editor,.stock-card,
+    .pdf-panel,.relpremium-panel
+  ) {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    border-radius: 14px !important;
+    box-shadow: 0 1px 0 rgba(39, 31, 24, .03) !important;
+  }
+
+  :is(
+    .commerce-card-head,.commerce-panel-head,.vendas-card-head,.produtos-card-head,.vendedores-card-head,.regioes-card-head,
+    .carteira-card-head,.visitas-card-head,.checklists-card-head,.pipeline-card-head,.stock-card-head,.goals-card-head,.macro-card-head
+  ) h3,
+  .section-title {
+    font-size: 14px !important;
+    line-height: 1.2 !important;
+  }
+
+  :is(
+    .commerce-page,.vendas-page,.produtos-page,.vendedores-page,.regioes-page,.carteira-page,.visitas-page,.checklists-page,
+    .financeiro-page,.dre-page,.goals-page,.stock-page,.macro-page,.pipeline-page,.relpremium-page
+  ) {
+    gap: 8px !important;
+  }
+
+  /* Toolbars e filtros: legíveis e sem zoom do Safari */
+  :is(
+    .macro-toolbar,.commerce-toolbar,.vendas-toolbar,.produtos-toolbar,.vendedores-toolbar,.regioes-toolbar,
+    .carteira-toolbar,.visitas-toolbar,.checklists-toolbar,.pipeline-toolbar,.financeiro-toolbar,.dre-toolbar,.goals-toolbar,.stock-toolbar
+  ) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 8px !important;
+    gap: 7px !important;
+    border-radius: 13px !important;
+    overflow: visible !important;
+  }
+
+  .macro-toolbar {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .macro-toolbar > div {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  .macro-toolbar > div > :nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .macro-toolbar > span {
+    text-align: left !important;
+    font-size: 10px !important;
+    line-height: 1.3 !important;
+  }
+
+  .commerce-page .commerce-toolbar,
+  .route-cotacoes .pipeline-toolbar,
+  .route-pipeline .pipeline-toolbar,
+  .route-visitas .visitas-toolbar,
+  .route-carteira .carteira-toolbar,
+  .route-produtos .produtos-toolbar,
+  .route-vendedores .vendedores-toolbar,
+  .route-regioes .regioes-toolbar {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    align-items: end !important;
+  }
+
+  .commerce-page .commerce-toolbar > label,
+  :is(.vendas-toolbar,.produtos-toolbar,.vendedores-toolbar,.regioes-toolbar,.carteira-toolbar,.visitas-toolbar,.checklists-toolbar,.pipeline-toolbar) label {
+    min-width: 0 !important;
+  }
+
+  .commerce-page .commerce-toolbar > label > svg {
+    display: none !important;
+  }
+
+  .commerce-page .commerce-toolbar > label > span,
+  :is(.vendas-toolbar,.produtos-toolbar,.vendedores-toolbar,.regioes-toolbar,.carteira-toolbar,.visitas-toolbar,.checklists-toolbar,.pipeline-toolbar) label > span {
+    font-size: 9px !important;
+    line-height: 1.2 !important;
+  }
+
+  .commerce-page .commerce-toolbar > button {
+    display: none !important;
+  }
+
+  /* Grids comuns */
+  :is(
+    .macro-metrics,.macro-metrics-operational,.macro-metrics-primary,.commerce-metrics,
+    .vendas-kpi-grid,.produtos-kpi-grid,.vendedores-kpi-grid,.regioes-kpi-grid,.carteira-kpi-grid,.visitas-kpi-grid,.checklists-kpi-grid,.pipeline-kpi-grid,
+    .financeiro-kpi-grid,.dre-kpi-grid,.dash-kpi-row,.goals-kpis,.goals-kpis-four,.stock-metrics,.kpi-grid
+  ) {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+  }
+
+  :is(
+    .macro-metric,.commerce-metric,.vendas-kpi,.produtos-kpi,.vendedores-kpi,.regioes-kpi,.carteira-kpi,.visitas-kpi,.checklists-kpi,.pipeline-kpi,
+    .dash-kpi-card,.stock-metric,.kpi
+  ) {
+    min-width: 0 !important;
+    min-height: 68px !important;
+    padding: 9px !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+  }
+
+  :is(
+    .macro-metric,.commerce-metric,.vendas-kpi,.produtos-kpi,.vendedores-kpi,.regioes-kpi,.carteira-kpi,.visitas-kpi,.checklists-kpi,.pipeline-kpi,
+    .dash-kpi-card,.stock-metric,.kpi
+  ) strong,
+  :is(.vendas-kpi-top,.produtos-kpi-top,.vendedores-kpi-top,.regioes-kpi-top,.carteira-kpi-top,.visitas-kpi-top,.checklists-kpi-top,.pipeline-kpi-top) strong {
+    font-size: 14px !important;
+    line-height: 1.05 !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  :is(
+    .macro-metric,.commerce-metric,.vendas-kpi,.produtos-kpi,.vendedores-kpi,.regioes-kpi,.carteira-kpi,.visitas-kpi,.checklists-kpi,.pipeline-kpi,
+    .dash-kpi-card,.stock-metric,.kpi
+  ) :is(span,small) {
+    font-size: 8.5px !important;
+    line-height: 1.2 !important;
+  }
+
+  :is(
+    .vendas-main-grid,.vendas-grid-3,.produtos-main-grid,.produtos-grid-4,.vendedores-main-grid,.vendedores-grid-4,
+    .regioes-map-grid,.regioes-main-grid,.regioes-grid-3,.carteira-main-grid,.carteira-grid-3,.visitas-main-grid,.visitas-grid-2,
+    .checklists-main-grid,.checklists-technical-grid,.checklists-grid-3,.pipeline-main-grid,.pipeline-grid-2,
+    .dash-main-grid,.dash-two-col,.dash-bottom-grid,.stock-grid,.commerce-columns
+  ) {
+    width: 100% !important;
+    min-width: 0 !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Gráficos */
+  .recharts-responsive-container,
+  .recharts-wrapper,
+  .recharts-surface {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .recharts-cartesian-axis-tick text {
+    font-size: 9px !important;
+  }
+
+  /* Tabelas padrão: nunca estouram a página */
+  :is(
+    .commerce-table-wrap,.vendas-table-wrap,.produtos-table-wrap,.vendedores-table-wrap,.regioes-table-wrap,.carteira-table-wrap,
+    .visitas-table-wrap,.checklists-table-wrap,.pipeline-table-wrap,.table-wrap,.table-responsive,.stock-table-wrap
+  ) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px !important;
+  }
+
+  :is(
+    .commerce-table-wrap,.vendas-table-wrap,.produtos-table-wrap,.vendedores-table-wrap,.regioes-table-wrap,.carteira-table-wrap,
+    .visitas-table-wrap,.checklists-table-wrap,.pipeline-table-wrap,.table-wrap,.table-responsive,.stock-table-wrap
+  ) :is(th,td) {
+    padding: 8px !important;
+    font-size: 10px !important;
+  }
+
+  /* DASHBOARD: mostra o que é executivo e tira o excesso operacional */
+  .route-dashboard .macro-hero {
+    min-height: 0 !important;
+    padding: 11px !important;
+    border-radius: 14px !important;
+  }
+
+  .route-dashboard .macro-hero header > span,
+  .route-dashboard .macro-hero header p {
+    display: none !important;
+  }
+
+  .route-dashboard .macro-hero header h2 {
+    margin: 0 0 7px !important;
+    font-size: 15px !important;
+  }
+
+  .route-dashboard .macro-hero-flow {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+  }
+
+  .route-dashboard .macro-hero-flow > svg {
+    display: none !important;
+  }
+
+  .route-dashboard .macro-hero-flow > div {
+    min-width: 0 !important;
+    padding: 7px 5px !important;
+    border-radius: 9px !important;
+    background: rgba(255,255,255,.07) !important;
+  }
+
+  .route-dashboard .macro-hero-flow :is(span,small) {
+    font-size: 7.5px !important;
+    line-height: 1.15 !important;
+  }
+
+  .route-dashboard .macro-hero-flow strong {
+    display: block;
+    margin: 4px 0 2px;
+    font-size: 13px !important;
+    line-height: 1.05 !important;
+    overflow-wrap: anywhere;
+  }
+
+  .route-dashboard .macro-section-title:first-of-type {
+    display: flex !important;
+  }
+
+  .route-dashboard .macro-metrics-primary {
+    display: grid !important;
+  }
+
+  .route-dashboard .macro-section-title-compact,
+  .route-dashboard .macro-metrics-operational {
+    display: none !important;
+  }
+
+  .route-dashboard .macro-section-title {
+    margin: 9px 1px 4px !important;
+  }
+
+  .route-dashboard .macro-section-title > div > span,
+  .route-dashboard .macro-section-title > small {
+    display: none !important;
+  }
+
+  .route-dashboard .macro-section-title h3 {
+    font-size: 13px !important;
+  }
+
+  .route-dashboard .macro-chart {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 245px !important;
+    min-height: 245px !important;
+    padding: 9px 4px 5px !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+  }
+
+  .route-dashboard .macro-chart-canvas {
+    height: 195px !important;
+  }
+
+  .route-dashboard .macro-chart .macro-card-head {
+    padding: 0 5px 4px !important;
+  }
+
+  .route-dashboard .macro-chart .macro-card-head > div > span,
+  .route-dashboard .chart-meta > small {
+    display: none !important;
+  }
+
+  .route-dashboard .macro-chart .macro-card-head h3 {
+    font-size: 13px !important;
+  }
+
+  .route-dashboard .chart-legend {
+    font-size: 8px !important;
+    gap: 4px 6px !important;
+    flex-wrap: wrap !important;
+  }
+
+  .route-dashboard .macro-bottom {
+    grid-template-columns: 1fr !important;
+  }
+
+  .route-dashboard .macro-reading {
+    display: none !important;
+  }
+
+  .route-dashboard .macro-ranking {
+    padding: 9px !important;
+  }
+
+  .route-dashboard .macro-ranking > div:not(.macro-card-head):nth-of-type(n+5) {
+    display: none !important;
+  }
+
+  /* GESTÃO COMERCIAL */
+  .route-vendas .commerce-story {
+    min-height: 0 !important;
+    padding: 10px !important;
+    border-radius: 14px !important;
+  }
+
+  .route-vendas .commerce-story header {
+    display: none !important;
+  }
+
+  .route-vendas .commerce-flow {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+  }
+
+  .route-vendas .commerce-flow > svg {
+    display: none !important;
+  }
+
+  .route-vendas .commerce-flow > div {
+    min-width: 0 !important;
+    padding: 7px 5px !important;
+    border-radius: 9px !important;
+    background: rgba(255,255,255,.07) !important;
+  }
+
+  .route-vendas .commerce-flow :is(span,small) {
+    font-size: 7.5px !important;
+  }
+
+  .route-vendas .commerce-flow strong {
+    font-size: 13px !important;
+    overflow-wrap: anywhere;
+  }
+
+  .route-vendas .commerce-forecast {
+    display: none !important;
+  }
+
+  .route-vendas .commerce-metrics > :nth-child(2) {
+    display: none !important;
+  }
+
+  .route-vendas .commerce-daily-chart {
+    display: block !important;
+    min-height: 220px !important;
+    padding: 8px 4px !important;
+  }
+
+  .route-vendas .commerce-daily-chart .recharts-responsive-container {
+    height: 175px !important;
+    min-height: 175px !important;
+  }
+
+  .route-vendas .commerce-daily-chart .commerce-panel-head > div > span,
+  .route-vendas .commerce-daily-chart .chart-meta > small {
+    display: none !important;
+  }
+
+  .route-vendas .commerce-panel-full {
+    padding: 9px !important;
+  }
+
+  .route-vendas .commerce-panel-full > div:nth-child(2) {
+    display: flex !important;
+    gap: 4px !important;
+    overflow-x: auto !important;
+    margin-bottom: 10px !important;
+    scrollbar-width: none;
+  }
+
+  .route-vendas .commerce-panel-full > div:nth-child(2)::-webkit-scrollbar {
+    display: none;
+  }
+
+  .route-vendas .commerce-panel-full > div:nth-child(2) button {
+    flex: 0 0 auto;
+    min-height: 34px !important;
+    padding: 7px 10px !important;
+    font-size: 10px !important;
+  }
+
+  /* Pedidos/faturamento em cartões, sem tabela espremida */
+  .route-vendas .commerce-table-wrap {
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .route-vendas .commerce-table-wrap > .commerce-table,
+  .route-vendas .commerce-table-wrap > .commerce-table > tbody {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .route-vendas .commerce-table-wrap > .commerce-table > thead {
+    display: none !important;
+  }
+
+  .route-vendas .commerce-table-wrap > .commerce-table > tbody > tr:not(.commerce-order-items) {
+    width: 100% !important;
+    min-width: 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 4px 8px !important;
+    margin-bottom: 7px !important;
+    padding: 10px !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+  }
+
+  .route-vendas .commerce-table-wrap > .commerce-table > tbody > tr:not(.commerce-order-items) > td {
+    display: block !important;
+    width: auto !important;
+    max-width: 100% !important;
+    padding: 1px 0 !important;
+    border: 0 !important;
+    white-space: normal !important;
+    font-size: 10px !important;
+  }
+
+  .route-vendas .commerce-table-wrap > .commerce-table > tbody > tr:not(.commerce-order-items) > td:nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .route-vendas .commerce-table-wrap > .commerce-table > tbody > tr:not(.commerce-order-items) > td:nth-child(5) {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right !important;
+    color: var(--orange);
+  }
+
+  .route-vendas .commerce-table-wrap > .commerce-table > tbody > tr:not(.commerce-order-items) > td:nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .route-vendas .commerce-table-wrap > .commerce-table > tbody > tr:not(.commerce-order-items) > td:nth-child(3) {
+    grid-column: 1;
+    grid-row: 3;
+    color: var(--text-dim);
+  }
+
+  .route-vendas .commerce-table-wrap > .commerce-table > tbody > tr:not(.commerce-order-items) > td:nth-child(4) {
+    grid-column: 2;
+    grid-row: 3;
+    text-align: right !important;
+  }
+
+  .route-vendas .commerce-order-items {
+    display: block !important;
+    width: 100% !important;
+    margin: -2px 0 8px !important;
+  }
+
+  .route-vendas .commerce-order-items > td {
+    display: block !important;
+    width: 100% !important;
+    padding: 8px !important;
+    border: 0 !important;
+    white-space: normal !important;
+  }
+
+  .route-vendas .commerce-order-items table {
+    min-width: 520px !important;
+  }
+
+  /* METAS */
+  .route-metas .goals-toolbar {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .route-metas .goals-toolbar > div:first-child {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  .route-metas .goals-toolbar select:last-child,
+  .route-metas .goals-back {
+    grid-column: 1 / -1 !important;
+  }
+
+  .route-metas .goals-tabs {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 5px !important;
+  }
+
+  .route-metas .goals-tabs button {
+    min-height: 34px !important;
+    padding: 6px !important;
+    font-size: 10px !important;
+  }
+
+  .route-metas .goals-command,
+  .route-metas .goals-year-card {
+    min-height: 0 !important;
+    padding: 10px !important;
+    grid-template-columns: 1fr !important;
+    border-radius: 14px !important;
+  }
+
+  .route-metas .goals-command-values {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .route-metas .goals-command-values h2,
+  .route-metas .goals-command-values strong,
+  .route-metas .goals-command-side > strong,
+  .route-metas .goals-year-card h2 {
+    font-size: 18px !important;
+    line-height: 1 !important;
+    overflow-wrap: anywhere;
+  }
+
+  .route-metas .goals-command-side {
+    border-left: 0 !important;
+    border-top: 1px solid rgba(255,255,255,.14) !important;
+    margin-top: 7px !important;
+    padding: 7px 0 0 !important;
+  }
+
+  .route-metas .goals-team-table {
+    overflow: visible !important;
+  }
+
+  .route-metas .goals-team-head {
+    display: none !important;
+  }
+
+  .route-metas .goals-team-table > button {
+    width: 100% !important;
+    min-width: 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-areas:
+      'name attainment'
+      'goal realized'
+      'balance balance' !important;
+    gap: 6px 10px !important;
+    margin: 0 0 7px !important;
+    padding: 10px !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+  }
+
+  .route-metas .goals-team-table > button > span {
+    min-width: 0 !important;
+    font-size: 10px !important;
+  }
+
+  .route-metas .goals-team-table > button > span:nth-child(1) { grid-area: name; }
+  .route-metas .goals-team-table > button > span:nth-child(2) { grid-area: goal; }
+  .route-metas .goals-team-table > button > span:nth-child(3) { grid-area: realized; text-align: right; }
+  .route-metas .goals-team-table > button > span:nth-child(4) { grid-area: balance; }
+  .route-metas .goals-team-table > button > span:nth-child(5) { grid-area: attainment; }
+
+  .route-metas .goals-team-table > button > span:nth-child(2)::before { content: 'Meta · '; color: var(--text-faint); font-size: 8px; }
+  .route-metas .goals-team-table > button > span:nth-child(3)::before { content: 'Pedidos · '; color: var(--text-faint); font-size: 8px; }
+  .route-metas .goals-team-table > button > span:nth-child(4)::before { content: 'Saldo · '; color: var(--text-faint); font-size: 8px; }
+
+  .route-metas .goals-chart-card .recharts-responsive-container {
+    height: 185px !important;
+    min-height: 185px !important;
+  }
+
+  /* EQUIPE COMERCIAL */
+  .route-vendedores .vendedores-detail-cell {
+    padding: 7px !important;
+  }
+
+  .route-vendedores .vendedores-detail-grid {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  .route-vendedores .vendedores-detail-box {
+    min-width: 0 !important;
+    min-height: 56px !important;
+    padding: 7px !important;
+  }
+
+  .route-vendedores .vendedores-detail-box strong {
+    font-size: 13px !important;
+  }
+
+  .route-vendedores .vendedores-detail-chart {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 7px !important;
+  }
+
+  .route-vendedores .vendedores-detail-chart .recharts-responsive-container {
+    height: 150px !important;
+    min-height: 150px !important;
+  }
+
+  .route-vendedores .vendedores-table-wrap {
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .route-vendedores .vendedores-table-wrap table,
+  .route-vendedores .vendedores-table-wrap tbody {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .route-vendedores .vendedores-table-wrap thead {
+    display: none !important;
+  }
+
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) {
+    width: 100% !important;
+    min-width: 0 !important;
+    display: grid !important;
+    grid-template-columns: 28px minmax(0, 1fr) auto !important;
+    gap: 5px 8px !important;
+    margin-bottom: 7px !important;
+    padding: 10px !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+  }
+
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td {
+    display: none !important;
+    width: auto !important;
+    padding: 0 !important;
+    border: 0 !important;
+    white-space: normal !important;
+  }
+
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(1),
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(2),
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(4),
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(5),
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(8),
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(9),
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(11) {
+    display: block !important;
+  }
+
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(1) { grid-column: 1; grid-row: 1 / 3; }
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(2) { grid-column: 2; grid-row: 1; }
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(11) { grid-column: 3; grid-row: 1; text-align: right; }
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(4) { grid-column: 2; grid-row: 2; color: var(--orange); }
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(5) { grid-column: 3; grid-row: 2; text-align: right; }
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(8) { grid-column: 2; grid-row: 3; }
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(9) { grid-column: 3; grid-row: 3; text-align: right; }
+
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(5)::before { content: 'Pedidos · '; color: var(--text-faint); font-size: 8px; }
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(8)::before { content: 'Conversão · '; color: var(--text-faint); font-size: 8px; }
+  .route-vendedores .vendedores-table-wrap tbody > tr:not(:has(.vendedores-detail-cell)) > td:nth-child(9)::before { content: 'Visitas · '; color: var(--text-faint); font-size: 8px; }
+
+  .route-vendedores .vendedores-table-wrap tbody > tr:has(.vendedores-detail-cell) {
+    display: block !important;
+    width: 100% !important;
+    margin: -2px 0 8px !important;
+  }
+
+  .route-vendedores .vendedores-detail-cell {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border: 0 !important;
+    white-space: normal !important;
+  }
+
+  /* Produtos, regiões, carteira, visitas, diagnósticos e oportunidades */
+  :is(
+    .vendas-hero,.produtos-hero,.vendedores-hero,.regioes-hero,.carteira-hero,.visitas-hero,.checklists-hero,.pipeline-hero,.stock-hero
+  ) {
+    min-height: 0 !important;
+    padding: 11px !important;
+    border-radius: 14px !important;
+  }
+
+  :is(
+    .vendas-hero,.produtos-hero,.vendedores-hero,.regioes-hero,.carteira-hero,.visitas-hero,.checklists-hero,.pipeline-hero
+  ) h2 {
+    margin: 4px 0 !important;
+    font-size: 17px !important;
+  }
+
+  :is(
+    .vendas-hero-grid,.produtos-hero-grid,.vendedores-hero-grid,.regioes-hero-grid,.carteira-hero-grid,.visitas-hero-grid,.checklists-hero-grid,.pipeline-hero-grid
+  ) {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+  }
+
+  :is(
+    .vendas-hero-grid,.produtos-hero-grid,.vendedores-hero-grid,.regioes-hero-grid,.carteira-hero-grid,.visitas-hero-grid,.checklists-hero-grid,.pipeline-hero-grid
+  ) > div {
+    min-width: 0 !important;
+    padding: 7px 5px !important;
+    border-radius: 9px !important;
+  }
+
+  :is(
+    .vendas-hero-grid,.produtos-hero-grid,.vendedores-hero-grid,.regioes-hero-grid,.carteira-hero-grid,.visitas-hero-grid,.checklists-hero-grid,.pipeline-hero-grid
+  ) :is(span,small) {
+    font-size: 7.5px !important;
+  }
+
+  :is(
+    .vendas-hero-grid,.produtos-hero-grid,.vendedores-hero-grid,.regioes-hero-grid,.carteira-hero-grid,.visitas-hero-grid,.checklists-hero-grid,.pipeline-hero-grid
+  ) strong {
+    font-size: 13px !important;
+    overflow-wrap: anywhere;
+  }
+
+  :is(
+    .vendas-card,.produtos-card,.vendedores-card,.regioes-card,.carteira-card,.visitas-card,.checklists-card,.pipeline-card
+  ) {
+    padding: 10px !important;
+  }
+
+  :is(
+    .vendas-card,.produtos-card,.vendedores-card,.regioes-card,.carteira-card,.visitas-card,.checklists-card,.pipeline-card
+  ) > p,
+  :is(.vendas-card,.produtos-card,.vendedores-card,.regioes-card,.carteira-card,.visitas-card,.checklists-card,.pipeline-card) .helper-text {
+    display: none !important;
+  }
+
+  :is(
+    .vendas-ranking-row,.produtos-ranking-row,.vendedores-ranking-row,.regioes-ranking-row,.carteira-ranking-row,.visitas-ranking-row,.checklists-ranking-row,.pipeline-ranking-row
+  ) {
+    min-width: 0 !important;
+    gap: 7px !important;
+  }
+
+  .route-regioes .regioes-map-wrap,
+  .route-regioes .regioes-map-svg {
+    height: 260px !important;
+    min-height: 260px !important;
+  }
+
+  .route-regioes .regioes-donut-wrap {
+    min-height: 205px !important;
+  }
+
+  /* Oportunidades em cartões */
+  .route-cotacoes .pipeline-table-wrap,
+  .route-pipeline .pipeline-table-wrap {
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap table,
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap tbody {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap thead {
+    display: none !important;
+  }
+
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap tbody > tr {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 5px 8px !important;
+    margin-bottom: 7px !important;
+    padding: 10px !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+  }
+
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap td {
+    display: none !important;
+    width: auto !important;
+    padding: 0 !important;
+    border: 0 !important;
+    white-space: normal !important;
+  }
+
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap td:nth-child(1),
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap td:nth-child(2),
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap td:nth-child(4),
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap td:nth-child(6),
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap td:nth-child(7) {
+    display: block !important;
+  }
+
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap td:nth-child(1) { grid-column: 1; grid-row: 1; }
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap td:nth-child(7) { grid-column: 2; grid-row: 1; text-align: right !important; color: var(--orange); }
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap td:nth-child(4) { grid-column: 1; grid-row: 2; }
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap td:nth-child(2) { grid-column: 1; grid-row: 3; color: var(--text-dim); }
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap td:nth-child(6) { grid-column: 2; grid-row: 3; text-align: right; }
+  :is(.route-cotacoes,.route-pipeline) .pipeline-table-wrap td:nth-child(6)::before { content: 'Há '; color: var(--text-faint); font-size: 8px; }
+
+  /* Carteira em cartões */
+  .route-carteira .carteira-table-wrap {
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .route-carteira .carteira-table-wrap table,
+  .route-carteira .carteira-table-wrap tbody {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .route-carteira .carteira-table-wrap thead {
+    display: none !important;
+  }
+
+  .route-carteira .carteira-table-wrap tbody > tr {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 5px 8px !important;
+    margin-bottom: 7px !important;
+    padding: 10px !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+  }
+
+  .route-carteira .carteira-table-wrap td {
+    display: none !important;
+    padding: 0 !important;
+    border: 0 !important;
+    white-space: normal !important;
+  }
+
+  .route-carteira .carteira-table-wrap td:nth-child(1),
+  .route-carteira .carteira-table-wrap td:nth-child(2),
+  .route-carteira .carteira-table-wrap td:nth-child(4),
+  .route-carteira .carteira-table-wrap td:nth-child(6),
+  .route-carteira .carteira-table-wrap td:nth-child(7) {
+    display: block !important;
+  }
+
+  .route-carteira .carteira-table-wrap td:nth-child(1) { grid-column: 1; grid-row: 1; font-weight: 700; }
+  .route-carteira .carteira-table-wrap td:nth-child(6) { grid-column: 2; grid-row: 1; text-align: right !important; color: var(--orange); }
+  .route-carteira .carteira-table-wrap td:nth-child(2) { grid-column: 1; grid-row: 2; color: var(--text-dim); }
+  .route-carteira .carteira-table-wrap td:nth-child(4) { grid-column: 1; grid-row: 3; }
+  .route-carteira .carteira-table-wrap td:nth-child(7) { grid-column: 2; grid-row: 3; text-align: right !important; }
+  .route-carteira .carteira-table-wrap td:nth-child(4)::after { content: ' dias sem compra'; color: var(--text-faint); font-size: 8px; }
+
+  /* FINANCEIRO */
+  .route-financeiro .macro-page > .macro-section-title:first-of-type,
+  .route-financeiro .macro-section-title {
+    display: flex !important;
+  }
+
+  .route-financeiro .macro-page > .macro-metrics-primary {
+    display: grid !important;
+  }
+
+  .route-financeiro .resumo-executivo {
+    padding: 11px !important;
+    border-radius: 14px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .route-financeiro .resumo-executivo-head h2 {
+    font-size: 16px !important;
+  }
+
+  .route-financeiro .resumo-executivo-verdict {
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+  }
+
+  .route-financeiro .dash-chart-trio {
+    display: none !important;
+  }
+
+  .route-financeiro :is(.dash-main-grid,.dash-two-col,.dash-bottom-grid) {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .route-financeiro .chart-card,
+  .route-financeiro .card {
+    padding: 10px !important;
+  }
+
+  .route-financeiro .recharts-responsive-container {
+    max-height: 220px !important;
+  }
+
+  .route-financeiro .dash-maturity-note,
+  .route-financeiro .dash-insight p,
+  .route-financeiro .chart-card > p {
+    display: none !important;
+  }
+
+  /* DRE */
+  .route-dre .macro-section-title,
+  .route-dre .macro-page > .macro-section-title:first-of-type {
+    display: flex !important;
+  }
+
+  .route-dre .dre-flow {
+    padding: 6px 8px !important;
+    border-radius: 14px !important;
+  }
+
+  .route-dre .dre-section-row,
+  .route-dre .dre-subtotal-row,
+  .route-dre .dre-account-row {
+    min-width: 0 !important;
+    padding: 8px 6px !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 8px !important;
+  }
+
+  .route-dre .dre-group-row {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 42px !important;
+    display: grid !important;
+    grid-template-columns: 18px minmax(0, 1fr) auto !important;
+    gap: 6px !important;
+    padding: 7px 6px !important;
+  }
+
+  .route-dre .dre-group-bar,
+  .route-dre .dre-group-row > .dre-line-pct,
+  .route-dre .dre-line-right > .dre-line-pct {
+    display: none !important;
+  }
+
+  .route-dre .dre-group-row > strong,
+  .route-dre .dre-line-right strong,
+  .route-dre .dre-line-right > span:last-child {
+    white-space: nowrap !important;
+    font-size: 11px !important;
+  }
+
+  .route-dre .dre-account-row > span:first-child {
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+  }
+
+  /* ESTOQUE */
+  .route-estoque .stock-toolbar {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .route-estoque .stock-toolbar span {
+    font-size: 9px !important;
+  }
+
+  .route-estoque .stock-hero {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 7px !important;
+  }
+
+  .route-estoque .stock-hero > div {
+    min-width: 0 !important;
+    padding: 9px !important;
+  }
+
+  .route-estoque .stock-hero :is(h2,strong) {
+    font-size: 17px !important;
+    overflow-wrap: anywhere;
+  }
+
+  .route-estoque .stock-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .route-estoque .stock-card {
+    padding: 10px !important;
+  }
+
+  .route-estoque .stock-card .recharts-responsive-container {
+    height: 210px !important;
+    min-height: 210px !important;
+  }
+
+  .route-estoque .stock-table-note {
+    display: none !important;
+  }
+
+  .route-estoque .stock-table-wrap {
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .route-estoque .stock-table,
+  .route-estoque .stock-table tbody {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .route-estoque .stock-table thead {
+    display: none !important;
+  }
+
+  .route-estoque .stock-table tbody > tr {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 5px 8px !important;
+    margin-bottom: 7px !important;
+    padding: 10px !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+  }
+
+  .route-estoque .stock-table td {
+    display: none !important;
+    padding: 0 !important;
+    border: 0 !important;
+    white-space: normal !important;
+  }
+
+  .route-estoque .stock-table td:nth-child(1),
+  .route-estoque .stock-table td:nth-child(3),
+  .route-estoque .stock-table td:nth-child(8),
+  .route-estoque .stock-table td:nth-child(10),
+  .route-estoque .stock-table td:nth-child(11),
+  .route-estoque .stock-table td:nth-child(12) {
+    display: block !important;
+  }
+
+  .route-estoque .stock-table td:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .route-estoque .stock-table td:nth-child(8) { grid-column: 2; grid-row: 1; text-align: right !important; color: var(--orange); }
+  .route-estoque .stock-table td:nth-child(3) { grid-column: 1; grid-row: 2; }
+  .route-estoque .stock-table td:nth-child(11) { grid-column: 2; grid-row: 2; text-align: right !important; }
+  .route-estoque .stock-table td:nth-child(10) { grid-column: 1; grid-row: 3; }
+  .route-estoque .stock-table td:nth-child(12) { grid-column: 2; grid-row: 3; text-align: right !important; color: var(--text-dim); }
+  .route-estoque .stock-table td:nth-child(3)::before { content: 'Estoque · '; color: var(--text-faint); font-size: 8px; }
+  .route-estoque .stock-table td:nth-child(10)::before { content: 'Cobertura · '; color: var(--text-faint); font-size: 8px; }
+  .route-estoque .stock-table td:nth-child(12)::before { content: 'Última saída · '; color: var(--text-faint); font-size: 8px; }
+
+  /* RELATÓRIO EXECUTIVO */
+  .route-relatorio .relpremium-page {
+    padding-top: 10px !important;
+  }
+
+  .route-relatorio .relpremium-hero {
+    min-height: 0 !important;
+    padding: 12px !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    border-radius: 14px !important;
+  }
+
+  .route-relatorio .relpremium-hero h2 {
+    margin: 4px 0 !important;
+    font-size: 18px !important;
+  }
+
+  .route-relatorio .relpremium-hero p {
+    display: none !important;
+  }
+
+  .route-relatorio .relpremium-period-card {
+    min-height: 0 !important;
+    padding: 9px !important;
+  }
+
+  .route-relatorio .relpremium-form-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 7px !important;
+  }
+
+  .route-relatorio .relpremium-form-grid > label:last-child {
+    grid-column: 1 / -1 !important;
+  }
+
+  .route-relatorio .relpremium-metrics {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+  }
+
+  .route-relatorio .relpremium-metric {
+    min-width: 0 !important;
+    padding: 9px !important;
+  }
+
+  .route-relatorio .relpremium-metric strong {
+    font-size: 14px !important;
+    overflow-wrap: anywhere;
+  }
+
+  .route-relatorio .relpremium-page > div:has(.relpremium-metrics) {
+    padding: 12px !important;
+    margin-top: 9px !important;
+    border-radius: 14px !important;
+  }
+
+  .route-relatorio .relpremium-page div:has(> .pdf-panel) {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .route-relatorio .relpremium-download {
+    min-height: 38px !important;
+    padding: 8px 10px !important;
+    font-size: 10px !important;
+  }
+
+  /* DASHBOARD DO TIME */
+  .route-time .page {
+    gap: 8px !important;
+  }
+
+  .route-time .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+    margin-bottom: 9px !important;
+  }
+
+  .route-time .kpi-grid > :last-child {
+    grid-column: 1 / -1 !important;
+  }
+
+  .route-time .card {
+    padding: 10px !important;
+    margin-bottom: 9px !important;
+  }
+
+  .route-time .page > div:has(> .card) {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .route-time .table-wrap {
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .route-time .table-wrap table,
+  .route-time .table-wrap tbody {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .route-time .table-wrap thead {
+    display: none !important;
+  }
+
+  .route-time .table-wrap tbody > tr {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 5px 8px !important;
+    margin-bottom: 7px !important;
+    padding: 10px !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+  }
+
+  .route-time .table-wrap td {
+    display: none !important;
+    padding: 0 !important;
+    border: 0 !important;
+    white-space: normal !important;
+  }
+
+  .route-time .table-wrap td:nth-child(1),
+  .route-time .table-wrap td:nth-child(3),
+  .route-time .table-wrap td:nth-child(5),
+  .route-time .table-wrap td:nth-child(8) {
+    display: block !important;
+  }
+
+  .route-time .table-wrap td:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .route-time .table-wrap td:nth-child(8) { grid-column: 2; grid-row: 1; text-align: right !important; color: var(--orange); }
+  .route-time .table-wrap td:nth-child(3) { grid-column: 1; grid-row: 2; }
+  .route-time .table-wrap td:nth-child(5) { grid-column: 2; grid-row: 2; text-align: right !important; }
+  .route-time .table-wrap td:nth-child(3)::before { content: 'Visitas · '; color: var(--text-faint); font-size: 8px; }
+  .route-time .table-wrap td:nth-child(5)::before { content: 'Pedidos · '; color: var(--text-faint); font-size: 8px; }
+
+  .route-time .recharts-responsive-container {
+    max-height: 190px !important;
+  }
+
+  /* APRESENTAÇÕES */
+  .route-fechamentos .closing-shell {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+
+  .route-fechamentos .closing-page {
+    display: block !important;
+  }
+
+  .route-fechamentos .closing-command {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-areas: 'type' 'period' 'actions' !important;
+    gap: 8px !important;
+    padding: 10px !important;
+    border-radius: 14px !important;
+  }
+
+  .route-fechamentos .closing-type-switch {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .route-fechamentos .closing-type-switch button {
+    min-height: 36px !important;
+    font-size: 11px !important;
+  }
+
+  .route-fechamentos .closing-period {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+  }
+
+  .route-fechamentos .closing-period select:nth-child(2):last-child,
+  .route-fechamentos .closing-period select:last-child:nth-child(3) {
+    grid-column: 1 / -1 !important;
+  }
+
+  .route-fechamentos .closing-actions {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    padding-top: 8px !important;
+  }
+
+  .route-fechamentos .closing-actions .btn {
+    width: 100% !important;
+    min-height: 38px !important;
+    padding: 7px 8px !important;
+    justify-content: center !important;
+    font-size: 10px !important;
+  }
+
+  .route-fechamentos .closing-warning,
+  .route-fechamentos .closing-state {
+    margin: 8px 0 !important;
+    padding: 11px !important;
+    border-radius: 13px !important;
+  }
+
+  .route-fechamentos .closing-viewer {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .route-fechamentos .closing-stage {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    border-radius: 12px !important;
+  }
+
+  .route-fechamentos .closing-nav {
+    margin-top: 7px !important;
+  }
+
+  .route-fechamentos .closing-nav button {
+    width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+  }
+
+  .route-fechamentos .closing-filmstrip {
+    display: none !important;
+  }
+
+  /* CONFIGURAÇÕES */
+  .route-config .page {
+    overflow: visible !important;
+  }
+
+  .route-config .card {
+    padding: 10px !important;
+    margin-bottom: 9px !important;
+  }
+
+  .route-config .card > div:first-child {
+    gap: 8px !important;
+  }
+
+  .route-config .card .btn-sm {
+    min-height: 34px !important;
+    padding: 6px 8px !important;
+    font-size: 10px !important;
+  }
+
+  .route-config .form-group {
+    min-width: 0 !important;
+  }
+
+  .route-config div[style*="position: fixed"] > div {
+    width: calc(100vw - 24px) !important;
+    min-width: 0 !important;
+    max-width: 460px !important;
+    padding: 16px !important;
+  }
+
+  .route-config div[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .topbar {
+    min-height: 82px !important;
+  }
+
+  .topbar-mobile-logo {
+    width: 204px !important;
+    height: 56px !important;
+    max-width: 72vw !important;
+  }
+
+  .mobile-bottom-item span {
+    font-size: 8px !important;
+  }
+
+  .route-dashboard .macro-hero-flow,
+  .route-vendas .commerce-flow,
+  :is(
+    .vendas-hero-grid,.produtos-hero-grid,.vendedores-hero-grid,.regioes-hero-grid,.carteira-hero-grid,.visitas-hero-grid,.checklists-hero-grid,.pipeline-hero-grid
+  ) {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
