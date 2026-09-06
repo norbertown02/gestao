@@ -1,0 +1,61 @@
+from pathlib import Path
+
+p = Path('src/screens/Vendedores.jsx')
+s = p.read_text()
+
+old = """    const mesMap = {}
+    documents.forEach(s => {
+      const mes = s.issue_date?.slice(0, 7)
+      if (!mes) return
+
+      if (!mesMap[mes]) {
+        mesMap[mes] = {
+          mes,
+          label: new Date(`${mes}-01T12:00:00`).toLocaleDateString('pt-BR', {
+            month: 'short',
+            year: '2-digit',
+          }),
+          Faturamento: 0,
+          Pedidos: 0,
+        }
+      }
+
+      mesMap[mes].Faturamento += fiscalValue(s)
+      if (s.movement_type === 'venda') mesMap[mes].Pedidos += 1
+    })"""
+
+new = """    const mesMap = {}
+    documentsHistory.forEach(s => {
+      const mes = s.sale_date?.slice(0, 7)
+      if (!mes) return
+
+      if (!mesMap[mes]) {
+        mesMap[mes] = {
+          mes,
+          label: new Date(`${mes}-01T12:00:00`).toLocaleDateString('pt-BR', {
+            month: 'short',
+            year: '2-digit',
+          }),
+          Pedidos: 0,
+          Quantidade: 0,
+        }
+      }
+
+      mesMap[mes].Pedidos += Number(s.total || 0)
+      mesMap[mes].Quantidade += 1
+    })"""
+
+if old not in s:
+    raise SystemExit('Bloco antigo de evolucao nao encontrado')
+
+s = s.replace(old, new)
+s = s.replace("      Faturamento: v.fat,\n      Meta:", "      Pedidos: v.fat,\n      Meta:")
+s = s.replace('<Bar dataKey="Faturamento" fill="var(--orange)"', '<Bar dataKey="Pedidos" fill="#E87722"')
+s = s.replace('<h3>Faturamento do time</h3>', '<h3>Pedidos do time</h3>')
+s = s.replace("n === 'Faturamento' ? `R$ ${fmt(v)}` : fmtInt(v)", "n === 'Pedidos' ? `R$ ${fmt(v)}` : fmtInt(v)")
+s = s.replace('dataKey="Faturamento"\n                        stroke="var(--orange)"', 'dataKey="Pedidos"\n                        stroke="#E87722"')
+s = s.replace('stopColor="var(--orange)"', 'stopColor="#E87722"')
+s = s.replace('<Empty>Sem faturamento no período</Empty>', '<Empty>Sem pedidos no período</Empty>')
+s = s.replace('<h3>Maior faturamento</h3>', '<h3>Maior valor de pedidos</h3>')
+
+p.write_text(s)
