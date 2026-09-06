@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/useAuth'
 import Sidebar from './components/Sidebar'
 import MobileNav from './components/MobileNav'
@@ -14,7 +14,6 @@ import Produtos from './screens/Produtos'
 import Regioes from './screens/Regioes'
 import Config from './screens/Config'
 import Pipeline from './screens/Pipeline'
-import RelatorioMensalFiltradoMulti from './screens/RelatorioMensalFiltradoMulti'
 import Cotacoes from './screens/Cotacoes'
 import DashboardTime from './screens/DashboardTime'
 import Metas from './screens/Metas'
@@ -56,7 +55,7 @@ function AppContent() {
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/time" element={<DashboardTime />} />
           <Route path="/metas" element={<Metas />} />
-          <Route path="/relatorio" element={<RelatorioMensalFiltradoMulti />} />
+          <Route path="/relatorio" element={<Navigate to="/" replace />} />
           <Route path="/fechamentos" element={<Fechamentos />} />
           <Route path="/cotacoes" element={<Cotacoes />} />
           <Route path="/config" element={<Config />} />
