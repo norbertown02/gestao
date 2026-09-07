@@ -17,14 +17,107 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Atualizar icone 180x180
-        shell: bash
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar Pillow
+        run: pip install pillow
+
+      - name: Gerar icone Nutrialle Gestao
         run: |
-          cat > /tmp/icon.b64 <<'EOF'
-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[...TRUNCATED_FOR_BREVITY...]
-EOF
-          base64 -d /tmp/icon.b64 > public/favicon-180.png
-          file public/favicon-180.png
+          python - <<'PY'
+          from PIL import Image, ImageDraw, ImageFont, ImageFilter
+          from pathlib import Path
+          import math
+
+          S = 720
+          img = Image.new('RGB', (S, S), '#050505')
+          px = img.load()
+
+          # Fundo preto premium com brilho laranja discreto no canto superior esquerdo.
+          for y in range(S):
+              for x in range(S):
+                  dx, dy = x - 40, y - 25
+                  d = math.sqrt(dx*dx + dy*dy)
+                  glow = max(0.0, 1.0 - d / 430.0)
+                  base = 5 + int(7 * (1 - y / S))
+                  r = min(255, base + int(72 * glow))
+                  g = min(255, base + int(28 * glow))
+                  b = min(255, base + int(4 * glow))
+                  px[x, y] = (r, g, b)
+
+          draw = ImageDraw.Draw(img, 'RGBA')
+
+          # Moldura arredondada e acabamento brilhante.
+          draw.rounded_rectangle((18, 18, S-18, S-18), radius=110, outline=(255, 132, 24, 215), width=5)
+          draw.rounded_rectangle((27, 27, S-27, S-27), radius=102, outline=(255, 255, 255, 42), width=2)
+          draw.arc((-110, -140, 650, 430), 185, 300, fill=(255, 148, 36, 115), width=18)
+
+          # Ondas inferiores no mesmo sentido visual do conceito aprovado.
+          draw.arc((-250, 335, 1020, 820), 175, 345, fill=(255, 107, 0, 85), width=16)
+          draw.arc((-100, 410, 1010, 835), 185, 345, fill=(255, 135, 15, 220), width=8)
+
+          # Elementos de gestão bem discretos ao fundo.
+          bars = [(112, 610, 155, 657), (169, 584, 214, 657), (228, 548, 275, 657), (290, 510, 339, 657)]
+          for i, box in enumerate(bars):
+              alpha = 22 + i * 6
+              draw.rounded_rectangle(box, radius=10, fill=(255, 132, 24, alpha))
+          draw.line([(105, 650), (172, 621), (236, 587), (305, 527)], fill=(255, 118, 8, 92), width=7)
+
+          # Usa o logo OFICIAL que já está no projeto.
+          logo = Image.open('src/assets/logo-nutrialle.png').convert('RGBA')
+          target_w = 620
+          target_h = round(logo.height * target_w / logo.width)
+          logo = logo.resize((target_w, target_h), Image.Resampling.LANCZOS)
+          # Pequena sombra para destacar sem alterar o logo.
+          shadow = Image.new('RGBA', (S, S), (0,0,0,0))
+          sh = Image.new('RGBA', logo.size, (0,0,0,0))
+          sh_alpha = logo.getchannel('A').filter(ImageFilter.GaussianBlur(10))
+          sh.putalpha(sh_alpha)
+          shadow.alpha_composite(sh, ((S-target_w)//2 + 6, 240 + 8))
+          img = Image.alpha_composite(img.convert('RGBA'), shadow)
+          img.alpha_composite(logo, ((S-target_w)//2, 240))
+
+          draw = ImageDraw.Draw(img, 'RGBA')
+
+          # Linha laranja sob a marca.
+          draw.rounded_rectangle((210, 482, 650, 491), radius=5, fill=(255, 118, 0, 255))
+
+          # Título GESTÃO, centralizado e espaçado.
+          font_path = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+          font = ImageFont.truetype(font_path, 52)
+          text = 'GESTÃO'
+          spacing = 24
+          widths = [draw.textlength(ch, font=font) for ch in text]
+          total_w = sum(widths) + spacing * (len(text)-1)
+          x = (S-total_w)/2
+          y = 506
+          # sombra sutil
+          sx = x
+          for ch, w in zip(text, widths):
+              draw.text((sx+2, y+4), ch, font=font, fill=(0,0,0,180))
+              sx += w + spacing
+          tx = x
+          for ch, w in zip(text, widths):
+              draw.text((tx, y), ch, font=font, fill=(226,226,226,255), stroke_width=1, stroke_fill=(255,255,255,100))
+              tx += w + spacing
+
+          # Downsample para o tamanho recomendado pelo iPhone.
+          out = img.convert('RGB').resize((180, 180), Image.Resampling.LANCZOS)
+          out.save('public/favicon-180.png', optimize=True, compress_level=9)
+          PY
+
+      - name: Validar icone
+        run: |
+          python - <<'PY'
+          from PIL import Image
+          im = Image.open('public/favicon-180.png')
+          assert im.size == (180, 180)
+          print('icone OK:', im.size, im.mode)
+          PY
+
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
