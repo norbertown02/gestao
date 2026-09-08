@@ -289,7 +289,7 @@ export default function DashboardFiltrado() {
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <select value={year} onChange={event => setYear(Number(event.target.value))}>{years.map(value => <option key={value}>{value}</option>)}</select>
           <select value={type} onChange={event => { setType(event.target.value); setIndex(1) }}><option value="ano">Ano</option><option value="semestre">Semestre</option><option value="trimestre">Trimestre</option><option value="bimestre">Bimestre</option><option value="mes">Mês</option></select>
-          {type !== 'ano' && <select value={index} onChange={event => setIndex(Number(event.target.value))}>{Array.from({ length: counts[type] }, (_, value) => <option value={value + 1} key={value + 1}>{value + 1}º {labels[type].toLowerCase()}</option>)}</select>}
+          {type !== 'ano' && <select value={index} onChange={event => setIndex(Number(event.target.value))}>{Array.from({ length: counts[type] }, (_, value) => { const periodIndex = value + 1; const monthName = new Date(year, value, 1).toLocaleDateString('pt-BR', { month: 'long' }); const optionLabel = type === 'mes' ? monthName.charAt(0).toUpperCase() + monthName.slice(1) : `${periodIndex}º ${labels[type].toLowerCase()}`; return <option value={periodIndex} key={periodIndex}>{optionLabel}</option> })}</select>}
         </div>
         <span>{iso(range.start).split('-').reverse().join('/')} — {iso(range.end).split('-').reverse().join('/')}</span>
       </section>
