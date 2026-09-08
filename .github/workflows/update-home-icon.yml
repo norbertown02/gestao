@@ -17,8 +17,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-
-      - name: Aplicar exatamente o icone aprovado
+      - name: Aplicar exatamente o PNG aprovado no iPhone
         shell: bash
         run: |
           cat > /tmp/icon.b64 <<'EOF'
@@ -266,64 +265,13 @@ KHRFWHRkYXRlOnRpbWVzdGFtcAAyMDI2LTA5LTA4VDEyOjU1OjUzKzAwOjAw5lCAQQAAAABJRU5E
 rkJggg==
 EOF
           base64 -d /tmp/icon.b64 > public/favicon-180.png
-
-          python - <<'PY'
-          from PIL import Image
-          from pathlib import Path
-          img = Image.open('public/favicon-180.png').convert('RGB')
-          img.resize((192, 192), Image.Resampling.LANCZOS).save('public/icon-192.png', 'PNG', optimize=True)
-          img.resize((512, 512), Image.Resampling.LANCZOS).save('public/icon-512.png', 'PNG', optimize=True)
-          img.resize((512, 512), Image.Resampling.LANCZOS).save('public/icon-maskable-512.png', 'PNG', optimize=True)
-          PY
-
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('index.html')
-          s = p.read_text()
-          s = s.replace('<link rel="apple-touch-icon" sizes="180x180" href="/favicon-180.png" />', '<link rel="apple-touch-icon" sizes="180x180" href="/favicon-180.png?v=3" />')
-          p.write_text(s)
-
-          Path('public/manifest.webmanifest').write_text('''{
-            "id": "./",
-            "name": "Nutrialle Gestão",
-            "short_name": "Gestão",
-            "start_url": "./",
-            "scope": "./",
-            "display": "standalone",
-            "display_override": ["standalone", "minimal-ui"],
-            "orientation": "portrait-primary",
-            "background_color": "#F6F3EF",
-            "theme_color": "#050505",
-            "description": "Gestão comercial e financeira Nutrialle",
-            "icons": [
-              { "src": "./favicon-180.png?v=3", "sizes": "180x180", "type": "image/png", "purpose": "any" },
-              { "src": "./icon-192.png?v=3", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-              { "src": "./icon-512.png?v=3", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-              { "src": "./icon-maskable-512.png?v=3", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-            ]
-          }
-          ''')
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Instalar Pillow
-        run: pip install pillow
-      - name: Reaplicar icones com Pillow
-        run: |
-          python - <<'PY'
-          from PIL import Image
-          img = Image.open('public/favicon-180.png').convert('RGB')
-          img.resize((192, 192), Image.Resampling.LANCZOS).save('public/icon-192.png', 'PNG', optimize=True)
-          img.resize((512, 512), Image.Resampling.LANCZOS).save('public/icon-512.png', 'PNG', optimize=True)
-          img.resize((512, 512), Image.Resampling.LANCZOS).save('public/icon-maskable-512.png', 'PNG', optimize=True)
-          PY
-
+          file public/favicon-180.png
+          identify public/favicon-180.png || true
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/favicon-180.png public/icon-192.png public/icon-512.png public/icon-maskable-512.png public/manifest.webmanifest index.html
+          git add public/favicon-180.png
           git diff --cached --quiet && exit 0
           git commit -m "feat: aplicar exatamente o icone aprovado"
           git push origin main
