@@ -1,0 +1,33 @@
+name: Fix dashboard month labels
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-dashboard-month-labels.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ajustar labels do filtro
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('src/screens/DashboardFiltrado.jsx')
+          text = path.read_text()
+          old = "{type !== 'ano' && <select value={index} onChange={event => setIndex(Number(event.target.value))}>{Array.from({ length: counts[type] }, (_, value) => <option value={value + 1} key={value + 1}>{value + 1}º {labels[type].toLowerCase()}</option>)}</select>}"
+          new = "{type !== 'ano' && <select value={index} onChange={event => setIndex(Number(event.target.value))}>{Array.from({ length: counts[type] }, (_, value) => { const periodIndex = value + 1; const monthName = new Date(year, value, 1).toLocaleDateString('pt-BR', { month: 'long' }); const optionLabel = type === 'mes' ? monthName.charAt(0).toUpperCase() + monthName.slice(1) : `${periodIndex}º ${labels[type].toLowerCase()}`; return <option value={periodIndex} key={periodIndex}>{optionLabel}</option> })}</select>}"
+          if old not in text:
+              raise SystemExit('Trecho esperado não encontrado; nenhuma alteração aplicada.')
+          path.write_text(text.replace(old, new))
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/screens/DashboardFiltrado.jsx
+          git commit -m "fix: mostrar nomes dos meses no dashboard"
+          git push
