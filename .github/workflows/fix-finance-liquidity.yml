@@ -1,0 +1,69 @@
+name: Fix finance liquidity
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-finance-liquidity.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply durable finance fixes
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          # 1) Future imports: reconstruct totals when Ultra PDF omits/zeros aggregate lines.
+          p = Path('src/lib/financeReportProcessor.js')
+          s = p.read_text()
+          needle = """  if (!row.ativo_total || !row.passivo_total) throw new Error('Totais do Balanço Financeiro não identificados.')\n  return { type:'balanco', row, title:'Balanço Financeiro', metrics:[['Ativo total',row.ativo_total],['Contas a receber',row.contas_receber_total],['Contas a pagar',row.contas_pagar_total],['Estoque',row.estoque]] }"""
+          repl = """  const receivablesComponents = Number(row.contas_receber_vencido || 0) + Number(row.contas_receber_a_vencer_curto || 0) + Number(row.contas_receber_a_vencer_medio || 0) + Number(row.duplicatas_descontadas || 0)\n  if (!Number(row.disponibilidades) && (Number(row.caixa) || Number(row.bancos))) row.disponibilidades = Number(row.caixa || 0) + Number(row.bancos || 0)\n  if (!Number(row.contas_receber_total) && receivablesComponents) row.contas_receber_total = receivablesComponents\n  if (!row.ativo_total || !row.passivo_total) throw new Error('Totais do Balanço Financeiro não identificados.')\n  return { type:'balanco', row, title:'Balanço Financeiro', metrics:[['Ativo total',row.ativo_total],['Contas a receber',row.contas_receber_total],['Contas a pagar',row.contas_pagar_total],['Estoque',row.estoque]] }"""
+          if needle not in s:
+              raise SystemExit('financeReportProcessor target not found')
+          p.write_text(s.replace(needle, repl))
+
+          # 2) Financeiro dashboard: current liabilities = adjusted payables excluding long-term.
+          p = Path('src/screens/Financeiro.jsx')
+          s = p.read_text()
+          old = """      const ativoCirculante = Number(balanco.disponibilidades) + Number(balanco.contas_receber_total) + Number(balanco.estoque)\n      // Base gerencial: saldo total em aberto do Resumo de Contas a Pagar. O único ajuste é\n      // retirar o valor dos sócios; nenhuma faixa futura é descartada.\n      const passivoCirculante = contasPagarTotalAjustado\n      const passivoNaoCirculante = Number(balanco.contas_pagar_a_vencer_longo)\n      const liquidezCorrente = passivoCirculante ? ativoCirculante / passivoCirculante : 0\n      const liquidezSeca = passivoCirculante ? (ativoCirculante - Number(balanco.estoque)) / passivoCirculante : 0\n      const endividamento = Number(balanco.ativo_total) ? contasPagarTotalAjustado / Number(balanco.ativo_total) * 100 : 0"""
+          new = """      const disponibilidadesAjustadas = Number(balanco.disponibilidades) || (Number(balanco.caixa || 0) + Number(balanco.bancos || 0))\n      const contasReceberComponentes = Number(balanco.contas_receber_vencido || 0) + Number(balanco.contas_receber_a_vencer_curto || 0) + Number(balanco.contas_receber_a_vencer_medio || 0) + Number(balanco.duplicatas_descontadas || 0)\n      const contasReceberAjustadas = Number(balanco.contas_receber_total) || contasReceberComponentes\n      const ativoCirculante = disponibilidadesAjustadas + contasReceberAjustadas + Number(balanco.estoque)\n      // Liquidez usa somente obrigações de curto prazo. Longo prazo e empréstimos/aportes de sócios\n      // ficam fora do passivo circulante, mas o longo prazo continua compondo o endividamento operacional total.\n      const passivoNaoCirculante = Math.max(Number(balanco.contas_pagar_a_vencer_longo), 0)\n      const passivoCirculante = Math.max(contasPagarTotalAjustado - passivoNaoCirculante, 0)\n      const liquidezCorrente = passivoCirculante ? ativoCirculante / passivoCirculante : 0\n      const liquidezSeca = passivoCirculante ? (ativoCirculante - Number(balanco.estoque)) / passivoCirculante : 0\n      const endividamento = Number(balanco.ativo_total) ? contasPagarTotalAjustado / Number(balanco.ativo_total) * 100 : 0"""
+          if old not in s:
+              raise SystemExit('Financeiro liquidity block not found')
+          s = s.replace(old, new)
+          s = s.replace("const arVencidoPct = Number(balanco.contas_receber_total) ? Number(balanco.contas_receber_vencido) / Number(balanco.contas_receber_total) * 100 : 0", "const arVencidoPct = contasReceberAjustadas ? Number(balanco.contas_receber_vencido) / contasReceberAjustadas * 100 : 0")
+          s = s.replace("let saldoAcumulado = Number(balanco.disponibilidades)", "let saldoAcumulado = disponibilidadesAjustadas")
+          s = s.replace("const patrimonioLiquidoReportado = Number(balanco.lucro_prejuizo_acumulado)", "const patrimonioLiquidoReportado = Number(balanco.lucro_prejuizo_acumulado)\n      const posicaoLiquidaGerencial = Number(balanco.ativo_total) - contasPagarTotalAjustado")
+          s = s.replace("patrimonioLiquido: patrimonioLiquidoReportado - netAporteMovimento,", "patrimonioLiquido: posicaoLiquidaGerencial,\n        posicaoLiquidaGerencial,")
+          s = s.replace('label="Patrimônio líquido"', 'label="Posição líquida gerencial"')
+          s = s.replace('note="lucro/prejuízo acumulado ajustado"', 'note="ativo total − obrigações ajustadas"')
+          s = s.replace('Patrimônio líquido negativo:', 'Posição líquida gerencial negativa:')
+          s = s.replace('O prejuízo acumulado operacional supera o capital social — a empresa está sendo financiada essencialmente por fornecedores e terceiros.', 'As obrigações operacionais ajustadas superam os ativos considerados nesta posição gerencial.')
+          p.write_text(s)
+
+          # 3) Presentation engine: same normalized assets/current liabilities, consistently for every month.
+          p = Path('src/screens/Fechamentos.jsx')
+          s = p.read_text()
+          old = """    const cpTotalAjustado = number(balance.contas_pagar_total) - aporteADevolver\n    const cpMedioAjustado = number(balance.contas_pagar_a_vencer_medio) - aporteADevolver\n    const currentAssets = number(balance.disponibilidades) + number(balance.contas_receber_total) + number(balance.estoque)\n    const currentLiabilities = Math.max(cpTotalAjustado, 0)"""
+          new = """    const cpTotalAjustado = Math.max(number(balance.contas_pagar_total) - aporteADevolver, 0)\n    const cpMedioAjustado = Math.max(number(balance.contas_pagar_a_vencer_medio) - aporteADevolver, 0)\n    const cashAdjusted = number(balance.disponibilidades) || (number(balance.caixa) + number(balance.bancos))\n    const receivablesComponents = number(balance.contas_receber_vencido) + number(balance.contas_receber_a_vencer_curto) + number(balance.contas_receber_a_vencer_medio) + number(balance.duplicatas_descontadas)\n    const receivablesAdjusted = number(balance.contas_receber_total) || receivablesComponents\n    const currentAssets = cashAdjusted + receivablesAdjusted + number(balance.estoque)\n    const longTermOperational = Math.max(number(balance.contas_pagar_a_vencer_longo), 0)\n    const currentLiabilities = Math.max(cpTotalAjustado - longTermOperational, 0)"""
+          if old not in s:
+              raise SystemExit('Fechamentos liquidity block not found')
+          s = s.replace(old, new)
+          s = s.replace("let accumulatedCash=number(balance.disponibilidades)", "let accumulatedCash=cashAdjusted")
+          s = s.replace("cash: number(balance.disponibilidades),", "cash: cashAdjusted,")
+          s = s.replace("totalReceivable: number(balance.contas_receber_total),", "totalReceivable: receivablesAdjusted,")
+          # expose quick ratio and adjusted net position for future slide use
+          s = s.replace("currentRatio: currentLiabilities ? currentAssets / currentLiabilities : 0,", "currentRatio: currentLiabilities ? currentAssets / currentLiabilities : 0,\n      quickRatio: currentLiabilities ? (currentAssets - number(balance.estoque)) / currentLiabilities : 0,\n      adjustedNetPosition: number(balance.ativo_total) - cpTotalAjustado,")
+          p.write_text(s)
+      - name: Validate build
+        run: npm ci && npm run build
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/financeReportProcessor.js src/screens/Financeiro.jsx src/screens/Fechamentos.jsx
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: corrigir liquidez e capital de giro financeiro"
+          git push
