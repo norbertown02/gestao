@@ -645,10 +645,14 @@ function aggregateFinancialPeriod(bounds, range, ctx) {
   let position = null
   if (balance) {
     const aporteADevolver = number(balance.contas_pagar_aporte_a_devolver || [...ctx.balanceRows].filter(row=>row.competencia_date<=endIso&&number(row.contas_pagar_aporte_a_devolver)>0).sort((a,b)=>b.competencia_date.localeCompare(a.competencia_date))[0]?.contas_pagar_aporte_a_devolver)
-    const cpTotalAjustado = number(balance.contas_pagar_total) - aporteADevolver
-    const cpMedioAjustado = number(balance.contas_pagar_a_vencer_medio) - aporteADevolver
-    const currentAssets = number(balance.disponibilidades) + number(balance.contas_receber_total) + number(balance.estoque)
-    const currentLiabilities = Math.max(cpTotalAjustado, 0)
+    const cpTotalAjustado = Math.max(number(balance.contas_pagar_total) - aporteADevolver, 0)
+    const cpMedioAjustado = Math.max(number(balance.contas_pagar_a_vencer_medio) - aporteADevolver, 0)
+    const cashAdjusted = number(balance.disponibilidades) || (number(balance.caixa) + number(balance.bancos))
+    const receivablesComponents = number(balance.contas_receber_vencido) + number(balance.contas_receber_a_vencer_curto) + number(balance.contas_receber_a_vencer_medio) + number(balance.duplicatas_descontadas)
+    const receivablesAdjusted = number(balance.contas_receber_total) || receivablesComponents
+    const currentAssets = cashAdjusted + receivablesAdjusted + number(balance.estoque)
+    const longTermOperational = Math.max(number(balance.contas_pagar_a_vencer_longo), 0)
+    const currentLiabilities = Math.max(cpTotalAjustado - longTermOperational, 0)
     const maturityLabels={vencido:'Vencido',m1:'30 dias',m2:'31–60',m3:'61–90',m4_6:'91–180',rest_year:'Restante ano',next_years:'Anos seguintes'}
     const detailedMaturities=ctx.maturityRows.filter(row=>row.competencia_date===targetCompetence)
     let maturity=detailedMaturities.length?['vencido','m1','m2','m3','m4_6','rest_year','next_years'].map(key=>{const estimated=detailedMaturities.some(row=>row.bucket_key===key&&row.estimated);return {key,label:`${maturityLabels[key]}${estimated?'*':''}`,'A receber':detailedMaturities.filter(row=>row.bucket_key===key&&row.nature==='receber').reduce((s,row)=>s+number(row.amount),0),'A pagar':detailedMaturities.filter(row=>row.bucket_key===key&&row.nature==='pagar').reduce((s,row)=>s+number(row.amount),0),estimated}}).filter(row=>row['A receber']||row['A pagar']):[
@@ -658,14 +662,14 @@ function aggregateFinancialPeriod(bounds, range, ctx) {
       { label: 'Longo prazo', 'A receber': 0, 'A pagar': number(balance.contas_pagar_a_vencer_longo) },
     ]
     if(detailedMaturities.length&&aporteADevolver>0){let remaining=aporteADevolver;['m4_6','rest_year','next_years','m3','m2','m1'].forEach(key=>{if(!remaining)return;const row=maturity.find(item=>item.key===key),deduction=Math.min(row?.['A pagar']||0,remaining);if(row)row['A pagar']-=deduction;remaining-=deduction});maturity=maturity.filter(row=>row['A receber']||row['A pagar'])}
-    let accumulatedCash=number(balance.disponibilidades)
+    let accumulatedCash=cashAdjusted
     maturity.forEach(row=>{accumulatedCash+=row['A receber']-row['A pagar'];row['Saldo acumulado']=accumulatedCash})
     const cashAt60=maturity.find(row=>row.label==='31–60')?.['Saldo acumulado'] ?? accumulatedCash
     const firstNegative=maturity.find(row=>row['Saldo acumulado']<0)?.label
     const minimumCash=Math.min(number(balance.disponibilidades),...maturity.map(row=>row['Saldo acumulado']))
     position = {
       date: balance.competencia_date,
-      cash: number(balance.disponibilidades),
+      cash: cashAdjusted,
       assets: number(balance.ativo_total),
       inventory: number(balance.estoque),
       currentAssets,
@@ -674,8 +678,10 @@ function aggregateFinancialPeriod(bounds, range, ctx) {
       accumulatedResult: number(balance.lucro_prejuizo_acumulado),
       workingCapital: currentAssets - currentLiabilities,
       currentRatio: currentLiabilities ? currentAssets / currentLiabilities : 0,
+      quickRatio: currentLiabilities ? (currentAssets - number(balance.estoque)) / currentLiabilities : 0,
+      adjustedNetPosition: number(balance.ativo_total) - cpTotalAjustado,
       debtRatio: number(balance.ativo_total) ? cpTotalAjustado / number(balance.ativo_total) * 100 : 0,
-      totalReceivable: number(balance.contas_receber_total),
+      totalReceivable: receivablesAdjusted,
       totalPayable: Math.max(cpTotalAjustado, 0),
       overdueReceivable: number(balance.contas_receber_vencido),
       overduePayable: number(balance.contas_pagar_vencido_curto) + number(balance.contas_pagar_vencido_medio),

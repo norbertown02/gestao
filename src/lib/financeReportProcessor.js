@@ -121,6 +121,9 @@ function parseBalanco(lines, competence) {
     estoque:field(/^ESTOQUE\s/i), compras_entrega_futura:field(/^SALDO COMPRAS ENTREGA FUTURA/i), passivo_total:field(/^PASSIVO\s/i), contas_pagar_total:field(/^CONTAS A PAGAR\s/i),
     contas_pagar_vencido_curto:findValue(lines,/^VENCIDO CURTO PRAZO/i,1), contas_pagar_vencido_medio:0, contas_pagar_a_vencer_curto:findValue(lines,/^A VENCER CURTO PRAZO/i,1), contas_pagar_a_vencer_medio:findValue(lines,/^A VENCER MEDIO PRAZO/i,1), contas_pagar_a_vencer_longo:field(/^A VENCER LONGO PRAZO/i), vendas_entrega_futura:field(/^SALDO VENDAS ENTREGA FUTURA/i), lucro_prejuizo_acumulado:field(/^(LUCRO \/ PREJUIZO ACUMULADO|PREJUIZO ACUMULADO)/i),
   }
+  const receivablesComponents = Number(row.contas_receber_vencido || 0) + Number(row.contas_receber_a_vencer_curto || 0) + Number(row.contas_receber_a_vencer_medio || 0) + Number(row.duplicatas_descontadas || 0)
+  if (!Number(row.disponibilidades) && (Number(row.caixa) || Number(row.bancos))) row.disponibilidades = Number(row.caixa || 0) + Number(row.bancos || 0)
+  if (!Number(row.contas_receber_total) && receivablesComponents) row.contas_receber_total = receivablesComponents
   if (!row.ativo_total || !row.passivo_total) throw new Error('Totais do Balanço Financeiro não identificados.')
   return { type:'balanco', row, title:'Balanço Financeiro', metrics:[['Ativo total',row.ativo_total],['Contas a receber',row.contas_receber_total],['Contas a pagar',row.contas_pagar_total],['Estoque',row.estoque]] }
 }

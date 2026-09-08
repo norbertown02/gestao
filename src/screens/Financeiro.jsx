@@ -148,15 +148,18 @@ export default function Financeiro() {
       const contasPagarMedioAjustado = Math.max(Number(balanco.contas_pagar_a_vencer_medio) - aporteADevolverAP, 0)
       const contasPagarTotalAjustado = Math.max(Number(balanco.contas_pagar_total) - aporteADevolverAP, 0)
 
-      const ativoCirculante = Number(balanco.disponibilidades) + Number(balanco.contas_receber_total) + Number(balanco.estoque)
-      // Base gerencial: saldo total em aberto do Resumo de Contas a Pagar. O único ajuste é
-      // retirar o valor dos sócios; nenhuma faixa futura é descartada.
-      const passivoCirculante = contasPagarTotalAjustado
-      const passivoNaoCirculante = Number(balanco.contas_pagar_a_vencer_longo)
+      const disponibilidadesAjustadas = Number(balanco.disponibilidades) || (Number(balanco.caixa || 0) + Number(balanco.bancos || 0))
+      const contasReceberComponentes = Number(balanco.contas_receber_vencido || 0) + Number(balanco.contas_receber_a_vencer_curto || 0) + Number(balanco.contas_receber_a_vencer_medio || 0) + Number(balanco.duplicatas_descontadas || 0)
+      const contasReceberAjustadas = Number(balanco.contas_receber_total) || contasReceberComponentes
+      const ativoCirculante = disponibilidadesAjustadas + contasReceberAjustadas + Number(balanco.estoque)
+      // Liquidez usa somente obrigações de curto prazo. Longo prazo e empréstimos/aportes de sócios
+      // ficam fora do passivo circulante, mas o longo prazo continua compondo o endividamento operacional total.
+      const passivoNaoCirculante = Math.max(Number(balanco.contas_pagar_a_vencer_longo), 0)
+      const passivoCirculante = Math.max(contasPagarTotalAjustado - passivoNaoCirculante, 0)
       const liquidezCorrente = passivoCirculante ? ativoCirculante / passivoCirculante : 0
       const liquidezSeca = passivoCirculante ? (ativoCirculante - Number(balanco.estoque)) / passivoCirculante : 0
       const endividamento = Number(balanco.ativo_total) ? contasPagarTotalAjustado / Number(balanco.ativo_total) * 100 : 0
-      const arVencidoPct = Number(balanco.contas_receber_total) ? Number(balanco.contas_receber_vencido) / Number(balanco.contas_receber_total) * 100 : 0
+      const arVencidoPct = contasReceberAjustadas ? Number(balanco.contas_receber_vencido) / contasReceberAjustadas * 100 : 0
       const apVencidoTotal = Number(balanco.contas_pagar_vencido_curto) + Number(balanco.contas_pagar_vencido_medio)
       const apVencidoPct = contasPagarTotalAjustado ? apVencidoTotal / contasPagarTotalAjustado * 100 : 0
       const apLongoPct = contasPagarTotalAjustado ? passivoNaoCirculante / contasPagarTotalAjustado * 100 : 0
@@ -192,7 +195,7 @@ export default function Financeiro() {
           { key: 'next_years', label: 'Longo prazo', color: MATURITY_COLORS.next_years, ar: 0, ap: Number(balanco.contas_pagar_a_vencer_longo) },
         ]
       }
-      let saldoAcumulado = Number(balanco.disponibilidades)
+      let saldoAcumulado = disponibilidadesAjustadas
       buckets = buckets.map(bucket => {
         saldoAcumulado += bucket.ar - bucket.ap
         return { ...bucket, displayLabel: `${bucket.label}${bucket.estimated ? '*' : ''}`, gap: bucket.ar - bucket.ap, saldoAcumulado }
@@ -200,12 +203,14 @@ export default function Financeiro() {
       const piorFaixa = buckets.reduce((worst, b) => b.gap < worst.gap ? b : worst, buckets[0])
 
       const patrimonioLiquidoReportado = Number(balanco.lucro_prejuizo_acumulado)
+      const posicaoLiquidaGerencial = Number(balanco.ativo_total) - contasPagarTotalAjustado
       balanceMetrics = {
         ativoCirculante, passivoCirculante, passivoNaoCirculante, liquidezCorrente, liquidezSeca, endividamento,
         arVencidoPct, apVencidoPct, apVencidoTotal, apLongoPct, buckets, piorFaixa,
         aporteADevolverAP, contasPagarTotalAjustado, contasPagarMedioAjustado,
         patrimonioLiquidoReportado,
-        patrimonioLiquido: patrimonioLiquidoReportado - netAporteMovimento,
+        patrimonioLiquido: posicaoLiquidaGerencial,
+        posicaoLiquidaGerencial,
         capitalGiroLiquido: ativoCirculante - passivoCirculante,
       }
     }
@@ -268,7 +273,7 @@ export default function Financeiro() {
     const { balanceMetrics: bm, last, prev, totalResultadoLiquido } = data
     const list = []
     if (bm.piorFaixa && bm.piorFaixa.gap < 0) list.push({ tone: 'risk', title: `Aperto concentrado em "${bm.piorFaixa.label}": faltam ${shortMoney(Math.abs(bm.piorFaixa.gap))}`, text: `Nessa faixa de vencimento a empresa tem ${shortMoney(bm.piorFaixa.ar)} a receber contra ${shortMoney(bm.piorFaixa.ap)} a pagar. É aqui que o caixa vai apertar primeiro, mesmo que a liquidez total pareça administrável.` })
-    if (bm.patrimonioLiquido < 0) list.push({ tone: 'risk', title: `Patrimônio líquido negativo: ${shortMoney(bm.patrimonioLiquido)}`, text: 'O prejuízo acumulado operacional supera o capital social — a empresa está sendo financiada essencialmente por fornecedores e terceiros.' })
+    if (bm.patrimonioLiquido < 0) list.push({ tone: 'risk', title: `Posição líquida gerencial negativa: ${shortMoney(bm.patrimonioLiquido)}`, text: 'As obrigações operacionais ajustadas superam os ativos considerados nesta posição gerencial.' })
     if (bm.liquidezCorrente < 1) list.push({ tone: 'risk', title: `Liquidez corrente de ${bm.liquidezCorrente.toFixed(2)}x`, text: `Para cada R$ 1,00 de obrigações operacionais no Resumo de Contas a Pagar, a empresa tem R$ ${bm.liquidezCorrente.toFixed(2)} em caixa, recebíveis e estoque. O descoberto é de ${shortMoney(bm.passivoCirculante - bm.ativoCirculante)}.` })
     if (bm.apVencidoTotal > 0) list.push({ tone: bm.apVencidoPct > 5 ? 'risk' : 'warn', title: `${shortMoney(bm.apVencidoTotal)} em contas a pagar vencidas`, text: `Equivale a ${pct(bm.apVencidoPct)} do total a pagar, contra apenas ${pct(bm.arVencidoPct)} de inadimplência nos recebíveis — a empresa está mais atrasada com fornecedores do que seus clientes estão com ela.` })
     if (data.mgrLast) {
@@ -381,7 +386,7 @@ export default function Financeiro() {
         <Kpi icon={IconScale} label="Liquidez corrente" value={`${bm.liquidezCorrente.toFixed(2)}x`} note="ativo circulante ÷ obrigações operacionais" tone={bm.liquidezCorrente < 1 ? 'risk' : 'ok'} />
         <Kpi icon={IconScale} label="Liquidez seca" value={`${bm.liquidezSeca.toFixed(2)}x`} note="sem contar estoque" tone={bm.liquidezSeca < 1 ? 'risk' : 'ok'} />
         <Kpi icon={IconWallet} label="Capital de giro líquido" value={shortMoney(bm.capitalGiroLiquido)} note="ativo circulante − obrigações operacionais" tone={bm.capitalGiroLiquido < 0 ? 'risk' : 'ok'} />
-        <Kpi icon={IconBuildingBank} label="Patrimônio líquido" value={shortMoney(bm.patrimonioLiquido)} note="lucro/prejuízo acumulado ajustado" tone={bm.patrimonioLiquido < 0 ? 'risk' : 'ok'} />
+        <Kpi icon={IconBuildingBank} label="Posição líquida gerencial" value={shortMoney(bm.patrimonioLiquido)} note="ativo total − obrigações ajustadas" tone={bm.patrimonioLiquido < 0 ? 'risk' : 'ok'} />
         <Kpi icon={IconCreditCard} label="Endividamento" value={pct(bm.endividamento)} note="contas a pagar ÷ ativo total" tone={bm.endividamento > 100 ? 'risk' : ''} />
       </section>
 
