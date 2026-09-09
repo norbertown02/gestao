@@ -1,0 +1,19 @@
+name: Fix client health layout v2
+on:
+  push:
+    paths:
+      - 'scripts/fix_client_health_layout.py'
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/fix_client_health_layout.py
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/screens/Fechamentos.jsx src/screens/FechamentosFinance.css
+          git diff --cached --quiet || git commit -m 'fix: compactar slide de retenção para 10 clientes'
+          git push
