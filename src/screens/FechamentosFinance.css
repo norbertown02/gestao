@@ -64,3 +64,5 @@
 .deck-retention-row>strong{text-align:right;font-size:12px;white-space:nowrap;color:#2d2926}
 .deck-retention-row>em{text-align:right;font-style:normal;font-size:11px;font-weight:900;color:#e87722;white-space:nowrap}
 .deck-client-health .deck-forgotten-note{margin-top:10px!important;font-size:7.5px!important;text-align:right!important;color:#a49a92!important}
+
+.deck-chart-legend .result-line{height:3px;background:#68a57a}
