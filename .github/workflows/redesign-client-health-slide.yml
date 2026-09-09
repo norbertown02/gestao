@@ -1,0 +1,21 @@
+name: Redesign client health slide
+on:
+  push:
+    paths:
+      - 'scripts/redesign_client_health_slide.py'
+      - '.github/workflows/redesign-client-health-slide.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/redesign_client_health_slide.py
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/screens/Fechamentos.jsx src/screens/FechamentosFinance.css
+          git diff --cached --quiet || git commit -m "fix: redesenhar retenção em duas colunas"
+          git push
