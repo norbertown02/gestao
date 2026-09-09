@@ -1,0 +1,37 @@
+name: Show app order items
+on:
+  push:
+    paths:
+      - '.github/workflows/show-app-order-items.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Prefer App Campo items in order details
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/screens/VendasFiltradasV2.jsx')
+          s = p.read_text()
+          old = """    const orderIds = filteredOrders.map(row => row.id).filter(Boolean)\n    if (orderIds.length) {\n      const linksResult = await supabase\n        .from('sales_fiscal_links')\n        .select('sale_id,link_type,fiscal_documents(fiscal_document_items(product_code,product_name,quantity,unit,unit_value,product_total))')\n        .in('sale_id', orderIds)\n        .eq('link_type', 'faturamento')\n      const mapped = {}\n      ;(linksResult.data || []).forEach(link => {\n        const items = (link.fiscal_documents?.fiscal_document_items || []).filter(item => productMatches(productFromItem(item, maps)))\n        mapped[link.sale_id] = [...(mapped[link.sale_id] || []), ...items]\n      })\n      setOrderItems(mapped)\n    } else setOrderItems({})\n"""
+          new = """    const orderIds = filteredOrders.map(row => row.id).filter(Boolean)\n    if (orderIds.length) {\n      const mapped = {}\n\n      // Pedidos criados no App Campo já chegam ao Supabase com os itens completos em sales.items.\n      // Essa é a fonte preferencial porque o GET /orders/{id} do Ultra retorna somente o cabeçalho.\n      filteredOrders.forEach(row => {\n        const sale = salesById.get(String(row.id))\n        const appItems = parseItems(sale?.items || [])\n          .filter(item => productMatches(productFromItem(item, maps)))\n          .map(item => ({\n            product_code: item?.productKey || item?.product_code || item?.productCode || (item?.ultra_codproduto != null ? `${item.ultra_codproduto}/${item?.ultra_codproduto_clas || 1}` : item?.productId || ''),\n            product_name: item?.productName || item?.product_name || item?.name || 'Produto',\n            quantity: Number(item?.quantity ?? item?.quantityKg ?? item?.qty ?? 0),\n            unit: item?.unit || 'kg',\n            unit_value: Number(item?.unitPrice ?? item?.priceKg ?? item?.unit_price ?? 0),\n            product_total: saleItemValue(item),\n          }))\n        if (appItems.length) mapped[row.id] = appItems\n      })\n\n      // Para pedidos sem itens locais (por exemplo, pedidos criados diretamente no Ultra),\n      // usa os itens da nota fiscal vinculada como fallback quando houver faturamento.\n      const linksResult = await supabase\n        .from('sales_fiscal_links')\n        .select('sale_id,link_type,fiscal_documents(fiscal_document_items(product_code,product_name,quantity,unit,unit_value,product_total))')\n        .in('sale_id', orderIds)\n        .eq('link_type', 'faturamento')\n      ;(linksResult.data || []).forEach(link => {\n        if ((mapped[link.sale_id] || []).length) return\n        const items = (link.fiscal_documents?.fiscal_document_items || []).filter(item => productMatches(productFromItem(item, maps)))\n        mapped[link.sale_id] = [...(mapped[link.sale_id] || []), ...items]\n      })\n      setOrderItems(mapped)\n    } else setOrderItems({})\n"""
+          if old not in s:
+              raise SystemExit('Bloco de itens não encontrado; abortando sem alterar o arquivo.')
+          s = s.replace(old, new, 1)
+          s = s.replace('Itens faturados deste pedido', 'Itens do pedido', 1)
+          s = s.replace('Os itens ainda não foram vinculados a uma nota fiscal deste pedido.', 'Os itens deste pedido ainda não estão disponíveis.', 1)
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/screens/VendasFiltradasV2.jsx
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: mostrar itens do App Campo nos pedidos'
+          git push origin main
