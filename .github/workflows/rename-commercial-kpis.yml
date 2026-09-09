@@ -1,0 +1,31 @@
+name: Rename commercial KPI labels
+on:
+  push:
+    paths:
+      - '.github/workflows/rename-commercial-kpis.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rename labels
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/screens/VendasFiltradasV2.jsx')
+          s = p.read_text()
+          s = s.replace('Pedidos válidos', 'Pedidos no período')
+          s = s.replace('Faturamento líquido', 'Faturamento')
+          s = s.replace('Carteira aberta', 'Carteira em Aberto')
+          s = s.replace('Carteira em aberto', 'Carteira em Aberto')
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/screens/VendasFiltradasV2.jsx
+          git diff --cached --quiet || git commit -m 'fix: renomear indicadores da gestão comercial'
+          git push
