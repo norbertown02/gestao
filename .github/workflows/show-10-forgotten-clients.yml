@@ -1,0 +1,31 @@
+name: Show 10 forgotten clients
+on:
+  push:
+    paths:
+      - '.github/workflows/show-10-forgotten-clients.yml'
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Increase forgotten clients list
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/screens/Fechamentos.jsx')
+          s = p.read_text()
+          old = 'cur.forgottenClients.slice(0,6).map'
+          new = 'cur.forgottenClients.slice(0,10).map'
+          if old not in s:
+              raise SystemExit('target not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/screens/Fechamentos.jsx
+          git commit -m "fix: mostrar 10 clientes na retenção comercial"
+          git push
