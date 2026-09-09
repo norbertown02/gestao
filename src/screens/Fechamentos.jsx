@@ -212,8 +212,18 @@ function CommercialSlides({ data, financial, period, previousLabel, generatedAt,
     <Slide key="client-health" page={8} total={total} className="deck-client-health">
       <SlideTitle eyebrow="SAÚDE E RETENÇÃO DA CARTEIRA" aside="recência + valor histórico" editKey="comercial.client_health.title" editor={editor}>{cur.forgottenClients.length ? `${shortMoney(forgottenHistoricalValue)} já foram comprados por clientes sem pedido no período.` : 'A carteira não possui clientes históricos sem pedido no período.'}</SlideTitle>
       <MetricStrip items={[{ label: 'Clientes novos', value: enteredClients, note: 'primeira compra no histórico' }, { label: 'Reativados', value: reactivatedClients, note: `voltaram após o ${comparisonNoun}` }, { label: 'Recorrentes', value: retainedClients, note: 'compraram nos dois períodos' }, { label: 'Saíram no período', value: inactiveClients, note: `compraram no ${comparisonNoun}` }]} />
-      <div className="deck-forgotten-summary"><div><span>PRIORIDADES DE RETOMADA</span><strong>{cur.forgottenClients.length} clientes sem pedido</strong></div><p>Ordenados pelo total histórico comprado, com a recência como contexto para a abordagem comercial.</p></div>
-      <div className="deck-forgotten-head"><span>Cliente</span><span>Total já comprado</span><span>Último pedido</span><span>Sem comprar</span></div><div className="deck-forgotten-list">{cur.forgottenClients.slice(0,10).map((client,index)=><div key={client.key}><b>{String(index+1).padStart(2,'0')}</b><span><strong>{client.name}</strong><small>{index < 3 ? 'prioridade alta pelo histórico' : 'oportunidade de retomada'}</small></span><strong>{shortMoney(client.historicalValue)}</strong><span>{new Date(`${client.lastOrder}T12:00:00`).toLocaleDateString('pt-BR')}</span><em>{client.age} dias</em></div>)}</div>
+      <div className="deck-forgotten-summary"><div><span>PRIORIDADES DE RETOMADA</span><strong>{cur.forgottenClients.length} clientes sem pedido</strong></div><p>Top 10 por histórico comprado, com recência para orientar a retomada comercial.</p></div>
+      <div className="deck-retention-grid">
+        {[cur.forgottenClients.slice(0,5), cur.forgottenClients.slice(5,10)].map((group, groupIndex) => <div className="deck-retention-column" key={groupIndex}>
+          <div className="deck-retention-head"><span>Cliente</span><span>Histórico</span><span>Sem comprar</span></div>
+          {group.map((client,index)=>{ const rank = groupIndex * 5 + index; return <div className="deck-retention-row" key={client.key}>
+            <b>{String(rank+1).padStart(2,'0')}</b>
+            <div><strong>{client.name}</strong><small>último pedido {new Date(`${client.lastOrder}T12:00:00`).toLocaleDateString('pt-BR')}</small></div>
+            <strong>{shortMoney(client.historicalValue)}</strong>
+            <em>{client.age} dias</em>
+          </div>})}
+        </div>)}
+      </div>
       <div className="deck-forgotten-note">Total comprado considera o faturamento líquido acumulado disponível desde janeiro de 2026.</div>
     </Slide>,
     <Slide key="products" page={9} total={total} tone="dark">
