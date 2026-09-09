@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Ajuste dedicado para o slide de saúde e retenção com 10 clientes.
 jsx = Path('src/screens/Fechamentos.jsx')
 s = jsx.read_text()
 old = '<Slide key="client-health" page={8} total={total}>'
