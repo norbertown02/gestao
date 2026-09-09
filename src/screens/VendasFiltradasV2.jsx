@@ -261,13 +261,34 @@ export default function VendasFiltradasV2() {
 
     const orderIds = filteredOrders.map(row => row.id).filter(Boolean)
     if (orderIds.length) {
+      const mapped = {}
+
+      // Pedidos criados no App Campo já chegam ao Supabase com os itens completos em sales.items.
+      // Essa é a fonte preferencial porque o GET /orders/{id} do Ultra retorna somente o cabeçalho.
+      filteredOrders.forEach(row => {
+        const sale = salesById.get(String(row.id))
+        const appItems = parseItems(sale?.items || [])
+          .filter(item => productMatches(productFromItem(item, maps)))
+          .map(item => ({
+            product_code: item?.productKey || item?.product_code || item?.productCode || (item?.ultra_codproduto != null ? `${item.ultra_codproduto}/${item?.ultra_codproduto_clas || 1}` : item?.productId || ''),
+            product_name: item?.productName || item?.product_name || item?.name || 'Produto',
+            quantity: Number(item?.quantity ?? item?.quantityKg ?? item?.qty ?? 0),
+            unit: item?.unit || 'kg',
+            unit_value: Number(item?.unitPrice ?? item?.priceKg ?? item?.unit_price ?? 0),
+            product_total: saleItemValue(item),
+          }))
+        if (appItems.length) mapped[row.id] = appItems
+      })
+
+      // Para pedidos sem itens locais (por exemplo, pedidos criados diretamente no Ultra),
+      // usa os itens da nota fiscal vinculada como fallback quando houver faturamento.
       const linksResult = await supabase
         .from('sales_fiscal_links')
         .select('sale_id,link_type,fiscal_documents(fiscal_document_items(product_code,product_name,quantity,unit,unit_value,product_total))')
         .in('sale_id', orderIds)
         .eq('link_type', 'faturamento')
-      const mapped = {}
       ;(linksResult.data || []).forEach(link => {
+        if ((mapped[link.sale_id] || []).length) return
         const items = (link.fiscal_documents?.fiscal_document_items || []).filter(item => productMatches(productFromItem(item, maps)))
         mapped[link.sale_id] = [...(mapped[link.sale_id] || []), ...items]
       })
@@ -402,7 +423,7 @@ export default function VendasFiltradasV2() {
             </div>
 
             <div className="commerce-table-wrap">
-              {tableView === 'pedidos' && <><table className="commerce-table"><thead><tr><th>Pedido</th><th>Data / cliente</th><th>Vendedor</th><th>Situação</th><th className="num">Valor líquido</th></tr></thead><tbody>{orders.map(row => <Fragment key={row.id}><tr className="commerce-order-row" onClick={()=>setExpandedOrder(current=>current===row.id?null:row.id)}><td><button className="commerce-order-toggle" aria-expanded={expandedOrder===row.id}><strong>#{row.ultra_order_number}</strong>{expandedOrder===row.id?<IconChevronUp size={15}/>:<IconChevronDown size={15}/>}</button></td><td><strong>{row.customer_name||'Cliente não identificado'}</strong><small>{dateBR(row.sale_date)}</small></td><td>{row.ultra_salesman_name||'—'}</td><td><span className={`commerce-status ${row.order_stage}`}>{stageLabel[row.order_stage]||row.order_stage}</span></td><td className="num"><strong>{money(orderBaseValue(row))}</strong></td></tr>{expandedOrder===row.id&&<tr className="commerce-order-items"><td colSpan="5"><div><span>Itens faturados deste pedido</span><p style={{margin:'0 0 12px',color:'var(--text-dim)'}}>Valor líquido considerado: <strong>{money(orderBaseValue(row))}</strong></p>{(orderItems[row.id]||[]).length?<table><thead><tr><th>Produto</th><th className="num">Quantidade</th><th className="num">Valor unitário</th><th className="num">Total</th></tr></thead><tbody>{orderItems[row.id].map((item,index)=><tr key={`${item.product_code}-${index}`}><td><strong>{item.product_name||'Produto'}</strong><small>{item.product_code||'—'}</small></td><td className="num">{integer(item.quantity)} {item.unit||''}</td><td className="num">{money(item.unit_value)}</td><td className="num"><strong>{money(fiscalItemValue(item))}</strong></td></tr>)}</tbody></table>:<p>Os itens ainda não foram vinculados a uma nota fiscal deste pedido.</p>}</div></td></tr>}</Fragment>)}</tbody></table>{!orders.length&&<Empty>Nenhum pedido para os filtros selecionados.</Empty>}</>}
+              {tableView === 'pedidos' && <><table className="commerce-table"><thead><tr><th>Pedido</th><th>Data / cliente</th><th>Vendedor</th><th>Situação</th><th className="num">Valor líquido</th></tr></thead><tbody>{orders.map(row => <Fragment key={row.id}><tr className="commerce-order-row" onClick={()=>setExpandedOrder(current=>current===row.id?null:row.id)}><td><button className="commerce-order-toggle" aria-expanded={expandedOrder===row.id}><strong>#{row.ultra_order_number}</strong>{expandedOrder===row.id?<IconChevronUp size={15}/>:<IconChevronDown size={15}/>}</button></td><td><strong>{row.customer_name||'Cliente não identificado'}</strong><small>{dateBR(row.sale_date)}</small></td><td>{row.ultra_salesman_name||'—'}</td><td><span className={`commerce-status ${row.order_stage}`}>{stageLabel[row.order_stage]||row.order_stage}</span></td><td className="num"><strong>{money(orderBaseValue(row))}</strong></td></tr>{expandedOrder===row.id&&<tr className="commerce-order-items"><td colSpan="5"><div><span>Itens do pedido</span><p style={{margin:'0 0 12px',color:'var(--text-dim)'}}>Valor líquido considerado: <strong>{money(orderBaseValue(row))}</strong></p>{(orderItems[row.id]||[]).length?<table><thead><tr><th>Produto</th><th className="num">Quantidade</th><th className="num">Valor unitário</th><th className="num">Total</th></tr></thead><tbody>{orderItems[row.id].map((item,index)=><tr key={`${item.product_code}-${index}`}><td><strong>{item.product_name||'Produto'}</strong><small>{item.product_code||'—'}</small></td><td className="num">{integer(item.quantity)} {item.unit||''}</td><td className="num">{money(item.unit_value)}</td><td className="num"><strong>{money(fiscalItemValue(item))}</strong></td></tr>)}</tbody></table>:<p>Os itens deste pedido ainda não estão disponíveis.</p>}</div></td></tr>}</Fragment>)}</tbody></table>{!orders.length&&<Empty>Nenhum pedido para os filtros selecionados.</Empty>}</>}
 
               {tableView === 'faturados' && <><table className="commerce-table"><thead><tr><th>NF</th><th>Data / cliente</th><th>Pedido vinculado</th><th>Vendedor</th><th className="num">Valor</th></tr></thead><tbody>{salesDocuments.map(row=>{const link=Array.isArray(row.sales_fiscal_links)?row.sales_fiscal_links[0]:row.sales_fiscal_links;const linkedOrder=Array.isArray(link?.sales)?link.sales[0]:link?.sales;const orderNumber=linkedOrder?.ultra_order_number||linkedOrder?.ultra_order_id;return <tr key={row.ultra_document_id}><td><strong>NF {row.invoice_number}</strong></td><td><strong>{row.partner_name||'Cliente'}</strong><small>{dateBR(row.issue_date)}</small></td><td>{orderNumber?<strong>Pedido #{orderNumber}</strong>:<span style={{color:'var(--text-faint)'}}>Sem pedido vinculado</span>}</td><td>{row.salesman_name||'—'}</td><td className="num"><strong>{money(row.document_total)}</strong></td></tr>})}</tbody></table>{!salesDocuments.length&&<Empty>Nenhum faturamento para os filtros selecionados.</Empty>}</>}
 
