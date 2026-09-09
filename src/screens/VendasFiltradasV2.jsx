@@ -377,20 +377,20 @@ export default function VendasFiltradasV2() {
         <section className="commerce-story">
           <header><span>Leitura do mês</span><h2>Da intenção comercial ao caixa</h2><p>O pedido mede o trabalho vendido. A nota confirma o faturamento. A carteira mostra o que ainda falta realizar.</p></header>
           <div className="commerce-flow" aria-label="Fluxo comercial do mês">
-            <div><span>Pedidos válidos</span><strong>{money(summary.generated)}</strong><small>{integer(summary.validOrderCount)} pedidos com itens selecionados</small></div>
+            <div><span>Pedidos no período</span><strong>{money(summary.generated)}</strong><small>{integer(summary.validOrderCount)} pedidos com itens selecionados</small></div>
             <IconArrowUpRight size={22} />
-            <div><span>Faturamento líquido</span><strong>{money(summary.netBilling)}</strong><small>{integer(summary.invoices)} notas de venda</small></div>
+            <div><span>Faturamento</span><strong>{money(summary.netBilling)}</strong><small>{integer(summary.invoices)} notas de venda</small></div>
             <IconArrowDownRight size={22} />
-            <div><span>Carteira aberta</span><strong>{money(summary.openValue)}</strong><small>{integer(portfolio.length)} pedidos aguardando</small></div>
+            <div><span>Carteira em Aberto</span><strong>{money(summary.openValue)}</strong><small>{integer(portfolio.length)} pedidos aguardando</small></div>
           </div>
         </section>
 
         <section className="commerce-metrics">
-          <Metric icon={IconShoppingCart} label="Pedidos válidos" value={money(summary.valid)} note="Valor líquido correspondente aos produtos filtrados" tone="blue" />
+          <Metric icon={IconShoppingCart} label="Pedidos no período" value={money(summary.valid)} note="Valor líquido correspondente aos produtos filtrados" tone="blue" />
           <Metric icon={IconFileInvoice} label="Faturamento bruto" value={money(summary.grossBilling)} note="Notas emitidas para o mix selecionado" tone="orange" />
           <Metric icon={IconRotateClockwise} label="Devoluções" value={money(summary.returns)} note={`${summary.reversedCount} pedido(s) totalmente estornado(s)`} tone="red" />
-          <Metric icon={IconCash} label="Faturamento líquido" value={money(summary.netBilling)} note="Vendas menos devoluções" tone="ink" />
-          <Metric icon={IconPackage} label="Carteira em aberto" value={money(summary.openValue)} note={`${portfolio.length} pedido(s) com saldo`} tone="amber" />
+          <Metric icon={IconCash} label="Faturamento" value={money(summary.netBilling)} note="Vendas menos devoluções" tone="ink" />
+          <Metric icon={IconPackage} label="Carteira em Aberto" value={money(summary.openValue)} note={`${portfolio.length} pedido(s) com saldo`} tone="amber" />
         </section>
 
         <section className="commerce-forecast">
