@@ -1,0 +1,28 @@
+name: Update financial presentation
+
+on:
+  push:
+    paths:
+      - 'scripts/update_financial_presentation.py'
+      - '.github/workflows/update-financial-presentation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/update_financial_presentation.py
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/screens/Fechamentos.jsx src/screens/FechamentosFinance.css
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "fix: ajustar apresentação financeira"
+            git push
+          fi
