@@ -1,0 +1,64 @@
+name: Fix client health slide layout
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-client-health-layout.yml'
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compact client health slide
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          jsx = Path('src/screens/Fechamentos.jsx')
+          s = jsx.read_text()
+          old = '<Slide key="client-health" page={8} total={total}>'
+          new = '<Slide key="client-health" page={8} total={total} className="deck-client-health">'
+          if old not in s and new not in s:
+              raise SystemExit('client-health slide marker not found')
+          if old in s:
+              s = s.replace(old, new, 1)
+          jsx.write_text(s)
+
+          css = Path('src/screens/FechamentosFinance.css')
+          c = css.read_text()
+          marker = '/* compact client health: 10 rows fit inside slide */'
+          block = r'''
+/* compact client health: 10 rows fit inside slide */
+.deck-client-health{padding-top:48px;padding-bottom:36px;overflow:hidden}
+.deck-client-health .deck-title{margin-bottom:12px}
+.deck-client-health .deck-title h2{font-size:27px;line-height:1.08;margin-top:4px}
+.deck-client-health .deck-title small{font-size:9px}
+.deck-client-health .deck-metric-strip{margin:0 0 10px;gap:10px}
+.deck-client-health .deck-metric-strip>div{padding:10px 14px;min-height:58px}
+.deck-client-health .deck-metric-strip span{font-size:8px}
+.deck-client-health .deck-metric-strip strong{font-size:20px;margin-top:3px}
+.deck-client-health .deck-metric-strip small{font-size:8px;margin-top:2px}
+.deck-client-health .deck-forgotten-summary{margin:6px 0 8px;padding:9px 13px;min-height:0}
+.deck-client-health .deck-forgotten-summary strong{font-size:16px}
+.deck-client-health .deck-forgotten-summary span,.deck-client-health .deck-forgotten-summary p{font-size:8.5px;line-height:1.25;margin:0}
+.deck-client-health .deck-forgotten-head{min-height:22px;height:22px;padding:0 10px;font-size:8px}
+.deck-client-health .deck-forgotten-list{margin:0}
+.deck-client-health .deck-forgotten-list>div{min-height:31px;height:31px;padding:0 10px;gap:9px}
+.deck-client-health .deck-forgotten-list>div>b{font-size:8px}
+.deck-client-health .deck-forgotten-list>div>span>strong{font-size:9.5px;line-height:1.05;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.deck-client-health .deck-forgotten-list>div>span>small{font-size:7px;line-height:1.05;display:block;margin-top:1px}
+.deck-client-health .deck-forgotten-list>div>strong,.deck-client-health .deck-forgotten-list>div>span,.deck-client-health .deck-forgotten-list>div>em{font-size:8.5px}
+.deck-client-health .deck-forgotten-note{margin-top:6px;font-size:7px}
+'''
+          if marker not in c:
+              c += block
+              css.write_text(c)
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/screens/Fechamentos.jsx src/screens/FechamentosFinance.css
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: compactar slide de retenção para 10 clientes'
+          git push
