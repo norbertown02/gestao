@@ -161,7 +161,7 @@ export default function Estoque() {
             </div>
             <small>{data.rows.filter(row => row.stockKg > 0).length} produtos com saldo</small>
           </div>
-          <p className="stock-table-note">Esta visão usa o saldo atual do Ultra e o histórico de saídas fiscais para mostrar estoque, pedidos pendentes, saldo teórico, estoque mínimo e dias desde a última saída.</p>
+          <p className="stock-table-note">Esta visão usa o saldo atual do Ultra e o histórico de saídas fiscais para mostrar estoque, vendas, saldo teórico, estoque mínimo e dias desde a última saída.</p>
           {data.rows.filter(row => row.stockKg > 0).length > 0 ? (
             <div className="table-wrap stock-table-wrap">
               <table className="stock-table">
@@ -170,7 +170,7 @@ export default function Estoque() {
                     <th>Produto</th>
                     <th>Categoria</th>
                     <th style={{ textAlign: 'right' }}>Estoque (kg)</th>
-                    <th style={{ textAlign: 'right' }}>Pendente pedido</th>
+                    <th style={{ textAlign: 'right' }}>Vendas</th>
                     <th style={{ textAlign: 'right' }}>Saldo teórico</th>
                     <th style={{ textAlign: 'right' }}>Estoque mínimo</th>
                     <th style={{ textAlign: 'right' }}>Custo/kg</th>
