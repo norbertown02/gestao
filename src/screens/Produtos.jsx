@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
-import { hasNetOrderValue } from '../lib/commercialMetrics'
+import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import { CURRENT_MONTH, CURRENT_YEAR, historyStart, monthOptions, periodRange, previousPeriodRange, yearOptions } from '../lib/commercialPeriod'
 import {
   IconAlertTriangle,
@@ -312,11 +312,33 @@ export default function Produtos() {
         }
       }
 
-      const pedidos = validOrders.map(row => ({
-        ...row,
-        items: itemsById.get(String(row.id)) || [],
-        partner_name: row.customer_name || row.partner_name || 'Cliente não identificado',
-      }))
+      const pedidos = validOrders.map(row => {
+        const rawItems = itemsById.get(String(row.id)) || []
+        const itemTotal = rawItems.reduce((sum, item) => sum + productSubtotal(item), 0)
+        const orderValue = netOrderValue(row)
+
+        // Normaliza o rateio dos itens para o valor líquido real do pedido.
+        // Evita que totais repetidos/brutos vindos do ERP inflem a visão de produtos.
+        const items = rawItems.map(item => {
+          const subtotal = productSubtotal(item)
+          const normalizedSubtotal = itemTotal > 0 && orderValue > 0
+            ? subtotal * (orderValue / itemTotal)
+            : subtotal
+
+          return {
+            ...item,
+            subtotal: normalizedSubtotal,
+            product_total: normalizedSubtotal,
+          }
+        })
+
+        return {
+          ...row,
+          items,
+          net_order_value: orderValue,
+          partner_name: row.customer_name || row.partner_name || 'Cliente não identificado',
+        }
+      })
       const dentro = (row, inicio, final) => row.sale_date >= toISO(inicio) && row.sale_date <= toISO(final)
 
       setSales(pedidos.filter(row => dentro(row, ini, fim)))
@@ -388,8 +410,10 @@ export default function Produtos() {
     const porProduto = agregar(sales).sort((a, b) => b.receita - a.receita)
     const porProdutoAnt = agregar(salesAnt)
     const antMap = new Map(porProdutoAnt.map(p => [p.name, p]))
-    const totalReceita = porProduto.reduce((a, p) => a + p.receita, 0)
-    const totalReceitaAnt = porProdutoAnt.reduce((a, p) => a + p.receita, 0)
+    const totalReceitaProdutos = porProduto.reduce((a, p) => a + p.receita, 0)
+    const totalReceitaProdutosAnt = porProdutoAnt.reduce((a, p) => a + p.receita, 0)
+    const totalReceita = sales.reduce((sum, sale) => sum + Number(sale.net_order_value || netOrderValue(sale) || 0), 0)
+    const totalReceitaAnt = salesAnt.reduce((sum, sale) => sum + Number(sale.net_order_value || netOrderValue(sale) || 0), 0)
     const totalCusto = porProduto.reduce((a, p) => a + p.custo, 0)
     const totalMargem = totalReceita - totalCusto
     const margemPct = totalReceita ? (totalMargem / totalReceita) * 100 : 0
@@ -486,6 +510,8 @@ export default function Produtos() {
       porProduto: porProdutoComparado,
       totalReceita,
       totalReceitaAnt,
+      totalReceitaProdutos,
+      totalReceitaProdutosAnt,
       totalCusto,
       totalMargem,
       margemPct,
