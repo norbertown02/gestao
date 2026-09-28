@@ -245,9 +245,71 @@ export default function Produtos() {
       const ids = validOrders.map(row => row.id).filter(Boolean)
       let itemsById = new Map()
       if (ids.length) {
-        const itemResult = await supabaseAdmin.from('sales').select('id,items').in('id', ids)
+        const itemResult = await supabaseAdmin.from('sales').select('id,items,source').in('id', ids)
         if (itemResult.error) throw itemResult.error
-        itemsById = new Map((itemResult.data || []).map(row => [String(row.id), parseItems(row.items)]))
+
+        const salesRows = itemResult.data || []
+        itemsById = new Map(salesRows.map(row => [String(row.id), parseItems(row.items)]))
+
+        // Pedidos importados diretamente da Ultra podem trazer campos de total do
+        // documento repetidos em cada item. Para a visão de produtos, a fonte
+        // correta é o item fiscal: quantidade × valor unitário.
+        const ultraIds = salesRows.filter(row => row.source === 'ultra').map(row => row.id)
+        if (ultraIds.length) {
+          const linksResult = await supabaseAdmin
+            .from('sales_fiscal_links')
+            .select('sale_id,fiscal_document_id')
+            .in('sale_id', ultraIds)
+
+          if (linksResult.error) throw linksResult.error
+
+          const links = linksResult.data || []
+          const fiscalIds = [...new Set(links.map(link => link.fiscal_document_id).filter(Boolean))]
+
+          if (fiscalIds.length) {
+            const fiscalItemsResult = await supabaseAdmin
+              .from('fiscal_document_items')
+              .select('fiscal_document_id,item_number,product_code,product_name,quantity,unit,unit_value')
+              .in('fiscal_document_id', fiscalIds)
+              .order('item_number')
+
+            if (fiscalItemsResult.error) throw fiscalItemsResult.error
+
+            const fiscalByDocument = new Map()
+            ;(fiscalItemsResult.data || []).forEach(item => {
+              const key = String(item.fiscal_document_id)
+              if (!fiscalByDocument.has(key)) fiscalByDocument.set(key, [])
+              const quantity = Number(item.quantity || 0)
+              const unitPrice = Number(item.unit_value || 0)
+              fiscalByDocument.get(key).push({
+                product_code: item.product_code,
+                productName: item.product_name,
+                product_name: item.product_name,
+                quantity,
+                quantityKg: quantity,
+                unit: item.unit,
+                unitPrice,
+                priceKg: unitPrice,
+                subtotal: quantity * unitPrice,
+                product_total: quantity * unitPrice,
+                itemNumber: item.item_number,
+              })
+            })
+
+            const fiscalItemsBySale = new Map()
+            links.forEach(link => {
+              const items = fiscalByDocument.get(String(link.fiscal_document_id)) || []
+              if (!items.length) return
+              const saleKey = String(link.sale_id)
+              const current = fiscalItemsBySale.get(saleKey) || []
+              fiscalItemsBySale.set(saleKey, [...current, ...items])
+            })
+
+            fiscalItemsBySale.forEach((items, saleId) => {
+              if (items.length) itemsById.set(saleId, items)
+            })
+          }
+        }
       }
 
       const pedidos = validOrders.map(row => ({
@@ -512,7 +574,7 @@ export default function Produtos() {
           <div>
             <span className="produtos-eyebrow">Produto líder do período</span>
             <h2>{dados.topProduto?.name || 'Sem dados'}</h2>
-            <small>{dados.topProduto ? `${fmtK(dados.topProduto.receita)} · ${fmtInt(dados.topProduto.qty)} unidades · ${dados.topProduto.participacao.toFixed(1)}% do mix` : 'Aguardando vendas no período'}</small>
+            <small>{dados.topProduto ? `${fmtK(dados.topProduto.receita)} · ${fmtInt(dados.topProduto.qty)} kg · ${dados.topProduto.participacao.toFixed(1)}% do mix` : 'Aguardando vendas no período'}</small>
           </div>
 
           <div className="produtos-hero-grid">
@@ -624,7 +686,7 @@ export default function Produtos() {
 
             <section className="produtos-grid-4">
               <div className="produtos-card"><div className="produtos-card-head"><div><span className="produtos-eyebrow">Campeões</span><h3>Mais faturamento</h3></div></div>{dados.porProduto.length > 0 ? <div className="produtos-ranking">{dados.porProduto.slice(0, 8).map((p, i) => <RankingRow key={p.name} index={i} title={p.name} subtitle={`${p.categoria} · ${fmtInt(p.fazendas)} clientes`} value={p.receita} max={receitaMax} extra={`${p.participacao.toFixed(1)}% do mix`} money />)}</div> : <Empty>Sem produtos vendidos</Empty>}</div>
-              <div className="produtos-card"><div className="produtos-card-head"><div><span className="produtos-eyebrow">Volume</span><h3>Mais vendidos</h3></div></div>{dados.porProduto.length > 0 ? <div className="produtos-ranking">{[...dados.porProduto].sort((a, b) => b.qty - a.qty).slice(0, 8).map((p, i) => <RankingRow key={p.name} index={i} title={p.name} subtitle={`${fmtK(p.receita)} receita`} value={p.qty} max={qtyMax} extra="unidades" />)}</div> : <Empty>Sem volume vendido</Empty>}</div>
+              <div className="produtos-card"><div className="produtos-card-head"><div><span className="produtos-eyebrow">Volume</span><h3>Mais vendidos</h3></div></div>{dados.porProduto.length > 0 ? <div className="produtos-ranking">{[...dados.porProduto].sort((a, b) => b.qty - a.qty).slice(0, 8).map((p, i) => <RankingRow key={p.name} index={i} title={p.name} subtitle={`${fmtK(p.receita)} receita`} value={p.qty} max={qtyMax} extra="kg" />)}</div> : <Empty>Sem volume vendido</Empty>}</div>
               <div className="produtos-card"><div className="produtos-card-head"><div><span className="produtos-eyebrow">Crescimento</span><h3>Produtos em alta</h3></div></div>{dados.crescimento.length > 0 ? <div className="produtos-ranking">{dados.crescimento.map((p, i) => <RankingRow key={p.name} index={i} title={p.name} subtitle={`${fmtK(p.receitaAnt)} → ${fmtK(p.receita)}`} value={Math.abs(p.variacao)} max={crescimentoMax} extra={`+${p.variacao.toFixed(1)}%`} />)}</div> : <Empty>Sem base para crescimento</Empty>}</div>
               <div className="produtos-card"><div className="produtos-card-head"><div><span className="produtos-eyebrow">Atenção</span><h3>Produtos em queda</h3></div></div>{dados.queda.length > 0 ? <div className="produtos-ranking">{dados.queda.map((p, i) => <RankingRow key={p.name} index={i} title={p.name} subtitle={`${fmtK(p.receitaAnt)} → ${fmtK(p.receita)}`} value={Math.abs(p.variacao)} max={quedaMax} extra={`${p.variacao.toFixed(1)}%`} />)}</div> : <Empty>Sem queda relevante</Empty>}</div>
             </section>
