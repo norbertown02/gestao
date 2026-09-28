@@ -9187,23 +9187,23 @@ table td {
 .goals-back:hover { background: #3b3531; }
 .vendedores-table-wrap { overflow-x: visible; }
 .vendedores-table-wrap > table { width: 100%; min-width: 0; table-layout: fixed; }
-.vendedores-table-wrap th:nth-child(1) { width: 4%; }
-.vendedores-table-wrap th:nth-child(2) { width: 20%; }
-.vendedores-table-wrap th:nth-child(3) { width: 7%; }
-.vendedores-table-wrap th:nth-child(4) { width: 14%; }
-.vendedores-table-wrap th:nth-child(5) { width: 7%; }
-.vendedores-table-wrap th:nth-child(6) { width: 12%; }
+.vendedores-table-wrap th:nth-child(1) { width: 18%; }
+.vendedores-table-wrap th:nth-child(2) { width: 12%; }
+.vendedores-table-wrap th:nth-child(3) { width: 10%; }
+.vendedores-table-wrap th:nth-child(4) { width: 7%; }
+.vendedores-table-wrap th:nth-child(5) { width: 10%; }
+.vendedores-table-wrap th:nth-child(6) { width: 7%; }
 .vendedores-table-wrap th:nth-child(7) { width: 8%; }
 .vendedores-table-wrap th:nth-child(8) { width: 8%; }
-.vendedores-table-wrap th:nth-child(9) { width: 7%; }
-.vendedores-table-wrap th:nth-child(10) { width: 10%; }
-.vendedores-table-wrap th:nth-child(11) { width: 3%; }
+.vendedores-table-wrap th:nth-child(9) { width: 8%; }
+.vendedores-table-wrap th:nth-child(10) { width: 8%; }
+.vendedores-table-wrap th:nth-child(11) { width: 4%; }
 .vendedores-table-wrap :is(th, td) { padding-left: 7px; padding-right: 7px; }
-.vendedores-table-wrap :is(.vendedores-money, td:nth-child(6)) { display: block; overflow: visible; font-size: clamp(10px, .92vw, 12px); text-overflow: clip; white-space: nowrap; }
+.vendedores-table-wrap .vendedores-money { overflow: visible; font-size: clamp(11px, .95vw, 13px); text-overflow: clip; white-space: nowrap; }
 .vendedores-table-wrap .vendedores-person { min-width: 0; }
 .vendedores-table-wrap .vendedores-person > div:last-child { min-width: 0; }
 .vendedores-table-wrap .vendedores-person strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.vendedores-table-wrap td:nth-child(6) { display: table-cell !important; vertical-align: middle; line-height: 1.2; text-align: right; white-space: nowrap; }
+.vendedores-table-wrap td { vertical-align: middle; line-height: 1.2; }
 .vendedores-table-wrap .vendedores-money { display: inline-block; line-height: 1.2; vertical-align: middle; }
 .regioes-donut-wrap { position: relative; display: grid; grid-template-columns: minmax(210px, .9fr) minmax(150px, .6fr); align-items: center; min-height: 290px; }
 .regioes-donut-center { position: absolute; left: calc(28.5% - 44px); top: 50%; display: grid; justify-items: center; width: 88px; transform: translateY(-50%); pointer-events: none; }
