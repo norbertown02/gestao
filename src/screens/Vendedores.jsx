@@ -156,7 +156,7 @@ function Empty({ children = 'Sem dados para exibir' }) {
 }
 
 export default function Vendedores() {
-  const [periodo, setPeriodo] = useState('ano')
+  const [periodo, setPeriodo] = useState('mes')
   const [mesReferencia, setMesReferencia] = useState(CURRENT_MONTH)
   const [anoReferencia, setAnoReferencia] = useState(CURRENT_YEAR)
   const [segmento, setSegmento] = useState('todos')
@@ -509,21 +509,23 @@ export default function Vendedores() {
     a.click()
   }
 
+  const vendedoresComVenda = dados.vendedores.filter(v => v.fat > 0).length
+  const totalPedidos = dados.vendedores.reduce((sum, v) => sum + Number(v.pedidos || 0), 0)
+  const ticketTime = totalPedidos ? dados.totalFat / totalPedidos : 0
+
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Topbar title="Performance Comercial" subtitle="Desempenho, conversão e execução por vendedor">
+      <Topbar title="Equipe Comercial" subtitle="Uma leitura direta de vendas, atividade e carteira por vendedor">
         <button className="btn btn-ghost btn-sm" onClick={exportCSV}>
           <IconDownload size={14} />
-          Exportar CSV
+          Exportar
         </button>
       </Topbar>
 
       <div className="page vendedores-page" style={{ overflowY: 'auto' }}>
-        <section className="vendedores-toolbar">
+        <section className="vendedores-toolbar" style={{ marginBottom: 14 }}>
           <div className="vendedores-toolbar-left">
-            <div className="vendedores-filter-icon">
-              <IconFilter size={15} />
-            </div>
+            <div className="vendedores-filter-icon"><IconFilter size={15} /></div>
 
             <select value={periodo} onChange={e => setPeriodo(e.target.value)}>
               <option value="mes">Mês</option>
@@ -549,67 +551,35 @@ export default function Vendedores() {
           </div>
 
           <div className="vendedores-toolbar-count">
-            {fmtInt(dados.vendedores.length)} vendedores analisados
+            {fmtInt(dados.vendedores.length)} vendedores
           </div>
         </section>
 
-        <section className="vendedores-hero">
-          <div>
-            <span className="vendedores-eyebrow">Melhor vendedor no período</span>
-            <h2>{dados.melhor?.name || 'Sem dados'}</h2>
-            <small>{dados.melhor ? `${fmtK(dados.melhor.fat)} · ${fmtInt(dados.melhor.pedidos)} pedidos · ${fmtInt(dados.melhor.visitas)} visitas` : 'Aguardando dados comerciais'}</small>
-          </div>
-
-          <div className="vendedores-hero-grid">
-            <div>
-              <span>Faturamento do time</span>
-              <strong>{fmtK(dados.totalFat)}</strong>
-            </div>
-
-            <div>
-              <span>Conversão média</span>
-              <strong>{dados.conversao}%</strong>
-            </div>
-
-            <div>
-              <span>Visitas totais</span>
-              <strong>{fmtInt(dados.totalVisitas)}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="vendedores-kpi-grid">
+        <section style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4,minmax(0,1fr))',
+          gap: 10,
+          marginBottom: 14
+        }}>
           <KpiCard
             icon={IconWallet}
-            label="Faturamento"
+            label="Valor dos pedidos"
             value={fmtK(dados.totalFat)}
             atual={dados.totalFat}
             anterior={dados.totalFatAnt}
           />
-
           <KpiCard
             icon={IconReceipt}
             label="Pedidos"
-            value={fmtInt(sales.length)}
-            sub={`${fmtK(sales.length ? dados.totalFat / sales.length : 0)} ticket médio`}
+            value={fmtInt(totalPedidos)}
+            sub={`${fmtK(ticketTime)} ticket médio`}
           />
-
           <KpiCard
-            icon={IconTargetArrow}
-            label="Cotações"
-            value={fmtInt(dados.totalCotacoes)}
-            atual={dados.totalCotacoes}
-            anterior={dados.totalCotacoesAnt}
+            icon={IconUser}
+            label="Vendedores com venda"
+            value={`${vendedoresComVenda} de ${dados.vendedores.length}`}
+            sub="com pedido no período"
           />
-
-          <KpiCard
-            icon={IconChartBar}
-            label="Conversão"
-            value={`${dados.conversao}%`}
-            atual={dados.conversao}
-            anterior={dados.conversaoAnt}
-          />
-
           <KpiCard
             icon={IconMapPin}
             label="Visitas"
@@ -617,229 +587,38 @@ export default function Vendedores() {
             atual={dados.totalVisitas}
             anterior={dados.totalVisitasAnt}
           />
-
-          <KpiCard
-            icon={IconBuildingStore}
-            label="Carteira"
-            value={fmtInt(dados.totalCarteira)}
-            sub="clientes/fazendas no filtro"
-          />
         </section>
 
         {loading ? (
-          <Empty>Carregando performance...</Empty>
+          <Empty>Carregando equipe comercial...</Empty>
         ) : (
           <>
-            {dados.risco.length > 0 && (
-              <section className="vendedores-alerts">
-                <div className="vendedores-alert warning">
-                  <IconAlertTriangle size={17} />
-                  <span>
-                    <strong>{dados.risco.length}</strong> vendedor{dados.risco.length > 1 ? 'es' : ''} com clientes em risco de abandono ou sem acompanhamento.
-                  </span>
-                </div>
-              </section>
-            )}
-
-            <section className="vendedores-main-grid">
-              <div className="vendedores-card vendedores-chart-card">
-                <div className="vendedores-card-head">
-                  <div>
-                    <span className="vendedores-eyebrow">Resultado</span>
-                    <h3>Valor de pedidos por vendedor</h3>
-                  </div>
-                </div>
-
-                {dados.barData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={dados.barData} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="4 6" />
-                      <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                      <YAxis tickLine={false} axisLine={false} tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} />
-                      <Tooltip formatter={(v, n) => [`R$ ${fmt(v)}`, n]} />
-                      <Bar dataKey="Pedidos" fill="#E87722" radius={[8, 8, 0, 0]} />
-                      <Bar dataKey="Meta" fill="var(--surface-3)" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <Empty>Sem pedidos no período</Empty>
-                )}
-              </div>
-
-              <div className="vendedores-card">
-                <div className="vendedores-card-head">
-                  <div>
-                    <span className="vendedores-eyebrow">Evolução</span>
-                    <h3>Pedidos do time</h3>
-                  </div>
-                </div>
-
-                {dados.evolucao.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={dados.evolucao} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="vendedoresFat" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#E87722" stopOpacity={0.23} />
-                          <stop offset="95%" stopColor="#E87722" stopOpacity={0.02} />
-                        </linearGradient>
-                      </defs>
-
-                      <CartesianGrid strokeDasharray="4 6" />
-                      <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                      <YAxis tickLine={false} axisLine={false} tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} />
-                      <Tooltip formatter={(v, n) => [n === 'Pedidos' ? `R$ ${fmt(v)}` : fmtInt(v), n]} />
-                      <Area
-                        type="monotone"
-                        dataKey="Pedidos"
-                        stroke="#E87722"
-                        strokeWidth={2.5}
-                        fill="url(#vendedoresFat)"
-                        dot={{ r: 3 }}
-                        activeDot={{ r: 5 }}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <Empty>Sem evolução no período</Empty>
-                )}
-              </div>
-            </section>
-
-            <section className="vendedores-grid-4">
-              <div className="vendedores-card">
-                <div className="vendedores-card-head">
-                  <div>
-                    <span className="vendedores-eyebrow">Ranking</span>
-                    <h3>Maior valor de pedidos</h3>
-                  </div>
-                </div>
-
-                {dados.topFaturamento.length > 0 ? (
-                  <div className="vendedores-ranking">
-                    {dados.topFaturamento.map((s, i) => (
-                      <RankingRow
-                        key={s.id}
-                        index={i}
-                        title={s.name}
-                        subtitle={`${fmtInt(s.pedidos)} pedidos · ${fmtK(s.ticket)} ticket`}
-                        value={s.fat}
-                        max={topFatMax}
-                        extra={`${fmtInt(s.fazendas)} clientes`}
-                        money
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <Empty>Sem vendas</Empty>
-                )}
-              </div>
-
-              <div className="vendedores-card">
-                <div className="vendedores-card-head">
-                  <div>
-                    <span className="vendedores-eyebrow">Conversão</span>
-                    <h3>Melhor taxa comercial</h3>
-                  </div>
-                </div>
-
-                {dados.topConversao.length > 0 ? (
-                  <div className="vendedores-ranking">
-                    {dados.topConversao.map((s, i) => (
-                      <RankingRow
-                        key={s.id}
-                        index={i}
-                        title={s.name}
-                        subtitle={`${fmtInt(s.convertidas)} convertidas · ${fmtInt(s.cotacoes)} cotações`}
-                        value={s.txConversao}
-                        max={topConvMax}
-                        extra={`${s.txConversao}%`}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <Empty>Sem cotações</Empty>
-                )}
-              </div>
-
-              <div className="vendedores-card">
-                <div className="vendedores-card-head">
-                  <div>
-                    <span className="vendedores-eyebrow">Campo</span>
-                    <h3>Mais visitas</h3>
-                  </div>
-                </div>
-
-                {dados.topVisitas.length > 0 ? (
-                  <div className="vendedores-ranking">
-                    {dados.topVisitas.map((s, i) => (
-                      <RankingRow
-                        key={s.id}
-                        index={i}
-                        title={s.name}
-                        subtitle={`${fmtInt(s.fazVisitadas)} clientes visitados`}
-                        value={s.visitas}
-                        max={topVisitasMax}
-                        extra={`${s.coberturaVisitas}% cobertura`}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <Empty>Sem visitas</Empty>
-                )}
-              </div>
-
-              <div className="vendedores-card">
-                <div className="vendedores-card-head">
-                  <div>
-                    <span className="vendedores-eyebrow">Atenção</span>
-                    <h3>Carteira em risco</h3>
-                  </div>
-                </div>
-
-                {dados.risco.length > 0 ? (
-                  <div className="vendedores-ranking">
-                    {dados.risco.map((s, i) => (
-                      <RankingRow
-                        key={s.id}
-                        index={i}
-                        title={s.name}
-                        subtitle={`${fmtInt(s.fazendas)} clientes na carteira`}
-                        value={s.clientesRisco}
-                        max={riscoMax}
-                        extra="clientes em risco"
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <Empty>Sem risco relevante</Empty>
-                )}
-              </div>
-            </section>
-
-            <section className="vendedores-card">
-              <div className="vendedores-card-head">
+            <section className="vendedores-card" style={{ marginBottom: 14 }}>
+              <div className="vendedores-card-head" style={{ alignItems: 'center' }}>
                 <div>
-                  <span className="vendedores-eyebrow">Equipe</span>
-                  <h3>Visão geral do time</h3>
+                  <span className="vendedores-eyebrow">Visão principal</span>
+                  <h3>Como está cada vendedor</h3>
+                  <p style={{ margin: '4px 0 0', fontSize: 10, color: 'var(--text-faint)' }}>
+                    Resultado comercial primeiro. Campo e carteira aparecem como contexto para entender cada desempenho.
+                  </p>
                 </div>
-
-                <small>{fmtInt(dados.vendedores.length)} vendedores</small>
+                <small>clique em um vendedor para abrir os detalhes</small>
               </div>
 
               <div className="table-wrap vendedores-table-wrap">
                 <table>
                   <thead>
                     <tr>
-                      <th>#</th>
                       <th>Vendedor</th>
-                      <th>Fazendas</th>
-                      <th style={{ textAlign: 'right' }}>Valor de pedidos</th>
-                      <th style={{ textAlign: 'right' }}>Pedidos</th>
-                      <th style={{ textAlign: 'right' }}>Ticket</th>
+                      <th style={{ textAlign: 'right' }}>Valor dos pedidos</th>
+                      <th style={{ textAlign: 'right' }}>Vs. período ant.</th>
+                      <th style={{ textAlign: 'center' }}>Pedidos</th>
+                      <th style={{ textAlign: 'right' }}>Ticket médio</th>
+                      <th style={{ textAlign: 'center' }}>Visitas</th>
                       <th style={{ textAlign: 'center' }}>Cotações</th>
                       <th style={{ textAlign: 'center' }}>Conversão</th>
-                      <th style={{ textAlign: 'center' }}>Visitas</th>
-                      <th style={{ textAlign: 'center' }}>Cob. visitas</th>
+                      <th style={{ textAlign: 'center' }}>Carteira</th>
+                      <th style={{ textAlign: 'center' }}>Em atenção</th>
                       <th />
                     </tr>
                   </thead>
@@ -851,120 +630,182 @@ export default function Vendedores() {
                           Nenhum vendedor com dados no período
                         </td>
                       </tr>
-                    ) : (
-                      dados.vendedores.map((s, i) => (
+                    ) : dados.vendedores.map(s => {
+                      const variacao = pct(s.fat, s.fatAnt)
+                      return (
                         <>
                           <tr
                             key={s.id}
                             className={detalheId === s.id ? 'vendedores-row-active' : ''}
                             onClick={() => setDetalheId(detalheId === s.id ? null : s.id)}
+                            style={{ cursor: 'pointer' }}
                           >
                             <td>
-                              <strong className="vendedores-position">{i + 1}</strong>
-                            </td>
-                            <td>
                               <div className="vendedores-person">
-                                <div className="vendedores-avatar">
-                                  <IconUser size={16} />
-                                </div>
-
+                                <div className="vendedores-avatar"><IconUser size={16} /></div>
                                 <div>
                                   <strong>{s.name}</strong>
-                                  <small>{s.role}</small>
+                                  <small>{s.fazendas ? `${fmtInt(s.fazendas)} clientes na carteira` : 'Sem carteira vinculada'}</small>
                                 </div>
                               </div>
                             </td>
-                            <td>{fmtInt(s.fazendas)}</td>
+
                             <td style={{ textAlign: 'right' }}>
-                              <strong className="vendedores-money">{fmtK(s.fat)}</strong>
+                              <strong className="vendedores-money" style={{ fontSize: 14 }}>{fmtK(s.fat)}</strong>
                             </td>
-                            <td style={{ textAlign: 'right' }}>{fmtInt(s.pedidos)}</td>
-                            <td style={{ textAlign: 'right' }}>{fmtK(s.ticket)}</td>
-                            <td style={{ textAlign: 'center' }}>{fmtInt(s.cotacoes)}</td>
-                            <td style={{ textAlign: 'center' }}>
-                              <span className={`vendedores-pill ${s.txConversao >= 50 ? 'positive' : s.txConversao >= 25 ? 'warning' : 'negative'}`}>
-                                {s.txConversao}%
+
+                            <td style={{ textAlign: 'right' }}>
+                              <span className={`vendedores-var ${variacao >= 0 ? 'up' : 'down'}`} style={{ justifyContent: 'flex-end' }}>
+                                {variacao >= 0 ? <IconTrendingUp size={12} /> : <IconTrendingDown size={12} />}
+                                {variacao >= 0 ? '+' : ''}{variacao.toFixed(1)}%
                               </span>
                             </td>
+
+                            <td style={{ textAlign: 'center' }}><strong>{fmtInt(s.pedidos)}</strong></td>
+                            <td style={{ textAlign: 'right' }}>{fmtK(s.ticket)}</td>
                             <td style={{ textAlign: 'center' }}>{fmtInt(s.visitas)}</td>
-                            <td style={{ textAlign: 'center' }}>{s.coberturaVisitas}%</td>
-                            <td>
-                              {detalheId === s.id ? <IconChevronUp size={15} /> : <IconChevronDown size={15} />}
+                            <td style={{ textAlign: 'center' }}>{fmtInt(s.cotacoes)}</td>
+                            <td style={{ textAlign: 'center' }}>
+                              {s.cotacoes > 0 ? <strong>{s.txConversao}%</strong> : <span style={{ color: 'var(--text-faint)' }}>—</span>}
                             </td>
+                            <td style={{ textAlign: 'center' }}>{fmtInt(s.fazendas)}</td>
+                            <td style={{ textAlign: 'center' }}>
+                              {s.clientesRisco > 0 ? (
+                                <span className="vendedores-pill warning">{fmtInt(s.clientesRisco)}</span>
+                              ) : (
+                                <span style={{ color: 'var(--text-faint)' }}>—</span>
+                              )}
+                            </td>
+                            <td>{detalheId === s.id ? <IconChevronUp size={15} /> : <IconChevronDown size={15} />}</td>
                           </tr>
 
                           {detalheId === s.id && (
                             <tr key={`${s.id}_detalhe`}>
                               <td colSpan={11} className="vendedores-detail-cell">
-                                <div className="vendedores-detail-grid">
-                                  <div className="vendedores-detail-box">
-                                    <span>Valor de pedidos</span>
-                                    <strong>{fmtK(s.fat)}</strong>
-                                    <VarBadge atual={s.fat} anterior={s.fatAnt} />
-                                  </div>
-
-                                  <div className="vendedores-detail-box">
-                                    <span>Visitas</span>
-                                    <strong>{fmtInt(s.visitas)}</strong>
-                                    <VarBadge atual={s.visitas} anterior={s.visitasAnt} />
-                                  </div>
-
-                                  <div className="vendedores-detail-box">
-                                    <span>Cotações</span>
-                                    <strong>{fmtInt(s.cotacoes)}</strong>
-                                    <VarBadge atual={s.cotacoes} anterior={s.cotacoesAnt} />
-                                  </div>
-
-                                  <div className="vendedores-detail-box">
-                                    <span>Conversão</span>
-                                    <strong>{s.txConversao}%</strong>
-                                    <VarBadge atual={s.txConversao} anterior={s.txConversaoAnt} />
-                                  </div>
-
-                                  <div className="vendedores-detail-box">
-                                    <span>Cobertura visitas</span>
-                                    <strong>{s.coberturaVisitas}%</strong>
-                                    <small>{fmtInt(s.fazVisitadas)} de {fmtInt(s.fazendas)} clientes</small>
-                                  </div>
-
-                                  <div className="vendedores-detail-box">
-                                    <span>Cobertura vendas</span>
-                                    <strong>{s.coberturaVendas}%</strong>
-                                    <small>{fmtInt(s.fazComVenda)} clientes com venda</small>
-                                  </div>
-                                </div>
-                                <div className="vendedores-detail-chart">
-                                  <div className="vendedores-card-head">
-                                    <div>
-                                      <span className="vendedores-eyebrow">Últimos 6 meses</span>
-                                      <h3>Evolução de faturamento de {s.name}</h3>
+                                <div style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: 'minmax(0,1.35fr) minmax(300px,.65fr)',
+                                  gap: 14
+                                }}>
+                                  <div className="vendedores-detail-chart">
+                                    <div className="vendedores-card-head">
+                                      <div>
+                                        <span className="vendedores-eyebrow">Últimos 6 meses</span>
+                                        <h3>Evolução de {s.name}</h3>
+                                      </div>
                                     </div>
-                                    <small>notas líquidas por mês</small>
+
+                                    <ResponsiveContainer width="100%" height={220}>
+                                      <AreaChart data={s.evolucao} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+                                        <defs>
+                                          <linearGradient id={`sellerEvolution-${String(s.id).replace(/[^a-zA-Z0-9]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#E87722" stopOpacity={0.24} />
+                                            <stop offset="95%" stopColor="#E87722" stopOpacity={0.02} />
+                                          </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="4 6" vertical={false} />
+                                        <XAxis dataKey="mes" tickLine={false} axisLine={false} />
+                                        <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${Math.round(value / 1000)}k`} />
+                                        <Tooltip formatter={value => [fmtK(value), 'Valor dos pedidos']} />
+                                        <Area
+                                          type="monotone"
+                                          dataKey="Pedidos"
+                                          stroke="#E87722"
+                                          strokeWidth={2.5}
+                                          fill={`url(#sellerEvolution-${String(s.id).replace(/[^a-zA-Z0-9]/g, '')})`}
+                                          dot={{ r: 3 }}
+                                        />
+                                      </AreaChart>
+                                    </ResponsiveContainer>
                                   </div>
-                                  <ResponsiveContainer width="100%" height={230}>
-                                    <AreaChart data={s.evolucao} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
-                                      <defs>
-                                        <linearGradient id={`sellerEvolution-${String(s.id).replace(/[^a-zA-Z0-9]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                                          <stop offset="5%" stopColor="#E87722" stopOpacity={0.28} />
-                                          <stop offset="95%" stopColor="#E87722" stopOpacity={0.02} />
-                                        </linearGradient>
-                                      </defs>
-                                      <CartesianGrid strokeDasharray="4 6" vertical={false} />
-                                      <XAxis dataKey="mes" tickLine={false} axisLine={false} />
-                                      <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${Math.round(value / 1000)}k`} />
-                                      <Tooltip formatter={value => [fmtK(value), 'Vendas']} />
-                                      <Area type="monotone" dataKey="Faturamento" stroke="var(--orange)" strokeWidth={2.5} fill={`url(#sellerEvolution-${String(s.id).replace(/[^a-zA-Z0-9]/g, '')})`} />
-                                    </AreaChart>
-                                  </ResponsiveContainer>
+
+                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'start' }}>
+                                    <div className="vendedores-detail-box">
+                                      <span>Pedidos</span>
+                                      <strong>{fmtInt(s.pedidos)}</strong>
+                                      <small>{fmtK(s.ticket)} por pedido</small>
+                                    </div>
+                                    <div className="vendedores-detail-box">
+                                      <span>Visitas</span>
+                                      <strong>{fmtInt(s.visitas)}</strong>
+                                      <small>{s.coberturaVisitas}% da carteira visitada</small>
+                                    </div>
+                                    <div className="vendedores-detail-box">
+                                      <span>Cotações</span>
+                                      <strong>{fmtInt(s.cotacoes)}</strong>
+                                      <small>{fmtInt(s.convertidas)} convertidas</small>
+                                    </div>
+                                    <div className="vendedores-detail-box">
+                                      <span>Clientes com venda</span>
+                                      <strong>{fmtInt(s.fazComVenda)}</strong>
+                                      <small>{s.coberturaVendas}% da carteira</small>
+                                    </div>
+                                    <div className="vendedores-detail-box">
+                                      <span>Clientes em atenção</span>
+                                      <strong>{fmtInt(s.clientesRisco)}</strong>
+                                      <small>sem compra 60d ou visita 45d</small>
+                                    </div>
+                                    <div className="vendedores-detail-box">
+                                      <span>Valor anterior</span>
+                                      <strong>{fmtK(s.fatAnt)}</strong>
+                                      <VarBadge atual={s.fat} anterior={s.fatAnt} />
+                                    </div>
+                                  </div>
                                 </div>
                               </td>
                             </tr>
                           )}
                         </>
-                      ))
-                    )}
+                      )
+                    })}
                   </tbody>
                 </table>
+              </div>
+            </section>
+
+            <section style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3,minmax(0,1fr))',
+              gap: 10,
+              marginBottom: 12
+            }}>
+              <div className="vendedores-card">
+                <div className="vendedores-card-head">
+                  <div><span className="vendedores-eyebrow">Time</span><h3>Conversão de cotações</h3></div>
+                </div>
+                <div style={{ padding: '18px 16px' }}>
+                  <strong style={{ fontSize: 28 }}>{dados.conversao}%</strong>
+                  <div style={{ marginTop: 6 }}><VarBadge atual={dados.conversao} anterior={dados.conversaoAnt} /></div>
+                  <small style={{ display: 'block', marginTop: 8, color: 'var(--text-faint)' }}>
+                    {fmtInt(dados.totalCotacoes)} cotações no período
+                  </small>
+                </div>
+              </div>
+
+              <div className="vendedores-card">
+                <div className="vendedores-card-head">
+                  <div><span className="vendedores-eyebrow">Cobertura</span><h3>Carteira comercial</h3></div>
+                </div>
+                <div style={{ padding: '18px 16px' }}>
+                  <strong style={{ fontSize: 28 }}>{fmtInt(dados.totalCarteira)}</strong>
+                  <small style={{ display: 'block', marginTop: 8, color: 'var(--text-faint)' }}>
+                    clientes/fazendas vinculados ao time no filtro
+                  </small>
+                </div>
+              </div>
+
+              <div className="vendedores-card">
+                <div className="vendedores-card-head">
+                  <div><span className="vendedores-eyebrow">Atenção</span><h3>Carteiras com risco</h3></div>
+                </div>
+                <div style={{ padding: '18px 16px' }}>
+                  <strong style={{ fontSize: 28 }}>
+                    {fmtInt(dados.vendedores.reduce((sum, v) => sum + Number(v.clientesRisco || 0), 0))}
+                  </strong>
+                  <small style={{ display: 'block', marginTop: 8, color: 'var(--text-faint)' }}>
+                    clientes sem compra há 60 dias ou sem visita há 45 dias
+                  </small>
+                </div>
               </div>
             </section>
           </>
@@ -972,4 +813,5 @@ export default function Vendedores() {
       </div>
     </div>
   )
+
 }
