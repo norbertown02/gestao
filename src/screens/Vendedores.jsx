@@ -318,10 +318,10 @@ export default function Vendedores() {
       const profileSeller = sellerById.get(id)
       const seller = profileSeller ? {
         ...profileSeller,
-        name: canonico?.name || profileSeller.name || profileSeller.email || 'Vendedor não vinculado',
+        name: String(canonico?.name || profileSeller.name || profileSeller.email || '').trim() || 'Vendedor não vinculado',
       } : {
         id,
-        name: canonico?.name || 'Vendedor não vinculado',
+        name: String(canonico?.name || '').trim() || 'Vendedor não vinculado',
         email: '',
         ultra_salesman_id: vendorId || null,
       }
@@ -648,12 +648,23 @@ export default function Vendedores() {
                               <div className="vendedores-person">
                                 <div className="vendedores-avatar"><IconUser size={16} /></div>
                                 <div style={{ minWidth: 0 }}>
-                                  <strong style={{ display: 'block', fontSize: 13, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {s.name || 'Vendedor sem nome'}
-                                  </strong>
-                                  <small style={{ display: 'block', marginTop: 2 }}>
+                                  <div style={{
+                                    display: 'block',
+                                    visibility: 'visible',
+                                    opacity: 1,
+                                    fontSize: 13,
+                                    lineHeight: 1.25,
+                                    fontWeight: 700,
+                                    color: '#2b2724',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
+                                  }}>
+                                    {String(s.name || '').trim() || 'Vendedor não identificado'}
+                                  </div>
+                                  <div style={{ display: 'block', marginTop: 3, fontSize: 11, lineHeight: 1.25, color: '#8f857d' }}>
                                     {s.fazendas ? `${fmtInt(s.fazendas)} clientes na carteira` : 'Sem carteira vinculada'}
-                                  </small>
+                                  </div>
                                 </div>
                               </div>
                             </td>
