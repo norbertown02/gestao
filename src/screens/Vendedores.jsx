@@ -315,7 +315,11 @@ export default function Vendedores() {
     const rows = [...sellerIdsAtivos].map(id => {
       const vendorId = typeof id === 'string' && id.startsWith('ultra:') ? Number(id.slice(6)) : sellerById.get(id)?.ultra_salesman_id
       const canonico = vendorId ? vendedoresById.get(vendorId) : null
-      const seller = sellerById.get(id) || {
+      const profileSeller = sellerById.get(id)
+      const seller = profileSeller ? {
+        ...profileSeller,
+        name: canonico?.name || profileSeller.name || profileSeller.email || 'Vendedor não vinculado',
+      } : {
         id,
         name: canonico?.name || 'Vendedor não vinculado',
         email: '',
@@ -643,9 +647,13 @@ export default function Vendedores() {
                             <td>
                               <div className="vendedores-person">
                                 <div className="vendedores-avatar"><IconUser size={16} /></div>
-                                <div>
-                                  <strong>{s.name}</strong>
-                                  <small>{s.fazendas ? `${fmtInt(s.fazendas)} clientes na carteira` : 'Sem carteira vinculada'}</small>
+                                <div style={{ minWidth: 0 }}>
+                                  <strong style={{ display: 'block', fontSize: 13, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {s.name || 'Vendedor sem nome'}
+                                  </strong>
+                                  <small style={{ display: 'block', marginTop: 2 }}>
+                                    {s.fazendas ? `${fmtInt(s.fazendas)} clientes na carteira` : 'Sem carteira vinculada'}
+                                  </small>
                                 </div>
                               </div>
                             </td>
