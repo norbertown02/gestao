@@ -23,6 +23,7 @@ import Financeiro from './screens/Financeiro'
 import DRE from './screens/DRE'
 import ImportarFechamento from './screens/ImportarFechamento'
 import AuditoriaFinanceira from './screens/AuditoriaFinanceira'
+import TabelaPrecos from './screens/TabelaPrecos'
 
 function routeKey(pathname) {
   const clean = String(pathname || '').replace(/^\/+|\/+$/g, '')
@@ -48,6 +49,7 @@ function AppContent() {
           <Route path="/produtos" element={<Produtos />} />
           <Route path="/estoque" element={<Estoque />} />
           <Route path="/financeiro" element={<Financeiro />} />
+          <Route path="/tabela-precos" element={['gestor','gestor_financeiro'].includes(user?.role) ? <TabelaPrecos /> : <Navigate to="/" replace />} />
           <Route path="/dre" element={<DRE />} />
           <Route path="/financeiro/importar" element={<ImportarFechamento />} />
           <Route path="/financeiro/auditoria" element={<AuditoriaFinanceira />} />
