@@ -3,11 +3,6 @@ import { supabase } from './supabase'
 
 const AuthContext = createContext(null)
 
-// SSO entre apps Nutrialle (Painel <-> Gestao): cada app pode rodar num
-// dominio Vercel diferente (gestao-three-virid.vercel.app fora do proxy),
-// entao a sessao do Supabase (localStorage) nao atravessa sozinha. Quando o
-// Painel manda o usuario pra ca ele leva a sessao ativa no hash da URL
-// (#sso_at=...&sso_rt=...) -- aplicamos ela aqui antes de checar getSession().
 async function processarHandoffSSO() {
   const hash = window.location.hash || ''
   if (hash.indexOf('sso_at=') === -1) return
@@ -24,40 +19,69 @@ async function processarHandoffSSO() {
   }
 }
 
+async function montarUsuario(authUser) {
+  if (!authUser) return null
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id,name,email,role,active')
+    .eq('id', authUser.id)
+    .maybeSingle()
+
+  return {
+    id: authUser.id,
+    email: profile?.email || authUser.email,
+    name: profile?.name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Usuário',
+    role: profile?.role || authUser.user_metadata?.role || 'vendedor',
+    active: profile?.active !== false,
+    profile: profile || null,
+  }
+}
+
 export function AuthProvider({ children }) {
-  const [user,    setUser]    = useState(null)
+  const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState(null)
+  const [error, setError] = useState(null)
   const [showSplash, setShowSplash] = useState(false)
 
   useEffect(() => {
-    processarHandoffSSO().then(() => {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user) setUser({
-          id:    session.user.id,
-          email: session.user.email,
-          name:  session.user.user_metadata?.name || session.user.email.split('@')[0],
-          role:  session.user.user_metadata?.role || 'admin',
-        })
-        setLoading(false)
-      })
+    let active = true
+
+    async function aplicarSessao(session) {
+      if (!active) return
+      if (!session?.user) {
+        setUser(null)
+        return
+      }
+      try {
+        const usuario = await montarUsuario(session.user)
+        if (active) setUser(usuario?.active ? usuario : null)
+      } catch (err) {
+        console.error('Falha ao carregar perfil do usuário:', err)
+        if (active) setUser(null)
+      }
+    }
+
+    processarHandoffSSO()
+      .then(() => supabase.auth.getSession())
+      .then(({ data: { session } }) => aplicarSessao(session))
+      .finally(() => { if (active) setLoading(false) })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      aplicarSessao(session)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ? {
-        id:    session.user.id,
-        email: session.user.email,
-        name:  session.user.user_metadata?.name || session.user.email.split('@')[0],
-        role:  session.user.user_metadata?.role || 'admin',
-      } : null)
-    })
-    return () => subscription.unsubscribe()
+
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const login = useCallback(async (email, password) => {
     setError(null)
     setShowSplash(true)
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
       setError('E-mail ou senha incorretos')
@@ -65,10 +89,16 @@ export function AuthProvider({ children }) {
       return false
     }
 
-    setTimeout(() => {
+    const usuario = await montarUsuario(data.user)
+    if (!usuario?.active) {
+      await supabase.auth.signOut()
+      setError('Usuário sem acesso ao sistema')
       setShowSplash(false)
-    }, 1200)
+      return false
+    }
 
+    setUser(usuario)
+    setTimeout(() => setShowSplash(false), 1200)
     return true
   }, [])
 
