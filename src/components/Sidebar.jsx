@@ -20,6 +20,7 @@ import {
   IconFileInvoice,
   IconCloudUpload,
   IconShieldCheck,
+  IconCurrencyDollar,
 } from '@tabler/icons-react'
 import { useAuth } from '../lib/useAuth'
 import { supabase } from '../lib/supabase'
@@ -58,6 +59,7 @@ const NAV = [
   { to: '/vendedores', label: 'Equipe Comercial', Icon: IconUsers },
 
   { section: 'Financeiro' },
+  { to: '/tabela-precos', label: 'Tabela de Preços', Icon: IconCurrencyDollar, roles: ['gestor', 'gestor_financeiro'] },
   { to: '/financeiro', label: 'Financeiro', Icon: IconReportMoney, roles: ['admin', 'gestor', 'gestor_comercial'] },
   { to: '/dre', label: 'DRE', Icon: IconFileInvoice, roles: ['admin', 'gestor', 'gestor_comercial'] },
   { to: '/financeiro/importar', label: 'Importar fechamento', Icon: IconCloudUpload, roles: ['admin', 'gestor', 'gestor_comercial'] },
