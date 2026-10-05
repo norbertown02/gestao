@@ -52,7 +52,7 @@ const NAV = [
   { to: '/regioes', label: 'Regiões', Icon: IconMapPin },
   { to: '/produtos', label: 'Produtos', Icon: IconBuildingStore },
   { to: '/estoque', label: 'Estoque', Icon: IconBox },
-  { to: '/fechamentos', label: 'Apresentações', Icon: IconPresentation, roles: ['admin', 'gestor', 'gestor_comercial'] },
+  { to: '/fechamentos', label: 'Apresentações', Icon: IconPresentation, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
 
   { section: 'Equipe e metas' },
   { to: '/metas', label: 'Metas', Icon: IconTarget },
@@ -60,10 +60,10 @@ const NAV = [
 
   { section: 'Financeiro' },
   { to: '/tabela-precos', label: 'Tabela de Preços', Icon: IconCurrencyDollar, roles: ['gestor', 'gestor_financeiro'] },
-  { to: '/financeiro', label: 'Financeiro', Icon: IconReportMoney, roles: ['admin', 'gestor', 'gestor_comercial'] },
-  { to: '/dre', label: 'DRE', Icon: IconFileInvoice, roles: ['admin', 'gestor', 'gestor_comercial'] },
-  { to: '/financeiro/importar', label: 'Importar fechamento', Icon: IconCloudUpload, roles: ['admin', 'gestor', 'gestor_comercial'] },
-  { to: '/financeiro/auditoria', label: 'Auditoria financeira', Icon: IconShieldCheck, roles: ['admin', 'gestor', 'gestor_comercial'] },
+  { to: '/financeiro', label: 'Financeiro', Icon: IconReportMoney, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
+  { to: '/dre', label: 'DRE', Icon: IconFileInvoice, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
+  { to: '/financeiro/importar', label: 'Importar fechamento', Icon: IconCloudUpload, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
+  { to: '/financeiro/auditoria', label: 'Auditoria financeira', Icon: IconShieldCheck, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
 
   { section: 'Execução em campo' },
   { to: '/carteira', label: 'Carteira de Clientes', Icon: IconChartBar },
