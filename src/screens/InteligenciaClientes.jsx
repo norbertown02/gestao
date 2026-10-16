@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
+import { ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
+import { IconAdjustmentsHorizontal, IconChartBar, IconChevronDown, IconRotateClockwise, IconTrendingUp, IconUsers, IconPackage, IconAlertCircle, IconArrowUpRight, IconArrowDownRight, IconArrowRight } from '@tabler/icons-react'
+import './InteligenciaClientes.css'
 import Topbar from '../components/Topbar'
 import { supabaseAdmin } from '../lib/supabase'
 
@@ -15,24 +17,62 @@ const median = values => {
   return ordered.length % 2 ? ordered[mid] : (ordered[mid-1]+ordered[mid])/2
 }
 const dateDiff = (a,b) => Math.max(0,Math.round((a-b)/86400000))
-const pct = (a,b) => b ? ((a-b)/b*100).toFixed(1)+'%' : '—'
 const yearMonth = date => String(date || '').slice(0,7)
 const quarterChange=(current,previous)=>previous===0?null:100*(current-previous)/previous
 const changeLabel=(current,previous)=>{const rate=quarterChange(current,previous);return rate===null?'Sem base comparável':(rate>=0?'+':'')+rate.toFixed(1)+'%'}
-const deltaLabel=(current,previous,asMoney=false)=>{const d=current-previous;return (d>=0?'+':'−')+(asMoney?currency(Math.abs(d)):number(Math.abs(d)))}
 const CHART={orange:'#E87722',ink:'#171411',blue:'#426A8C',muted:'#A49B92'}
 const MARKET_OPTIONS = ['Bovinos','Suínos','Multiespécie','Todos']
 
-function Kpi({ label, value, note }) {
-  return <article className="carteira-kpi" style={{minWidth:0}}><div className="carteira-kpi-top"><div><span>{label}</span><strong>{value}</strong></div></div><small>{note}</small></article>
+function Kpi({label,value,note,Icon}) {
+  return <article className="ci-kpi">
+    <div className="ci-kpi-head">
+      <span className="ci-kpi-title">{label}</span>
+      <span className="ci-kpi-icon"><Icon size={17} stroke={1.8}/></span>
+    </div>
+    <div>
+      <strong className="ci-kpi-number">{value}</strong>
+      <p className="ci-kpi-note">{note}</p>
+    </div>
+  </article>
 }
-function Section({title,children,description}) {
-  return <section style={{background:'var(--surface)',border:'1px solid var(--line)',borderRadius:16,padding:22,marginTop:18,boxShadow:'var(--shadow-soft)'}}>
-    <h3 style={{margin:'0 0 6px'}}>{title}</h3>{description&&<p style={{margin:'0 0 15px',opacity:.7,fontSize:13}}>{description}</p>}{children}
+function Panel({eyebrow,title,note,side,children,footer,className=''}) {
+  return <section className={'ci-card '+className}>
+    <div className="ci-card-head">
+      <div><div className="ci-card-kicker">{eyebrow}</div><h3 className="ci-card-title">{title}</h3>
+        {note&&<p className="ci-card-desc">{note}</p>}
+      </div>
+      {side&&<span className="ci-card-side">{side}</span>}
+    </div>
+    <div className="ci-card-body">{children}</div>
+    {footer&&<div className="ci-card-footer">{footer}</div>}
   </section>
 }
+function HoverTooltip({active,payload,label,formatValue}) {
+  if(!active||!payload?.length)return null
+  return <div className="ci-tooltip">
+    <div className="ci-tooltip-label">{label}</div>
+    {payload.filter(p=>p.value!=null).map((p,i)=><div className="ci-tooltip-item" key={i}>
+      <span>{p.name}</span><strong>{formatValue?formatValue(p.value,p):number(p.value)}</strong>
+    </div>)}
+  </div>
+}
+function LegendStrip({items}) {
+  return <div className="ci-legend">{items.map(x=><span className="ci-legend-item" key={x.name}>
+    <span className="ci-legend-mark" style={{background:x.color}}/>{x.name}
+  </span>)}</div>
+}
+function Delta({current,previous}) {
+  const ratio=quarterChange(current,previous)
+  if(ratio===null)return <span className="ci-delta flat">—</span>
+  const positive=ratio>0,negative=ratio<0,Icon=positive?IconArrowUpRight:negative?IconArrowDownRight:null
+  return <span className={'ci-delta '+(positive?'up':negative?'down':'flat')}>{Icon&&<Icon size={13}/>}
+    {changeLabel(current,previous)}</span>
+}
+const axis={fontSize:11,fill:'#8A8177',fontFamily:'Archivo, sans-serif'}
+const gridProps={stroke:'#EEE7DF',strokeDasharray:'3 5',vertical:false}
 export default function InteligenciaClientes() {
   const [market,setMarket] = useState('Bovinos')
+  const [year,setYear] = useState(String(new Date().getFullYear()))
   const [segment,setSegment] = useState('Todos')
   const [data,setData] = useState([])
   const [loading,setLoading] = useState(true)
@@ -69,7 +109,8 @@ export default function InteligenciaClientes() {
     const missing=allQuality.filter(x=>x.item_count===0).length
     const unvalued=allQuality.filter(x=>x.data_quality==='sem_valores').length
     const divergent=new Set(active.filter(x=>x.data_quality==='rateado_divergencia').map(x=>x.sale_id)).size
-    const eligible=active.filter(x=>(market==='Todos'||x.market===market)&&
+    const eligible=active.filter(x=>(year==='Todos'||x.sale_date?.startsWith(year))&&
+      (market==='Todos'||x.market===market)&&
       (segment==='Todos'||x.segment===segment) && x.allocated_order_value!==null)
     const customers=new Map(),monthMap=new Map(),mix=new Map()
     for(const r of eligible){
@@ -137,59 +178,161 @@ export default function InteligenciaClientes() {
       sum:eligible.reduce((a,x)=>a+Number(x.allocated_order_value||0),0),
       oneRecent:one.filter(c=>c.days<=90).length,
       oneOlder:one.filter(c=>c.days>90).length}
-  },[data,market,segment,reference])
+  },[data,market,segment,year,reference])
+
   const segments=[...new Set(data.filter(x=>market==='Todos'||x.market===market).map(x=>x.segment).filter(Boolean))].sort()
-  return <div style={{paddingBottom:36}}>
-    <Topbar title="Inteligência de Clientes" subtitle="Evolução, concentração, mix e recompra por data do pedido" />
-    <div style={{padding:'22px 34px 48px',maxWidth:1440,margin:'0 auto',width:'100%'}}>
-      <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center',marginBottom:14}}>
-        <label>Mercado <select value={market} onChange={e=>{setMarket(e.target.value);setSegment('Todos')}}>{MARKET_OPTIONS.map(v=><option key={v}>{v}</option>)}</select></label>
-        <label>Segmento <select value={segment} onChange={e=>setSegment(e.target.value)}><option>Todos</option>{segments.map(s=><option key={s}>{s}</option>)}</select></label>
-        <Link to="/carteira" style={{marginLeft:'auto'}}>Ver carteira operacional →</Link>
+  const years=[...new Set(data.map(r=>r.sale_date?.slice(0,4)).filter(Boolean))].sort((a,b)=>b.localeCompare(a))
+  const reset=()=>{setMarket('Bovinos');setSegment('Todos');setYear(String(new Date().getFullYear()))}
+  const changed=market!=='Bovinos'||segment!=='Todos'||year!==String(new Date().getFullYear())
+  const firstMonth=analysis.timeline[0]?.mes
+  const lastMonth=analysis.timeline.at(-1)?.mes
+  const lastQuarter=analysis.quarterData.at(-1)
+  const currentQuarter=reference.getFullYear()+'-T'+(Math.floor(reference.getMonth()/3)+1)
+  return <div>
+    <Topbar title="Inteligência de Clientes" subtitle="Desempenho, evolução e composição da carteira"/>
+    <main className="ci-page">
+      <div className="ci-overview">
+        <div>
+          <div className="ci-eyebrow">Business Intelligence · Comercial</div>
+          <h1>Visão estratégica da carteira</h1>
+          <p className="ci-lead">Acompanhe a evolução das vendas, o crescimento de clientes, a penetração do mix e os ciclos de recompra com base na data do pedido.</p>
+        </div>
+        <div className="ci-date-pill">{firstMonth||'—'} — {lastMonth||'—'}</div>
       </div>
-      {loading&&<p>Carregando dados comerciais...</p>}
-      {error&&<Section title="Erro ao consultar os dados"><p>{error}</p><p>A carteira operacional permanece disponível.</p></Section>}
+      <div className="ci-filters" aria-label="Filtros do dashboard">
+        <div className="ci-filter-group ci-market-group">
+          <span className="ci-filter-label">Mercado</span>
+          <div className="ci-market-toggle" role="group" aria-label="Selecionar mercado">
+            {MARKET_OPTIONS.map(item=><button key={item} type="button" className="ci-market-btn"
+              aria-pressed={market===item} onClick={()=>{setMarket(item);setSegment('Todos')}}>{item}</button>)}
+          </div>
+        </div>
+        <label className="ci-filter-group ci-select-group">
+          <span className="ci-filter-label">Segmento</span>
+          <span className="ci-select-wrap">
+            <select value={segment} onChange={e=>setSegment(e.target.value)}>
+              <option value="Todos">Todos os segmentos</option>
+              {segments.map(v=><option key={v} value={v}>{v}</option>)}
+            </select><IconChevronDown className="ci-select-chevron" size={15}/>
+          </span>
+        </label>
+        <label className="ci-filter-group ci-select-group" style={{flex:'0 0 120px',minWidth:105}}>
+          <span className="ci-filter-label">Ano</span>
+          <span className="ci-select-wrap">
+            <select value={year} onChange={e=>setYear(e.target.value)}>
+              <option value="Todos">Todos</option>
+              {years.map(y=><option value={y} key={y}>{y}</option>)}
+            </select><IconChevronDown className="ci-select-chevron" size={15}/>
+          </span>
+        </label>
+        <div className="ci-filter-tools">
+          {changed&&<button type="button" className="ci-reset" onClick={reset}><IconRotateClockwise size={15}/> Restaurar</button>}
+          <span className="ci-live"><span className="ci-live-dot"/> Data do pedido</span>
+        </div>
+      </div>
+
+      {loading&&<div className="ci-loading">Carregando indicadores comerciais…</div>}
+      {error&&<div className="ci-quality" role="alert"><IconAlertCircle size={17}/><span>{error}. A carteira operacional continua disponível.</span></div>}
       {!loading&&!error&&<>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12}}>
-          <Kpi label="Vendas atribuídas" value={currency(analysis.sum)} note="Somente itens classificáveis"/>
-          <Kpi label="Clientes compradores" value={number(analysis.customerRows.length)} note="No histórico disponível"/>
-          <Kpi label="Compra única" value={number(analysis.one.length)} note={analysis.oneRecent+' até 90d · '+analysis.oneOlder+' acima de 90d'}/>
-          <Kpi label="Concentração top 5" value={analysis.concentration.toFixed(1)+'%'} note="Dos valores atribuídos"/>
+        <div className="ci-kpis">
+          <Kpi label="Vendas atribuídas" value={currency(analysis.sum)} note="Valores distribuídos por itens classificáveis" Icon={IconChartBar}/>
+          <Kpi label="Clientes compradores" value={number(analysis.customerRows.length)} note="Clientes únicos no período filtrado" Icon={IconUsers}/>
+          <Kpi label="Mix comercial" value={number(new Set(analysis.customerRows.flatMap(c=>[...c.skus])).size)} note="Produtos distintos comercializados" Icon={IconPackage}/>
+          <Kpi label="Concentração Top 5" value={analysis.concentration.toFixed(1)+'%'} note="Participação dos cinco maiores clientes" Icon={IconTrendingUp}/>
         </div>
-        {(analysis.missing||analysis.divergent||analysis.unvalued)>0&&<p role="status" style={{padding:12,borderRadius:8,background:'var(--orange-bg)',border:'1px solid var(--line)',color:'var(--text)',marginTop:14}}>
-          Qualidade da base: {analysis.missing} pedidos sem itens, {analysis.unvalued} sem valores de itens e {analysis.divergent} com divergências e rateio. Não use estes indicadores como conciliação fiscal.
-        </p>}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(400px,1fr))',gap:16}}>
-          <Section title="Vendas, média e mediana — 3 meses" description="Evolução pela data do pedido; média e mediana móveis suavizam as compras concentradas.">
-            <div style={{height:310}}><ResponsiveContainer><ComposedChart data={analysis.timeline}><CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/><XAxis dataKey="mes"/><YAxis tickFormatter={v=>(v/1000).toFixed(0)+'k'}/><Tooltip formatter={v=>currency(v)}/><Legend/><Bar dataKey="vendas" name="Vendas" fill={CHART.orange} radius={[4,4,0,0]}/><Line type="monotone" dataKey="media" name="Média" stroke={CHART.ink} strokeWidth={2.5} dot={false}/><Line type="monotone" dataKey="mediana" name="Mediana" stroke={CHART.blue} strokeWidth={2.5} dot={false}/></ComposedChart></ResponsiveContainer></div>
-          </Section>
-          <Section title="Clientes e mix comercial por trimestre" description="Clientes únicos compradores e produtos distintos no período.">
-            <div style={{height:310}}><ResponsiveContainer><BarChart data={analysis.quarterData}><CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/><XAxis dataKey="trimestre"/><YAxis allowDecimals={false}/><Tooltip/><Legend/><Bar name="Clientes compradores" dataKey="clientes" fill={CHART.ink} radius={[4,4,0,0]}/><Bar name="Produtos (SKUs)" dataKey="produtos" fill={CHART.orange} radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></div>
-          </Section>
+
+        <div className="ci-grid">
+          <Panel eyebrow="01 · Tendência" title="Evolução de vendas" note="Faturamento mensal, média e mediana móveis de três meses." side="VISÃO MENSAL"
+            footer="Os pedidos de grandes fazendas podem deslocar o faturamento entre meses. O período atual pode estar incompleto.">
+            <div className="ci-card-chart"><ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={analysis.timeline} margin={{top:14,right:10,left:0,bottom:4}}>
+                <CartesianGrid {...gridProps}/><XAxis dataKey="mes" tick={axis} axisLine={false} tickLine={false} tickMargin={11}/>
+                <YAxis tick={axis} axisLine={false} tickLine={false} tickFormatter={v=>(v/1000).toFixed(0)+' mil'} width={60}/>
+                <Tooltip content={<HoverTooltip formatValue={v=>currency(v)}/>}/>
+                <Bar dataKey="vendas" name="Vendas" fill={CHART.orange} maxBarSize={30} radius={[5,5,0,0]}/>
+                <Line type="monotone" dataKey="media" name="Média" stroke={CHART.ink} strokeWidth={2.5} dot={false} activeDot={{r:4}}/>
+                <Line type="monotone" dataKey="mediana" name="Mediana" stroke={CHART.blue} strokeWidth={2.5} dot={false} activeDot={{r:4}}/>
+              </ComposedChart>
+            </ResponsiveContainer></div>
+            <LegendStrip items={[{name:'Vendas',color:CHART.orange},{name:'Média móvel',color:CHART.ink},{name:'Mediana móvel',color:CHART.blue}]}/>
+          </Panel>
+          <Panel eyebrow="02 · Expansão" title="Clientes e produtos por trimestre" note="Evolução da presença comercial e da variedade de SKUs vendidos." side="VISÃO TRIMESTRAL"
+            footer="Clientes distintos e SKUs distintos são contabilizados uma vez dentro de cada trimestre.">
+            <div className="ci-card-chart"><ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analysis.quarterData} margin={{top:14,right:11,left:-16,bottom:4}} barGap={7}>
+                <CartesianGrid {...gridProps}/><XAxis dataKey="trimestre" tick={axis} axisLine={false} tickLine={false} tickMargin={11}/>
+                <YAxis tick={axis} axisLine={false} tickLine={false} allowDecimals={false}/>
+                <Tooltip content={<HoverTooltip/>}/>
+                <Bar name="Clientes compradores" dataKey="clientes" fill={CHART.ink} maxBarSize={33} radius={[5,5,0,0]}/>
+                <Bar name="Produtos (SKUs)" dataKey="produtos" fill={CHART.orange} maxBarSize={33} radius={[5,5,0,0]}/>
+              </BarChart>
+            </ResponsiveContainer></div>
+            <LegendStrip items={[{name:'Clientes compradores',color:CHART.ink},{name:'Produtos (SKUs)',color:CHART.orange}]}/>
+          </Panel>
+
+          <Panel eyebrow="03 · Comparativo" title="Crescimento trimestral" note="Evolução absoluta e percentual de receita, base de clientes e amplitude do mix." side={lastQuarter?.trimestre} className="ci-card-wide"
+            footer="Trimestres parciais aparecem sinalizados. Uma variação positiva não implica, por si só, crescimento recorrente.">
+            <div className="ci-table-scroll"><table className="ci-table"><thead><tr>
+              <th>Trimestre</th><th>Faturamento</th><th>Variação</th><th>Clientes</th><th>Variação</th><th>Mix (SKUs)</th><th>Variação</th>
+            </tr></thead><tbody>{analysis.quarterData.map((q,i)=>{
+              const prev=analysis.quarterData[i-1]
+              const partial=q.trimestre===currentQuarter
+              return <tr key={q.trimestre}>
+                <td><span className="ci-quarter-id">{q.trimestre}{partial&&<span className="ci-partial">PARCIAL</span>}</span></td>
+                <td className="ci-strong">{currency(q.valor)}</td><td>{prev?<Delta current={q.valor} previous={prev.valor}/>:<span className="ci-delta flat">—</span>}</td>
+                <td className="ci-strong">{number(q.clientes)}</td><td>{prev?<Delta current={q.clientes} previous={prev.clientes}/>:<span className="ci-delta flat">—</span>}</td>
+                <td className="ci-strong">{number(q.produtos)}</td><td>{prev?<Delta current={q.produtos} previous={prev.produtos}/>:<span className="ci-delta flat">—</span>}</td>
+              </tr>
+            })}</tbody></table></div>
+          </Panel>
+
+          <Panel eyebrow="04 · Portfólio" title="Participação por categoria" note="Faturamento atribuído por categoria comercial." side="MIX DE RECEITA">
+            <div className="ci-card-chart"><ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analysis.mix} layout="vertical" margin={{top:11,right:14,left:4,bottom:4}}>
+                <CartesianGrid {...gridProps}/><XAxis type="number" tick={axis} axisLine={false} tickLine={false} tickFormatter={v=>(v/1000).toFixed(0)+'k'}/>
+                <YAxis type="category" dataKey="name" width={97} tick={axis} axisLine={false} tickLine={false}/>
+                <Tooltip content={<HoverTooltip formatValue={v=>currency(v)}/>}/>
+                <Bar name="Faturamento" dataKey="value" fill={CHART.orange} maxBarSize={27} radius={[0,5,5,0]}/>
+              </BarChart>
+            </ResponsiveContainer></div>
+          </Panel>
+          <Panel eyebrow="05 · Perfil" title="Frequência de compra" note="Distribuição agregada de clientes por número de pedidos." side="HISTÓRICO">
+            <div className="ci-card-chart"><ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analysis.customerDistribution} margin={{top:12,right:10,left:-20,bottom:4}}>
+                <CartesianGrid {...gridProps}/><XAxis dataKey="grupo" tick={axis} axisLine={false} tickLine={false} tickMargin={10}/>
+                <YAxis allowDecimals={false} tick={axis} axisLine={false} tickLine={false}/>
+                <Tooltip content={<HoverTooltip/>}/>
+                <Bar name="Clientes" dataKey="clientes" fill={CHART.ink} maxBarSize={42} radius={[5,5,0,0]}/>
+              </BarChart>
+            </ResponsiveContainer></div>
+          </Panel>
+          <Panel eyebrow="06 · Retenção" title="Situação de recompra" note="Classificação baseada nos intervalos observados entre pedidos." side="COMPORTAMENTO"
+            footer="Compra única não permite determinar o ciclo de reposição. Atraso não equivale automaticamente a cliente perdido.">
+            <div className="ci-card-chart"><ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analysis.reorderDistribution} layout="vertical" margin={{top:12,right:15,left:8,bottom:4}}>
+                <CartesianGrid {...gridProps}/><XAxis type="number" allowDecimals={false} tick={axis} axisLine={false} tickLine={false}/>
+                <YAxis type="category" dataKey="grupo" width={147} tick={{...axis,fontSize:10}} axisLine={false} tickLine={false}/>
+                <Tooltip content={<HoverTooltip/>}/>
+                <Bar name="Clientes" dataKey="clientes" fill={CHART.orange} maxBarSize={28} radius={[0,5,5,0]}/>
+              </BarChart>
+            </ResponsiveContainer></div>
+          </Panel>
+          <Panel eyebrow="07 · Evolução do mix" title="Categorias por trimestre" note="Participação financeira das categorias ao longo dos períodos." side="R$ POR CATEGORIA">
+            <div className="ci-mix-table ci-table-scroll"><table className="ci-table">
+              <thead><tr><th>Categoria</th>{analysis.quarterData.map(q=><th key={q.trimestre}>{q.trimestre}</th>)}</tr></thead>
+              <tbody>{analysis.categoryGrowth.map(cat=><tr key={cat.name}><td className="ci-strong">{cat.name}</td>{cat.periodos.map(p=><td key={p.trimestre}>{currency(p.valor)}</td>)}</tr>)}</tbody>
+            </table></div>
+          </Panel>
         </div>
-        <Section title="Comparativo de crescimento entre trimestres" description="Variação em valor absoluto e percentual. O trimestre em andamento não é comparável a um trimestre completo.">
-          <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',minWidth:750}}>
-            <thead><tr>{['Período','Faturamento','Variação','Clientes','Variação','Mix (SKUs)','Variação'].map((v,i)=><th key={i} style={{textAlign:i===0?'left':'right',padding:12,color:'var(--text-dim)',fontSize:12}}>{v}</th>)}</tr></thead>
-            <tbody>{analysis.quarterData.map((q,i)=>{const prior=analysis.quarterData[i-1];const last=q.trimestre===reference.getFullYear()+'-T'+(Math.floor(reference.getMonth()/3)+1);return <tr key={q.trimestre} style={{borderTop:'1px solid var(--line)'}}><td style={{padding:12,fontWeight:700}}>{q.trimestre}{last?' · parcial':''}</td><td style={{textAlign:'right',padding:12}}>{currency(q.valor)}</td><td style={{textAlign:'right',padding:12}}>{prior?changeLabel(q.valor,prior.valor):'—'}</td><td style={{textAlign:'right',padding:12}}>{q.clientes}</td><td style={{textAlign:'right',padding:12}}>{prior?changeLabel(q.clientes,prior.clientes):'—'}</td><td style={{textAlign:'right',padding:12}}>{q.produtos}</td><td style={{textAlign:'right',padding:12}}>{prior?changeLabel(q.produtos,prior.produtos):'—'}</td></tr>})}</tbody>
-          </table></div>
-        </Section>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(340px,1fr))',gap:16}}>
-          <Section title="Mix de produtos — categorias" description="Distribuição do faturamento atribuído por categoria.">
-            <div style={{height:290}}><ResponsiveContainer><BarChart data={analysis.mix} layout="vertical" margin={{left:4,right:10}}><CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/><XAxis type="number" tickFormatter={v=>(v/1000).toFixed(0)+'k'}/><YAxis type="category" dataKey="name" width={105}/><Tooltip formatter={v=>currency(v)}/><Bar dataKey="value" name="Faturamento" fill={CHART.orange} radius={[0,4,4,0]}/></BarChart></ResponsiveContainer></div>
-          </Section>
-          <Section title="Perfil de frequência dos clientes" description="Distribuição agregada por número de pedidos bovinos no histórico.">
-            <div style={{height:290}}><ResponsiveContainer><BarChart data={analysis.customerDistribution}><CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/><XAxis dataKey="grupo"/><YAxis allowDecimals={false}/><Tooltip/><Bar dataKey="clientes" name="Clientes" fill={CHART.ink} radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div>
-          </Section>
-        </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(340px,1fr))',gap:16}}>
-          <Section title="Recompra — visão da carteira" description="Indicadores agregados; um único pedido não estabelece o ciclo de reposição.">
-            <div style={{height:290}}><ResponsiveContainer><BarChart data={analysis.reorderDistribution} layout="vertical"><CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/><XAxis type="number" allowDecimals={false}/><YAxis type="category" dataKey="grupo" width={155} tick={{fontSize:11}}/><Tooltip/><Bar dataKey="clientes" name="Clientes" fill={CHART.orange} radius={[0,5,5,0]}/></BarChart></ResponsiveContainer></div>
-          </Section>
-          <Section title="Mix — evolução das categorias por trimestre" description="Receita atribuída por categoria. A variação mais recente pode envolver trimestre parcial.">
-            <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',minWidth:390}}><thead><tr><th style={{textAlign:'left',padding:9}}>Categoria</th>{analysis.quarterData.map(q=><th key={q.trimestre} style={{textAlign:'right',padding:9}}>{q.trimestre}</th>)}</tr></thead><tbody>{analysis.categoryGrowth.map(cat=><tr key={cat.name} style={{borderTop:'1px solid var(--line)'}}><td style={{padding:9}}>{cat.name}</td>{cat.periodos.map(v=><td key={v.trimestre} style={{textAlign:'right',padding:9}}>{currency(v.valor)}</td>)}</tr>)}</tbody></table></div>
-          </Section>
+        {(analysis.missing||analysis.divergent||analysis.unvalued)>0&&
+          <div className="ci-quality" role="status"><IconAlertCircle size={17}/>
+            <span><strong>Qualidade da base geral:</strong> {analysis.missing} pedidos sem itens, {analysis.unvalued} sem valores e {analysis.divergent} com divergências/rateio. Valores segmentados são gerenciais, não conciliação fiscal.</span>
+          </div>}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',marginTop:22}}>
+          <span className="ci-live"><span className="ci-live-dot"/> Nutrialle · Inteligência Comercial</span>
+          <Link className="ci-link" to="/carteira">Abrir carteira operacional <IconArrowRight size={14}/></Link>
         </div>
       </>}
-    </div>
+    </main>
   </div>
 }
