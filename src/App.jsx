@@ -9,6 +9,7 @@ import VendasFiltradasV2 from './screens/VendasFiltradasV2'
 import Visitas from './screens/Visitas'
 import Checklists from './screens/Checklists'
 import Carteira from './screens/Carteira'
+import InteligenciaClientes from './screens/InteligenciaClientes'
 import Vendedores from './screens/Vendedores'
 import Produtos from './screens/Produtos'
 import Regioes from './screens/Regioes'
@@ -45,6 +46,7 @@ function AppContent() {
           <Route path="/visitas" element={<Visitas />} />
           <Route path="/checklists" element={<Checklists />} />
           <Route path="/carteira" element={<Carteira />} />
+          <Route path="/clientes-inteligencia" element={<InteligenciaClientes />} />
           <Route path="/vendedores" element={<Vendedores />} />
           <Route path="/produtos" element={<Produtos />} />
           <Route path="/estoque" element={<Estoque />} />

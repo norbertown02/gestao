@@ -66,7 +66,8 @@ const NAV = [
   { to: '/financeiro/auditoria', label: 'Auditoria financeira', Icon: IconShieldCheck, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
 
   { section: 'Execução em campo' },
-  { to: '/carteira', label: 'Carteira de Clientes', Icon: IconChartBar },
+  { to: '/clientes-inteligencia', label: 'Inteligência de Clientes', Icon: IconChartBar },
+  { to: '/carteira', label: 'Carteira Operacional', Icon: IconUsers },
   { to: '/visitas', label: 'Visitas', Icon: IconRoute },
   { to: '/checklists', label: 'Diagnósticos', Icon: IconClipboardList },
 
