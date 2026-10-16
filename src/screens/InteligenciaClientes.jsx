@@ -32,7 +32,6 @@ function Section({title,children,description}) {
   </section>
 }
 export default function InteligenciaClientes() {
-  const [tab,setTab] = useState('evolucao')
   const [market,setMarket] = useState('Bovinos')
   const [segment,setSegment] = useState('Todos')
   const [data,setData] = useState([])
@@ -119,16 +118,27 @@ export default function InteligenciaClientes() {
     }
     const quarterData=[...quarters.values()].sort((a,b)=>a.name.localeCompare(b.name)).map(q=>({trimestre:q.name,clientes:q.clientes.size,produtos:q.skus.size,valor:q.valor,categorias:q.categorias}))
     const comparison=quarterData.slice(1).map((q,i)=>{const prev=quarterData[i];const quarterNumber=Number(q.trimestre.split('T')[1]);const currentQuarter=reference.getFullYear()+'-T'+(Math.floor(reference.getMonth()/3)+1);const partial=q.trimestre===currentQuarter&&((reference.getMonth()%3)!==2||reference.getDate()<new Date(reference.getFullYear(),reference.getMonth()+1,0).getDate());return {periodo:prev.trimestre+' → '+q.trimestre,trimestre:q.trimestre,partial,receita:q.valor,clientes:q.clientes,produtos:q.produtos,prevReceita:prev.valor,prevClientes:prev.clientes,prevProdutos:prev.produtos,receitaPct:quarterChange(q.valor,prev.valor),clientesPct:quarterChange(q.clientes,prev.clientes),mixPct:quarterChange(q.produtos,prev.produtos)}})
+    const customerDistribution=[
+      {grupo:'1 pedido',clientes:customerRows.filter(c=>c.ordersCount===1).length},
+      {grupo:'2 pedidos',clientes:customerRows.filter(c=>c.ordersCount===2).length},
+      {grupo:'3–4 pedidos',clientes:customerRows.filter(c=>c.ordersCount>=3&&c.ordersCount<=4).length},
+      {grupo:'5+ pedidos',clientes:customerRows.filter(c=>c.ordersCount>=5).length}
+    ]
+    const reorderDistribution=[
+      {grupo:'1 pedido · até 90d',clientes:one.filter(c=>c.days<=90).length},
+      {grupo:'1 pedido · >90d',clientes:one.filter(c=>c.days>90).length},
+      {grupo:'Recompra a avaliar',clientes:risk.length},
+      {grupo:'Dentro do ciclo',clientes:recurring.filter(c=>c.situation==='Dentro do ciclo').length}
+    ]
     const categoryNames=[...new Set(quarterData.flatMap(q=>[...q.categorias.keys()]))]
     const categoryGrowth=categoryNames.map(name=>({name,periodos:quarterData.map(q=>({trimestre:q.trimestre,valor:q.categorias.get(name)||0})),latest:quarterData.at(-1)?.categorias.get(name)||0})).sort((a,b)=>b.latest-a.latest)
     return {timeline,customerRows,one,recurring,risk,missing,unvalued,divergent,concentration,
-      quarterData,comparison,categoryGrowth,mix:[...mix.entries()].map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value),
+      quarterData,comparison,categoryGrowth,customerDistribution,reorderDistribution,mix:[...mix.entries()].map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value),
       sum:eligible.reduce((a,x)=>a+Number(x.allocated_order_value||0),0),
       oneRecent:one.filter(c=>c.days<=90).length,
       oneOlder:one.filter(c=>c.days>90).length}
   },[data,market,segment,reference])
   const segments=[...new Set(data.filter(x=>market==='Todos'||x.market===market).map(x=>x.segment).filter(Boolean))].sort()
-  const tabs=[['evolucao','Evolução'],['carteira','Carteira'],['mix','Mix'],['recompra','Recompra']]
   return <div style={{paddingBottom:36}}>
     <Topbar title="Inteligência de Clientes" subtitle="Evolução, concentração, mix e recompra por data do pedido" />
     <div style={{padding:'22px 34px 48px',maxWidth:1440,margin:'0 auto',width:'100%'}}>
@@ -149,45 +159,36 @@ export default function InteligenciaClientes() {
         {(analysis.missing||analysis.divergent||analysis.unvalued)>0&&<p role="status" style={{padding:12,borderRadius:8,background:'var(--orange-bg)',border:'1px solid var(--line)',color:'var(--text)',marginTop:14}}>
           Qualidade da base: {analysis.missing} pedidos sem itens, {analysis.unvalued} sem valores de itens e {analysis.divergent} com divergências e rateio. Não use estes indicadores como conciliação fiscal.
         </p>}
-        <div role="tablist" style={{display:'flex',gap:8,marginTop:20,flexWrap:'wrap'}}>
-          {tabs.map(([key,label])=><button key={key} role="tab" aria-selected={tab===key} onClick={()=>setTab(key)} style={{padding:'9px 18px',borderRadius:9,border:'1px solid var(--line)',background:tab===key?'var(--carbon)':'var(--surface)',color:tab===key?'white':'inherit',cursor:'pointer'}}>{label}</button>)}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(400px,1fr))',gap:16}}>
+          <Section title="Vendas, média e mediana — 3 meses" description="Evolução pela data do pedido; média e mediana móveis suavizam as compras concentradas.">
+            <div style={{height:310}}><ResponsiveContainer><ComposedChart data={analysis.timeline}><CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/><XAxis dataKey="mes"/><YAxis tickFormatter={v=>(v/1000).toFixed(0)+'k'}/><Tooltip formatter={v=>currency(v)}/><Legend/><Bar dataKey="vendas" name="Vendas" fill={CHART.orange} radius={[4,4,0,0]}/><Line type="monotone" dataKey="media" name="Média" stroke={CHART.ink} strokeWidth={2.5} dot={false}/><Line type="monotone" dataKey="mediana" name="Mediana" stroke={CHART.blue} strokeWidth={2.5} dot={false}/></ComposedChart></ResponsiveContainer></div>
+          </Section>
+          <Section title="Clientes e mix comercial por trimestre" description="Clientes únicos compradores e produtos distintos no período.">
+            <div style={{height:310}}><ResponsiveContainer><BarChart data={analysis.quarterData}><CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/><XAxis dataKey="trimestre"/><YAxis allowDecimals={false}/><Tooltip/><Legend/><Bar name="Clientes compradores" dataKey="clientes" fill={CHART.ink} radius={[4,4,0,0]}/><Bar name="Produtos (SKUs)" dataKey="produtos" fill={CHART.orange} radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></div>
+          </Section>
         </div>
-        {tab==='evolucao'&&<>
-          <Section title="Vendas, média e mediana móveis (3 meses)" description="Média e mediana das vendas atribuídas em três meses; meses incompletos podem distorcer a leitura.">
-            <div style={{height:320}}><ResponsiveContainer><ComposedChart data={analysis.timeline}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="mes"/><YAxis tickFormatter={v=>(v/1000).toFixed(0)+'k'}/><Tooltip formatter={v=>currency(v)}/><Legend/><Bar dataKey="vendas" name="Vendas" fill={CHART.orange}/><Line type="monotone" dataKey="media" name="Média móvel" stroke={CHART.ink} strokeWidth={3}/><Line type="monotone" dataKey="mediana" name="Mediana móvel" stroke={CHART.blue} strokeWidth={3}/></ComposedChart></ResponsiveContainer></div>
-          </Section>
-          <Section title="Clientes e SKUs por trimestre" description="Abrangência comercial sem exigir que a fazenda compre todos os meses.">
-            <div style={{height:300}}><ResponsiveContainer><BarChart data={analysis.quarterData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="trimestre"/><YAxis allowDecimals={false}/><Tooltip/><Legend/><Bar name="Clientes compradores" dataKey="clientes" fill={CHART.orange}/><Bar name="SKUs vendidos" dataKey="produtos" fill={CHART.orange}/></BarChart></ResponsiveContainer></div>
-          </Section>
-          <Section title="Crescimento entre trimestres" description="Comparativo de vendas atribuídas, clientes compradores e SKUs distintos. Variações de trimestre incompleto são apenas parciais.">
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(245px,1fr))',gap:12}}>
-              {analysis.comparison.map(q=><article key={q.periodo} style={{border:'1px solid var(--line)',borderRadius:12,padding:15,background:'var(--bg-soft)'}}>
-                <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'center',marginBottom:12}}><strong>{q.periodo}</strong>{q.partial&&<small style={{color:'var(--amber)'}}>Parcial</small>}</div>
-                {[['Faturamento',q.receita,q.prevReceita,true],['Clientes',q.clientes,q.prevClientes,false],['Mix (SKUs)',q.produtos,q.prevProdutos,false]].map(([label,now,prev,money])=><div key={label} style={{padding:'9px 0',borderTop:'1px solid var(--line)',display:'flex',justifyContent:'space-between',gap:10}}>
-                  <div><small style={{display:'block',color:'var(--text-dim)'}}>{label}</small><strong>{money?currency(now):number(now)}</strong><small style={{display:'block',color:'var(--text-dim)'}}>Anterior: {money?currency(prev):number(prev)}</small></div>
-                  <div style={{textAlign:'right',whiteSpace:'nowrap'}}><strong style={{color:'var(--text)'}}>{changeLabel(now,prev)}</strong><small style={{display:'block',color:'var(--text-dim)'}}>{deltaLabel(now,prev,money)}</small></div>
-                </div>)}
-              </article>)}
-            </div>
-          </Section>
-        </>}
-        {tab==='carteira'&&<Section title="Clientes por volume e profundidade de relacionamento" description="A quantidade de categorias refere-se ao histórico de produtos bovinos classificados; compra única não é sinônimo de cliente perdido.">
-          <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr>{['Cliente','Pedidos','Produtos','Categorias','Vendas atribuídas','Última compra'].map(x=><th key={x} style={{textAlign:'left',padding:9}}>{x}</th>)}</tr></thead><tbody>{analysis.customerRows.map(c=><tr key={c.id} style={{borderTop:'1px solid #ddd'}}><td style={{padding:9}}>{c.name}</td><td>{c.ordersCount}</td><td>{c.skuCount}</td><td>{c.categoryCount}</td><td>{currency(c.total)}</td><td>{dateBR(c.last)}</td></tr>)}</tbody></table></div>
-        </Section>}
-        {tab==='mix'&&<Section title="Crescimento do mix por trimestre" description="Comparação de SKUs comercializados e faturamento de cada categoria, respeitando o mercado selecionado.">
-          <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',minWidth:650}}>
-            <thead><tr><th style={{textAlign:'left',padding:10}}>Período</th><th style={{textAlign:'right',padding:10}}>SKUs</th><th style={{textAlign:'right',padding:10}}>Variação SKUs</th><th style={{textAlign:'right',padding:10}}>Faturamento</th><th style={{textAlign:'right',padding:10}}>Variação</th></tr></thead>
-            <tbody>{analysis.quarterData.map((q,i)=>{const prev=analysis.quarterData[i-1];return <tr key={q.trimestre} style={{borderTop:'1px solid var(--line)'}}><td style={{padding:10}}>{q.trimestre}</td><td style={{textAlign:'right'}}>{q.produtos}</td><td style={{textAlign:'right'}}>{prev?changeLabel(q.produtos,prev.produtos):'—'}</td><td style={{textAlign:'right'}}>{currency(q.valor)}</td><td style={{textAlign:'right'}}>{prev?changeLabel(q.valor,prev.valor):'—'}</td></tr>})}</tbody>
+        <Section title="Comparativo de crescimento entre trimestres" description="Variação em valor absoluto e percentual. O trimestre em andamento não é comparável a um trimestre completo.">
+          <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',minWidth:750}}>
+            <thead><tr>{['Período','Faturamento','Variação','Clientes','Variação','Mix (SKUs)','Variação'].map((v,i)=><th key={i} style={{textAlign:i===0?'left':'right',padding:12,color:'var(--text-dim)',fontSize:12}}>{v}</th>)}</tr></thead>
+            <tbody>{analysis.quarterData.map((q,i)=>{const prior=analysis.quarterData[i-1];const last=q.trimestre===reference.getFullYear()+'-T'+(Math.floor(reference.getMonth()/3)+1);return <tr key={q.trimestre} style={{borderTop:'1px solid var(--line)'}}><td style={{padding:12,fontWeight:700}}>{q.trimestre}{last?' · parcial':''}</td><td style={{textAlign:'right',padding:12}}>{currency(q.valor)}</td><td style={{textAlign:'right',padding:12}}>{prior?changeLabel(q.valor,prior.valor):'—'}</td><td style={{textAlign:'right',padding:12}}>{q.clientes}</td><td style={{textAlign:'right',padding:12}}>{prior?changeLabel(q.clientes,prior.clientes):'—'}</td><td style={{textAlign:'right',padding:12}}>{q.produtos}</td><td style={{textAlign:'right',padding:12}}>{prior?changeLabel(q.produtos,prior.produtos):'—'}</td></tr>})}</tbody>
           </table></div>
-          <h4 style={{marginTop:22,marginBottom:12}}>Categorias: participação e crescimento</h4>
-          <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',minWidth:650}}><thead><tr><th style={{textAlign:'left',padding:10}}>Categoria</th>{analysis.quarterData.map(q=><th key={q.trimestre} style={{textAlign:'right',padding:10}}>{q.trimestre}</th>)}<th style={{textAlign:'right',padding:10}}>Última variação</th></tr></thead><tbody>{analysis.categoryGrowth.map(cat=>{const values=cat.periodos;const last=values.at(-1)?.valor||0,prev=values.at(-2)?.valor;return <tr key={cat.name} style={{borderTop:'1px solid var(--line)'}}><td style={{padding:10}}>{cat.name}</td>{values.map(v=><td key={v.trimestre} style={{textAlign:'right',padding:10}}>{currency(v.valor)}</td>)}<td style={{textAlign:'right',padding:10}}>{prev===undefined?'—':changeLabel(last,prev)}</td></tr>})}</tbody></table></div>
-        </Section>}
-        {tab==='mix'&&<Section title="Categorias comercializadas" description="Mix financeiro atribuído e oportunidades de ampliação da carteira.">
-          <div style={{height:320}}><ResponsiveContainer><BarChart data={analysis.mix} layout="vertical"><CartesianGrid strokeDasharray="3 3"/><XAxis type="number" tickFormatter={v=>(v/1000).toFixed(0)+'k'}/><YAxis type="category" dataKey="name" width={105}/><Tooltip formatter={v=>currency(v)}/><Bar dataKey="value" name="Vendas atribuídas" fill={CHART.orange}/></BarChart></ResponsiveContainer></div>
-        </Section>}
-        {tab==='recompra'&&<Section title="Acompanhamento de recompra" description="O ciclo é calculado pela mediana dos intervalos observados. Uma compra não permite estimar ciclo; 90 dias são apenas uma janela de observação.">
-          <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr>{['Cliente','Pedidos','Dias desde compra','Ciclo observado','Situação'].map(x=><th key={x} style={{textAlign:'left',padding:9}}>{x}</th>)}</tr></thead><tbody>{[...analysis.customerRows].sort((a,b)=>(a.situation==='Recompra a investigar'?-1:1)-(b.situation==='Recompra a investigar'?-1:1)||b.days-a.days).map(c=><tr key={c.id} style={{borderTop:'1px solid #ddd'}}><td style={{padding:9}}>{c.name}</td><td>{c.ordersCount}</td><td>{c.days}</td><td>{c.cycle===null?'Não determinado':Math.round(c.cycle)+' dias'}</td><td>{c.situation}</td></tr>)}</tbody></table></div>
-        </Section>}
+        </Section>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(340px,1fr))',gap:16}}>
+          <Section title="Mix de produtos — categorias" description="Distribuição do faturamento atribuído por categoria.">
+            <div style={{height:290}}><ResponsiveContainer><BarChart data={analysis.mix} layout="vertical" margin={{left:4,right:10}}><CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/><XAxis type="number" tickFormatter={v=>(v/1000).toFixed(0)+'k'}/><YAxis type="category" dataKey="name" width={105}/><Tooltip formatter={v=>currency(v)}/><Bar dataKey="value" name="Faturamento" fill={CHART.orange} radius={[0,4,4,0]}/></BarChart></ResponsiveContainer></div>
+          </Section>
+          <Section title="Perfil de frequência dos clientes" description="Distribuição agregada por número de pedidos bovinos no histórico.">
+            <div style={{height:290}}><ResponsiveContainer><BarChart data={analysis.customerDistribution}><CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/><XAxis dataKey="grupo"/><YAxis allowDecimals={false}/><Tooltip/><Bar dataKey="clientes" name="Clientes" fill={CHART.ink} radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div>
+          </Section>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(340px,1fr))',gap:16}}>
+          <Section title="Recompra — visão da carteira" description="Indicadores agregados; um único pedido não estabelece o ciclo de reposição.">
+            <div style={{height:290}}><ResponsiveContainer><BarChart data={analysis.reorderDistribution} layout="vertical"><CartesianGrid strokeDasharray="3 3" stroke="var(--line)"/><XAxis type="number" allowDecimals={false}/><YAxis type="category" dataKey="grupo" width={155} tick={{fontSize:11}}/><Tooltip/><Bar dataKey="clientes" name="Clientes" fill={CHART.orange} radius={[0,5,5,0]}/></BarChart></ResponsiveContainer></div>
+          </Section>
+          <Section title="Mix — evolução das categorias por trimestre" description="Receita atribuída por categoria. A variação mais recente pode envolver trimestre parcial.">
+            <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',minWidth:390}}><thead><tr><th style={{textAlign:'left',padding:9}}>Categoria</th>{analysis.quarterData.map(q=><th key={q.trimestre} style={{textAlign:'right',padding:9}}>{q.trimestre}</th>)}</tr></thead><tbody>{analysis.categoryGrowth.map(cat=><tr key={cat.name} style={{borderTop:'1px solid var(--line)'}}><td style={{padding:9}}>{cat.name}</td>{cat.periodos.map(v=><td key={v.trimestre} style={{textAlign:'right',padding:9}}>{currency(v.valor)}</td>)}</tr>)}</tbody></table></div>
+          </Section>
+        </div>
       </>}
     </div>
   </div>
