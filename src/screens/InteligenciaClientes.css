@@ -1,0 +1,83 @@
+
+/* Nutrialle Gestão · Inteligência de Clientes */
+.ci-page {max-width:1520px;width:100%;margin:0 auto;padding:27px 34px 64px;color:var(--text)}
+.ci-overview {display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin:2px 0 21px}
+.ci-eyebrow {display:flex;align-items:center;gap:8px;color:var(--orange);font-size:10px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+.ci-eyebrow:before {content:"";width:6px;height:6px;border-radius:50%;background:var(--orange)}
+.ci-overview h1 {font-size:28px;font-weight:800;letter-spacing:-.055em;margin:8px 0 6px;color:var(--carbon);line-height:1.12}
+.ci-lead {font-size:12px;line-height:1.65;color:var(--text-dim);max-width:740px}
+.ci-date-pill {font-size:11px;font-weight:650;color:var(--text-dim);background:var(--surface);border:1px solid var(--line);padding:10px 13px;border-radius:30px;white-space:nowrap}
+.ci-filters {background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:17px;flex-wrap:wrap;box-shadow:var(--shadow-soft);margin-bottom:18px}
+.ci-filter-label {font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--text-dim);font-weight:800;display:block;margin-bottom:8px}
+.ci-filter-group {display:flex;flex-direction:column;justify-content:center}
+.ci-market-group {flex:1 1 345px}
+.ci-market-toggle {display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px;min-height:37px}
+.ci-market-btn {padding:7px 13px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--text-dim);font-family:inherit;font-size:12px;font-weight:750;cursor:pointer;flex:1;transition:background .15s,color .15s,box-shadow .15s;white-space:nowrap}
+.ci-market-btn:hover {color:var(--text);background:rgba(255,255,255,.7)}
+.ci-market-btn[aria-pressed="true"] {background:var(--carbon);color:#fff;border-color:var(--carbon);box-shadow:0 2px 5px rgba(0,0,0,.14)}
+.ci-select-group {flex:0 1 205px;min-width:155px}
+.ci-select-wrap {position:relative;display:flex;align-items:center}
+.ci-select-wrap select {width:100%;appearance:none;-webkit-appearance:none;height:43px;padding:0 34px 0 13px;border:1px solid var(--line);border-radius:10px;background:var(--bg-soft);color:var(--text);font:700 12px 'Archivo',sans-serif;outline:none;cursor:pointer;transition:border .15s,box-shadow .15s}
+.ci-select-wrap select:focus-visible {border-color:var(--orange);box-shadow:0 0 0 3px var(--orange-bg)}
+.ci-select-chevron {position:absolute;right:11px;pointer-events:none;color:var(--text-dim)}
+.ci-filter-tools {display:flex;gap:9px;align-items:center;justify-content:flex-end;margin-left:auto;align-self:flex-end;padding-bottom:1px}
+.ci-reset {display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--text-dim);font:700 11px 'Archivo',sans-serif;cursor:pointer;padding:12px 6px}
+.ci-reset:hover {color:var(--orange)}
+.ci-live {display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-dim);font-weight:650;white-space:nowrap}
+.ci-live-dot {background:var(--orange);width:6px;height:6px;border-radius:50%}
+.ci-kpis {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
+.ci-kpi {background:var(--surface);border:1px solid var(--line);border-radius:15px;min-height:137px;padding:18px 18px 16px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:var(--shadow-soft);position:relative;overflow:hidden}
+.ci-kpi:first-child {background:var(--carbon);border-color:var(--carbon);color:#fff}
+.ci-kpi:first-child:before {content:"";position:absolute;top:0;left:0;height:3px;width:76px;background:var(--orange)}
+.ci-kpi-head {display:flex;justify-content:space-between;gap:10px;align-items:center}
+.ci-kpi-title {font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.075em;color:var(--text-dim)}
+.ci-kpi:first-child .ci-kpi-title {color:rgba(255,255,255,.62)}
+.ci-kpi-icon {width:30px;height:30px;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;color:var(--orange)}
+.ci-kpi:first-child .ci-kpi-icon {background:rgba(232,119,34,.13);border-color:rgba(232,119,34,.18)}
+.ci-kpi-number {display:block;font-size:27px;font-weight:800;line-height:1.22;letter-spacing:-.055em;margin:9px 0 6px;white-space:nowrap}
+.ci-kpi-note {font-size:11px;color:var(--text-dim);font-weight:500;line-height:1.45}
+.ci-kpi:first-child .ci-kpi-note {color:rgba(255,255,255,.55)}
+.ci-quality {display:flex;align-items:center;gap:10px;padding:12px 15px;background:var(--orange-bg);border:1px solid rgba(232,119,34,.18);border-radius:11px;color:var(--text-dim);font-size:11px;margin-top:15px;line-height:1.6}
+.ci-quality svg {color:var(--orange);flex-shrink:0}
+.ci-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin-top:15px}
+.ci-card {min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-soft);overflow:hidden}
+.ci-card-wide {grid-column:1/-1}
+.ci-card-head {padding:19px 22px 12px;display:flex;gap:16px;align-items:flex-start;justify-content:space-between}
+.ci-card-kicker {font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--orange);margin-bottom:7px}
+.ci-card-title {font-size:15px;line-height:1.35;font-weight:800;letter-spacing:-.024em;color:var(--text)}
+.ci-card-desc {font-size:11px;color:var(--text-dim);line-height:1.6;margin-top:4px;max-width:560px}
+.ci-card-side {font-size:10px;font-weight:800;color:var(--text-dim);padding:6px 9px;background:var(--surface-2);border:1px solid var(--line);border-radius:7px;white-space:nowrap}
+.ci-card-body {padding:5px 15px 16px}
+.ci-card-chart {width:100%;height:280px}
+.ci-tooltip {background:#fff;border:1px solid var(--line);border-radius:11px;box-shadow:0 15px 40px rgba(23,20,17,.12);padding:11px 13px;min-width:150px}
+.ci-tooltip-label {font-size:11px;font-weight:800;color:var(--text);padding-bottom:8px;margin-bottom:7px;border-bottom:1px solid var(--line)}
+.ci-tooltip-item {display:flex;gap:12px;justify-content:space-between;align-items:center;margin:6px 0;font-size:11px;color:var(--text-dim)}
+.ci-tooltip-item strong {color:var(--text);font-size:12px}
+.ci-legend {display:flex;align-items:center;justify-content:center;gap:17px;flex-wrap:wrap;margin:3px auto 0;padding:0 12px 12px}
+.ci-legend-item {display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:var(--text-dim)}
+.ci-legend-mark {width:15px;height:4px;border-radius:4px}
+.ci-card-footer {display:flex;align-items:center;gap:7px;border-top:1px solid var(--line);padding:10px 20px;color:var(--text-faint);font-size:10px;line-height:1.5}
+.ci-table-scroll {overflow-x:auto}
+.ci-table {width:100%;border-collapse:collapse;white-space:nowrap;font-size:12px}
+.ci-table thead {background:var(--bg-soft)}
+.ci-table th {padding:12px 17px;color:var(--text-dim);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;text-align:right;border-bottom:1px solid var(--line)}
+.ci-table td {padding:13px 17px;border-bottom:1px solid var(--line);text-align:right;color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
+.ci-table th:first-child,.ci-table td:first-child {text-align:left}
+.ci-table tbody tr:last-child td {border-bottom:0}
+.ci-table tbody tr:hover {background:var(--bg-soft)}
+.ci-table .ci-strong {font-weight:800}
+.ci-quarter-id {display:inline-flex;gap:7px;align-items:center;font-weight:800}
+.ci-partial {padding:4px 6px;background:var(--orange-bg);color:var(--amber);font-size:9px;border-radius:5px;font-weight:800}
+.ci-delta {display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;border-radius:6px;padding:4px 6px}
+.ci-delta.up {background:var(--green-bg);color:var(--green)}
+.ci-delta.down {background:var(--red-bg);color:var(--red)}
+.ci-delta.flat {background:var(--surface-2);color:var(--text-dim)}
+.ci-mix-table .ci-table th,.ci-mix-table .ci-table td {padding-left:12px;padding-right:12px}
+.ci-empty {padding:32px;text-align:center;color:var(--text-dim);font-size:13px}
+.ci-link {color:var(--text-dim);text-decoration:none;font-size:11px;font-weight:700}
+.ci-link:hover {color:var(--orange)}
+.ci-link svg {vertical-align:middle}
+.ci-loading {padding:60px 20px;text-align:center;color:var(--text-dim)}
+@media(max-width:1180px){.ci-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ci-filter-tools{flex:0 0 auto}}
+@media(max-width:940px){.ci-grid{grid-template-columns:1fr}.ci-card-wide{grid-column:auto}.ci-page{padding:22px 20px 48px}.ci-overview h1{font-size:25px}.ci-date-pill{display:none}}
+@media(max-width:650px){.ci-page{padding:17px 13px 38px}.ci-overview{margin-bottom:16px}.ci-overview h1{font-size:23px}.ci-filters{gap:13px;padding:14px}.ci-market-group{flex-basis:100%;min-width:0}.ci-market-toggle{overflow-x:auto}.ci-market-btn{font-size:11px;padding:8px 9px}.ci-select-group{flex:1 1 140px;min-width:120px}.ci-filter-tools{flex:1 1 100%;justify-content:space-between}.ci-kpis{gap:9px}.ci-kpi{min-height:127px;padding:14px 12px}.ci-kpi-number{font-size:23px}.ci-kpi-title{font-size:9px}.ci-kpi-icon{width:27px;height:27px}.ci-card-head{padding:17px 15px 8px}.ci-card-body{padding:5px 5px 15px}.ci-card-chart{height:258px}.ci-card-title{font-size:14px}.ci-card-side{display:none}.ci-legend{gap:10px}.ci-table th,.ci-table td{padding:10px 12px}}
