@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../lib/supabase'
 import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import { isVendedorValido, useVendedores } from '../lib/sellers'
 import Topbar from '../components/Topbar'
+import './CommercialClarity.css'
 import { CURRENT_MONTH, CURRENT_YEAR, historyStart, monthOptions, periodRange, previousPeriodRange, yearOptions } from '../lib/commercialPeriod'
 import {
   IconAlertTriangle,
@@ -174,6 +175,7 @@ export default function Vendedores() {
   const [checklists, setChecklists] = useState([])
   const [loading, setLoading] = useState(true)
   const [detalheId, setDetalheId] = useState(null)
+  const [mostrarTudo, setMostrarTudo] = useState(false)
   const { vendedores, vendedoresById } = useVendedores()
 
   useEffect(() => {
@@ -526,7 +528,8 @@ export default function Vendedores() {
         </button>
       </Topbar>
 
-      <div className="page vendedores-page" style={{ overflowY: 'auto' }}>
+      <div className={`page vendedores-page cc-page ${mostrarTudo ? "" : "cc-compact-table"}`} style={{ overflowY: 'auto' }}>
+        <div className="cc-intro"><span className="cc-kicker">Desempenho do time</span><h2>Como está cada vendedor?</h2><p>Compare os pedidos do período e clique no nome de um vendedor para ver os detalhes. Os indicadores de visitas, cotações e carteira podem ser exibidos quando você precisar.</p></div>
         <section className="vendedores-toolbar" style={{ marginBottom: 14 }}>
           <div className="vendedores-toolbar-left">
             <div className="vendedores-filter-icon"><IconFilter size={15} /></div>
@@ -559,7 +562,8 @@ export default function Vendedores() {
           </div>
         </section>
 
-        <section style={{
+        <div className="cc-toolbar-help">Os valores refletem os filtros selecionados. “Em atenção” é um sinal para acompanhamento, não comprovação de perda de cliente.</div>
+        <section className="cc-vendedores-kpis" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(4,minmax(0,1fr))',
           gap: 10,
@@ -606,7 +610,7 @@ export default function Vendedores() {
                     Resultado comercial primeiro. Campo e carteira aparecem como contexto para entender cada desempenho.
                   </p>
                 </div>
-                <small>clique em um vendedor para abrir os detalhes</small>
+                <div className="cc-table-head-actions"><small>Selecione um vendedor para explorar</small><button type="button" className="cc-small-button" aria-pressed={mostrarTudo} onClick={()=>setMostrarTudo(p=>!p)}>{mostrarTudo?'Visão resumida':'Mostrar todos os indicadores'}</button></div>
               </div>
 
               <div className="table-wrap vendedores-table-wrap">
@@ -615,14 +619,14 @@ export default function Vendedores() {
                     <tr>
                       <th>Vendedor</th>
                       <th style={{ textAlign: 'right' }}>Valor dos pedidos</th>
-                      <th style={{ textAlign: 'right' }}>Vs. período ant.</th>
+                      <th style={{ textAlign: 'right' }}>Variação</th>
                       <th style={{ textAlign: 'center' }}>Pedidos</th>
                       <th style={{ textAlign: 'right' }}>Ticket médio</th>
                       <th style={{ textAlign: 'center' }}>Visitas</th>
                       <th style={{ textAlign: 'center' }}>Cotações</th>
                       <th style={{ textAlign: 'center' }}>Conversão</th>
                       <th style={{ textAlign: 'center' }}>Carteira</th>
-                      <th style={{ textAlign: 'center' }}>Em atenção</th>
+                      <th style={{ textAlign: 'center' }}>Clientes a acompanhar</th>
                       <th />
                     </tr>
                   </thead>
@@ -782,6 +786,9 @@ export default function Vendedores() {
               </div>
             </section>
 
+            <details className="cc-more">
+              <summary><span className="cc-summary-icon">↗</span><span className="cc-summary-text">Ver indicadores adicionais da equipe<small>Conversão de cotações, carteira vinculada e clientes que precisam de acompanhamento</small></span><span className="cc-arrow">⌄</span></summary>
+              <div className="cc-more-body">
             <section style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(3,minmax(0,1fr))',
@@ -822,11 +829,13 @@ export default function Vendedores() {
                     {fmtInt(dados.vendedores.reduce((sum, v) => sum + Number(v.clientesRisco || 0), 0))}
                   </strong>
                   <small style={{ display: 'block', marginTop: 8, color: 'var(--text-faint)' }}>
-                    clientes sem compra há 60 dias ou sem visita há 45 dias
+                    critérios de atenção: 60 dias sem pedido ou 45 sem visita; considerar ciclo de compra de cada cliente
                   </small>
                 </div>
               </div>
             </section>
+              </div>
+            </details>
           </>
         )}
       </div>
