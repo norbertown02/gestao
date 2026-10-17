@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
+import './CommercialClarity.css'
 import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import { CURRENT_MONTH, CURRENT_YEAR, historyStart, monthOptions, periodRange, previousPeriodRange, yearOptions } from '../lib/commercialPeriod'
 import {
@@ -627,7 +628,7 @@ export default function Regioes() {
         </button>
       </Topbar>
 
-      <div className="page regioes-page" style={{ overflowY: 'auto' }}>
+      <div className="page regioes-page cc-page" style={{ overflowY: 'auto' }}>
         <section className="regioes-toolbar">
           <div className="regioes-toolbar-left">
             <div className="regioes-filter-icon">
@@ -662,6 +663,11 @@ export default function Regioes() {
           </div>
         </section>
 
+        <div className="cc-intro">
+          <span className="cc-kicker">Panorama das regiões</span>
+          <h2>Onde estamos vendendo mais?</h2>
+          <p>Comece pelo estado líder, depois selecione uma região no mapa para ver clientes, vendas e oportunidades. Indicadores abaixo seguem os filtros escolhidos.</p>
+        </div>
         <section className="regioes-hero">
           <div>
             <span className="regioes-eyebrow">Região líder</span>
@@ -687,22 +693,7 @@ export default function Regioes() {
           </div>
         </section>
 
-        <section className="regioes-kpi-grid">
-          <KpiCard
-            icon={IconWallet}
-            label="Valor de pedidos líquido"
-            value={fmtK(dados.totalReceita)}
-            atual={dados.totalReceita}
-            anterior={dados.totalReceitaAnt}
-          />
-
-          <KpiCard
-            icon={IconBuildingStore}
-            label="Clientes"
-            value={fmtInt(dados.totalClientes)}
-            sub={`${fmtInt(dados.totalClientesComVenda)} com venda`}
-          />
-
+        <section className="regioes-kpi-grid cc-region-kpis">
           <KpiCard
             icon={IconReceipt}
             label="Ticket médio"
@@ -719,9 +710,9 @@ export default function Regioes() {
 
           <KpiCard
             icon={IconAlertTriangle}
-            label="Regiões atenção"
+            label="Estados a acompanhar"
             value={fmtInt(dados.regioesAtencao.length)}
-            sub="baixa cobertura ou oportunidade"
+            sub="prioridade para a equipe comercial"
             tone={dados.regioesAtencao.length ? 'danger' : 'success'}
           />
         </section>
@@ -730,6 +721,7 @@ export default function Regioes() {
           <Empty>Carregando regiões...</Empty>
         ) : (
           <>
+            <div className="cc-insight"><strong>Como usar:</strong> clique em um estado no mapa ou no ranking para ver seus detalhes. O ranking mostra onde há mais vendas no período.</div>
             <section className="regioes-map-grid">
               <div className="regioes-card regioes-map-card">
                 <div className="regioes-card-head">
@@ -885,6 +877,9 @@ export default function Regioes() {
               </div>
             </section>
 
+            <details className="cc-more">
+              <summary><span className="cc-summary-icon">↗</span><span className="cc-summary-text">Explorar oportunidades e tabela completa<small>Estados em crescimento, visitas, produtos e todos os indicadores por região</small></span><span className="cc-arrow">⌄</span></summary>
+              <div className="cc-more-body">
             <section className="regioes-grid-3">
               <div className="regioes-card">
                 <div className="regioes-card-head">
@@ -918,7 +913,7 @@ export default function Regioes() {
                 <div className="regioes-card-head">
                   <div>
                     <span className="regioes-eyebrow">Atenção</span>
-                    <h3>Baixa cobertura</h3>
+                    <h3>Estados com pouca visita recente</h3>
                   </div>
                 </div>
 
@@ -970,7 +965,7 @@ export default function Regioes() {
               <div className="regioes-card-head">
                 <div>
                   <span className="regioes-eyebrow">Tabela</span>
-                  <h3>Lista completa por estado</h3>
+                  <h3>Detalhamento por estado</h3>
                 </div>
 
                 <small>{fmtInt(dados.estados.length)} estados</small>
@@ -1033,6 +1028,8 @@ export default function Regioes() {
                 </table>
               </div>
             </section>
+              </div>
+            </details>
           </>
         )}
       </div>
