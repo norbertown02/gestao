@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import Topbar from '../components/Topbar'
+import './CommercialClarity.css'
 import {
   IconAlertTriangle,
   IconBuildingStore,
@@ -113,14 +114,14 @@ const GRUPOS = {
   D: {
     label: 'Em risco',
     className: 'risk',
-    desc: 'Sem compra há 60 a 90 dias',
-    acao: 'Ação comercial urgente',
+    desc: '60 a 90 dias sem pedido; verificar ciclo',
+    acao: 'Confirmar ciclo de compra e realizar contato',
   },
   E: {
     label: 'Inativas',
     className: 'inactive',
-    desc: 'Sem compra há mais de 90 dias',
-    acao: 'Campanha de reativação',
+    desc: 'Mais de 90 dias sem pedido; verificar ciclo',
+    acao: 'Verificar situação e planejar reativação',
   },
   F: {
     label: 'Sem dados',
@@ -463,7 +464,11 @@ export default function Carteira() {
         </button>
       </Topbar>
 
-      <div className="page carteira-page" style={{ overflowY: 'auto' }}>
+      <div className="page carteira-page cc-page" style={{ overflowY: 'auto' }}>
+        <div className="cc-intro"><span className="cc-kicker">Rotina da carteira</span>
+          <h2>Quais clientes merecem nossa atenção?</h2>
+          <p>Use os grupos para localizar clientes e abrir suas informações operacionais. A classificação é apenas uma triagem por histórico e dias sem pedido; considere o ciclo de reposição de cada fazenda antes de concluir que está inativa.</p>
+        </div>
         <section className="carteira-toolbar">
           <div className="carteira-toolbar-left">
             <div className="carteira-filter-icon">
@@ -515,41 +520,27 @@ export default function Carteira() {
           </div>
         </section>
 
-        <section className="carteira-kpi-grid">
+        <section className="carteira-kpi-grid cc-carteira-kpis">
           <KpiCard
             icon={IconBuildingStore}
-            label="Clientes"
+            label="Clientes cadastrados"
             value={fmtInt(dados.totalFazendas)}
             sub={`${fmtInt(dados.prospects)} prospects`}
-          />
-
-          <KpiCard
-            icon={IconWallet}
-            label="Receita 12m"
-            value={fmtK(dados.receita12m)}
-            sub={`${fmtK(dados.receita30d)} nos últimos 30 dias`}
-          />
-
-          <KpiCard
-            icon={IconUsers}
-            label="Com compra"
-            value={fmtInt(dados.clientesComCompra)}
-            sub={`${fmtInt(dados.clientesComCompra30d)} compraram no mês`}
           />
 
           <KpiCard
             icon={IconClock}
             label="Sem visita"
             value={fmtInt(dados.semVisita.length)}
-            sub="45+ dias sem acompanhamento"
+            sub="45+ dias desde última visita"
             tone={dados.semVisita.length ? 'danger' : 'success'}
           />
 
           <KpiCard
             icon={IconAlertTriangle}
-            label="Sem compra"
+            label="Compra a verificar"
             value={fmtInt(dados.semCompra.length)}
-            sub="60+ dias sem venda"
+            sub="60+ dias sem pedido; conferir ciclo"
             tone={dados.semCompra.length ? 'danger' : 'success'}
           />
 
@@ -565,28 +556,7 @@ export default function Carteira() {
           <Empty>Carregando carteira...</Empty>
         ) : (
           <>
-            {(dados.semVisita.length > 0 || dados.emRisco.length > 0) && (
-              <section className="carteira-alerts">
-                {dados.semVisita.length > 0 && (
-                  <div className="carteira-alert warning">
-                    <IconClock size={17} />
-                    <span>
-                      <strong>{dados.semVisita.length}</strong> cliente{dados.semVisita.length > 1 ? 's' : ''} sem visita recente.
-                    </span>
-                  </div>
-                )}
-
-                {dados.emRisco.length > 0 && (
-                  <div className="carteira-alert danger">
-                    <IconAlertTriangle size={17} />
-                    <span>
-                      <strong>{dados.emRisco.length}</strong> cliente{dados.emRisco.length > 1 ? 's' : ''} em risco ou inativo.
-                    </span>
-                  </div>
-                )}
-              </section>
-            )}
-
+            <div className="cc-insight"><strong>Por onde começar:</strong> escolha um grupo abaixo para visualizar apenas seus clientes. Os prazos de 45 dias sem visita e 60/90 dias sem pedido são alertas operacionais, não uma definição automática de cliente perdido.</div>
             <section className="carteira-rfm-grid">
               {Object.entries(dados.grupos).map(([key, grupo]) => {
                 const pctGrupo = dados.totalFazendas ? Math.round((grupo.quantidade / dados.totalFazendas) * 100) : 0
@@ -596,7 +566,8 @@ export default function Carteira() {
                     type="button"
                     key={key}
                     className={`carteira-rfm-card ${grupo.className}`}
-                    onClick={() => setGrupoFiltro(key)}
+                    aria-pressed={grupoFiltro === key}
+                    onClick={() => {setGrupoFiltro(prev=>prev===key?'todos':key);setGrupoAberto(prev=>({...prev,[key]:true}))}}
                   >
                     <div className="carteira-rfm-head">
                       <strong>{key}</strong>
@@ -622,6 +593,9 @@ export default function Carteira() {
               })}
             </section>
 
+            <details className="cc-more">
+              <summary><span className="cc-summary-icon">↗</span><span className="cc-summary-text">Ver gráficos e análises adicionais<small>Vendas ao longo do tempo, receita por segmento, maiores clientes e oportunidades</small></span><span className="cc-arrow">⌄</span></summary>
+              <div className="cc-more-body">
             <section className="carteira-main-grid">
               <div className="carteira-card carteira-chart-card">
                 <div className="carteira-card-head">
@@ -769,16 +743,20 @@ export default function Carteira() {
               </div>
             </section>
 
+              </div>
+            </details>
             <section className="carteira-card">
               <div className="carteira-card-head">
                 <div>
                   <span className="carteira-eyebrow">Segmentação</span>
-                  <h3>Grupos da carteira</h3>
+                  <h3>Clientes por situação</h3>
                 </div>
               </div>
 
+              {grupoFiltro !== 'todos' && <div className="cc-filter-active">Exibindo apenas: {GRUPOS[grupoFiltro]?.label || grupoFiltro}<button type="button" onClick={()=>setGrupoFiltro('todos')}>Mostrar todos os grupos</button></div>}
+              <p className="cc-status-legend"><strong>Como utilizar:</strong> clique em um grupo ou filtre acima e abra sua lista de clientes. “Em risco” e “Inativas” são classificações por dias sem compra, que exigem verificação do ciclo do cliente.</p>
               <div className="carteira-groups">
-                {Object.entries(GRUPOS).map(([g, cfg]) => {
+                {Object.entries(GRUPOS).filter(([g]) => grupoFiltro === "todos" || grupoFiltro === g).map(([g, cfg]) => {
                   const fazendas = dados.grupos[g]?.fazendas || []
 
                   if (fazendas.length === 0) return null
