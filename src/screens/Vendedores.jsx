@@ -634,7 +634,7 @@ export default function Vendedores() {
                   <tbody>
                     {dados.vendedores.length === 0 ? (
                       <tr>
-                        <td colSpan={11} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>
+                        <td colSpan={mostrarTudo ? 11 : 7} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>
                           Nenhum vendedor com dados no período
                         </td>
                       </tr>
@@ -704,7 +704,7 @@ export default function Vendedores() {
 
                           {detalheId === s.id && (
                             <tr key={`${s.id}_detalhe`}>
-                              <td colSpan={11} className="vendedores-detail-cell">
+                              <td colSpan={mostrarTudo ? 11 : 7} className="vendedores-detail-cell">
                                 <div style={{
                                   display: 'grid',
                                   gridTemplateColumns: 'minmax(0,1.35fr) minmax(300px,.65fr)',
