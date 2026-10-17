@@ -8,6 +8,7 @@ import { supabaseAdmin } from '../lib/supabase'
 
 const currency = n => Number(n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 const number = n => Number(n || 0).toLocaleString('pt-BR')
+const formatDays = n => n === null || n === undefined ? '—' : Number(n).toLocaleString('pt-BR',{maximumFractionDigits:1})+' dias'
 const isoDate = value => value ? new Date(value + 'T12:00:00') : null
 const dateBR = value => value ? isoDate(value).toLocaleDateString('pt-BR') : '—'
 const median = values => {
@@ -329,15 +330,18 @@ export default function InteligenciaClientes() {
             <LegendStrip items={[{name:'Clientes compradores',color:CHART.ink},{name:'Produtos (SKUs)',color:CHART.orange}]}/>
           </Panel>
 
-          <Panel eyebrow="03 · Comparativo" title="Crescimento trimestral" note="Evolução absoluta e percentual de receita, base de clientes e amplitude do mix." side={lastQuarter?.trimestre} className="ci-card-wide"
-            footer="Trimestres parciais aparecem sinalizados. Uma variação positiva não implica, por si só, crescimento recorrente.">
+          <Panel eyebrow="03 · Comparativo" title="Crescimento trimestral"
+            note="Faturamento, clientes únicos e produtos distintos. Trimestre em andamento comparado com os mesmos dias do anterior."
+            side={lastQuarter?.trimestre} className="ci-card-wide"
+            footer="QTD (quarter to date): compara dias equivalentes do trimestre atual e do anterior, não um trimestre parcial com outro completo. Os demais trimestres usam períodos fechados.">
             <div className="ci-table-scroll"><table className="ci-table"><thead><tr>
               <th>Trimestre</th><th>Faturamento</th><th>Variação</th><th>Clientes</th><th>Variação</th><th>Mix (SKUs)</th><th>Variação</th>
-            </tr></thead><tbody>{analysis.quarterData.map((q,i)=>{
-              const prev=analysis.quarterData[i-1]
-              const partial=q.trimestre===currentQuarter
-              return <tr key={q.trimestre}>
-                <td><span className="ci-quarter-id">{q.trimestre}{partial&&<span className="ci-partial">PARCIAL</span>}</span></td>
+            </tr></thead><tbody>{analysis.quarterComparison.map(row=>{
+              const q=row.shown,prev=row.compared
+              return <tr key={row.trimestre}>
+                <td><span className="ci-quarter-id">{row.trimestre}{row.isQtd&&<span className="ci-partial">QTD</span>}</span>
+                  {row.isQtd&&<small className="ci-qtd-range">{row.windowText}</small>}
+                </td>
                 <td className="ci-strong">{currency(q.valor)}</td><td>{prev?<Delta current={q.valor} previous={prev.valor}/>:<span className="ci-delta flat">—</span>}</td>
                 <td className="ci-strong">{number(q.clientes)}</td><td>{prev?<Delta current={q.clientes} previous={prev.clientes}/>:<span className="ci-delta flat">—</span>}</td>
                 <td className="ci-strong">{number(q.produtos)}</td><td>{prev?<Delta current={q.produtos} previous={prev.produtos}/>:<span className="ci-delta flat">—</span>}</td>
@@ -355,15 +359,41 @@ export default function InteligenciaClientes() {
               </BarChart>
             </ResponsiveContainer></div>
           </Panel>
-          <Panel eyebrow="05 · Perfil" title="Frequência de compra" note="Distribuição agregada de clientes por número de pedidos." side="HISTÓRICO">
-            <div className="ci-card-chart"><ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analysis.customerDistribution} margin={{top:12,right:10,left:-20,bottom:4}}>
-                <CartesianGrid {...gridProps}/><XAxis dataKey="grupo" tick={axis} axisLine={false} tickLine={false} tickMargin={10}/>
-                <YAxis allowDecimals={false} tick={axis} axisLine={false} tickLine={false}/>
-                <Tooltip content={<HoverTooltip/>}/>
-                <Bar name="Clientes" dataKey="clientes" fill={CHART.ink} maxBarSize={42} radius={[5,5,0,0]}/>
-              </BarChart>
-            </ResponsiveContainer></div>
+          <Panel eyebrow="05 · Recorrência" title="Funil de recompra" side="JORNADA DE COMPRA" className="ci-card-wide"
+            note="A cada nível, quantos clientes chegaram à próxima compra e em quantos dias, em média, isso aconteceu."
+            footer="Funil cumulativo sobre clientes únicos e pedidos distintos do filtro selecionado. O tempo é a média dos intervalos observados entre compras consecutivas; não é previsão de reposição. Clientes recentes tiveram menos tempo para avançar.">
+            {analysis.funnelStages[0].clients===0?<div className="ci-empty">Nenhuma compra classificável nos filtros selecionados.</div>:
+            <div className="ci-funnel-layout">
+              <div className="ci-funnel-graphic" role="img" aria-label={analysis.funnelStages.map(f=>f.label+': '+f.clients+' clientes, '+f.share.toFixed(1)+' por cento').join('; ')}>
+                {analysis.funnelStages.map((stage,i)=><div key={stage.stage} className={'ci-funnel-segment ci-funnel-segment-'+stage.stage}
+                  style={{width:Math.max(44,Math.round(stage.clients/analysis.funnelStages[0].clients*100))+'%'}}>
+                  <span className="ci-funnel-stage-label">{stage.label}</span>
+                  <strong className="ci-funnel-stage-value">{number(stage.clients)} <span>clientes</span></strong>
+                  <small>{stage.share.toLocaleString('pt-BR',{maximumFractionDigits:1})}% da base</small>
+                </div>)}
+              </div>
+              <div className="ci-funnel-content">
+                <div className="ci-funnel-summary">
+                  <div><span>Clientes que recompraram</span><strong>{analysis.funnelStages[1].share.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</strong>
+                    <small>{number(analysis.funnelStages[1].clients)} de {number(analysis.funnelStages[0].clients)} clientes</small></div>
+                  <div><span>Intervalo médio entre compras</span><strong>{formatDays(analysis.overallAvgReorderDays)}</strong>
+                    <small>Somente intervalos efetivamente observados</small></div>
+                </div>
+                <div className="ci-funnel-table-scroll">
+                  <table className="ci-funnel-table">
+                    <thead><tr><th>Etapa alcançada</th><th>Clientes</th><th>% da base</th><th>Avanço</th><th>Média até a etapa</th></tr></thead>
+                    <tbody>{analysis.funnelStages.map((stage,i)=><tr key={stage.stage}>
+                      <td>{stage.label}</td>
+                      <td>{number(stage.clients)}</td>
+                      <td><strong>{stage.share.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</strong></td>
+                      <td>{i===0?'—':stage.stepRate.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%'}</td>
+                      <td>{i===0?'—':formatDays(stage.avgDays)}</td>
+                    </tr>)}</tbody>
+                  </table>
+                </div>
+                <p className="ci-funnel-help">“Avanço” é o percentual que saiu da etapa anterior e chegou à próxima; “% da base” usa todos os compradores como referência.</p>
+              </div>
+            </div>}
           </Panel>
           <Panel eyebrow="06 · Retenção" title="Situação de recompra" note="Classificação baseada nos intervalos observados entre pedidos." side="COMPORTAMENTO"
             footer="Compra única não permite determinar o ciclo de reposição. Atraso não equivale automaticamente a cliente perdido.">
@@ -376,10 +406,17 @@ export default function InteligenciaClientes() {
               </BarChart>
             </ResponsiveContainer></div>
           </Panel>
-          <Panel eyebrow="07 · Evolução do mix" title="Categorias por trimestre" note="Participação financeira das categorias ao longo dos períodos." side="R$ POR CATEGORIA">
+          <Panel eyebrow="07 · Evolução do mix" title="Categorias por trimestre"
+            note="Receita atribuída por categoria e crescimento no último período."
+            side={analysis.quarterComparison.at(-1)?.isQtd?'ÚLTIMO: QTD':'R$ POR CATEGORIA'}
+            footer={analysis.quarterComparison.at(-1)?.isQtd?'A coluna de variação do trimestre atual usa a mesma janela de dias do trimestre anterior.':'Variação em relação ao trimestre fechado anterior.'}>
             <div className="ci-mix-table ci-table-scroll"><table className="ci-table">
-              <thead><tr><th>Categoria</th>{analysis.quarterData.map(q=><th key={q.trimestre}>{q.trimestre}</th>)}</tr></thead>
-              <tbody>{analysis.categoryGrowth.map(cat=><tr key={cat.name}><td className="ci-strong">{cat.name}</td>{cat.periodos.map(p=><td key={p.trimestre}>{currency(p.valor)}</td>)}</tr>)}</tbody>
+              <thead><tr><th>Categoria</th>{analysis.quarterComparison.map(q=><th key={q.trimestre}>{q.trimestre}{q.isQtd?' QTD':''}</th>)}<th>Var. mais recente</th></tr></thead>
+              <tbody>{analysis.categoryGrowth.map(cat=><tr key={cat.name}>
+                <td className="ci-strong">{cat.name}</td>
+                {cat.periodos.map(p=><td key={p.trimestre}>{currency(p.valor)}</td>)}
+                <td>{analysis.quarterComparison.length>1?<Delta current={cat.latest} previous={cat.previous}/>:<span className="ci-delta flat">—</span>}</td>
+              </tr>)}</tbody>
             </table></div>
           </Panel>
         </div>
