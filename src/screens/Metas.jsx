@@ -160,7 +160,7 @@ export default function Metas() {
             </div>
             <div className="goals-command-side">
               <span className="goals-eyebrow">{year < CURRENT_YEAR || (year === CURRENT_YEAR && month < CURRENT_MONTH) ? 'Valor ao encerrar o mês' : year > CURRENT_YEAR || (year === CURRENT_YEAR && month > CURRENT_MONTH) ? 'Mês ainda não iniciado' : 'Projeção até o fim do mês'}</span><strong>{year > CURRENT_YEAR || (year === CURRENT_YEAR && month > CURRENT_MONTH) ? '—' : moneyShort(data.projected)}</strong>
-              <small className={data.current.Meta && data.projected >= data.current.Meta ? 'on-track' : 'attention'}>{!data.current.Meta ? 'Sem meta para comparar' : data.projected >= data.current.Meta ? `Projeção ${moneyShort(data.projected - data.current.Meta)} acima da meta` : `Projeção ${moneyShort(data.current.Meta - data.projected)} abaixo da meta`}</small>
+              <small className={data.current.Meta && data.projected >= data.current.Meta ? 'on-track' : 'attention'}>{!data.current.Meta ? 'Sem meta para comparar' : year > CURRENT_YEAR || (year === CURRENT_YEAR && month > CURRENT_MONTH) ? 'Aguardando início do mês' : year < CURRENT_YEAR || (year === CURRENT_YEAR && month < CURRENT_MONTH) ? data.projected >= data.current.Meta ? `Meta superada em ${moneyShort(data.projected - data.current.Meta)}` : `Ficou ${moneyShort(data.current.Meta - data.projected)} abaixo da meta` : data.projected >= data.current.Meta ? `Ritmo aponta ${moneyShort(data.projected - data.current.Meta)} acima da meta` : `Ritmo aponta ${moneyShort(data.current.Meta - data.projected)} abaixo da meta`}</small>
             </div>
           </section>
 
