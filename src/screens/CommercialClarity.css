@@ -28,3 +28,11 @@
 .cc-more-body .produtos-grid-4,.cc-more-body .regioes-grid-3,.cc-more-body .carteira-main-grid,.cc-more-body .carteira-grid-3{margin:0}
 @media(max-width:900px){.cc-page .cc-more-body{padding:15px 12px}.cc-page .cc-intro{padding:14px 15px}}
 @media(max-width:600px){.cc-page .cc-more>summary{padding:16px 13px;font-size:12px}.cc-summary-text small{font-size:10px}.cc-page .cc-more-body{padding:12px 9px 18px}.cc-page .cc-intro h2{font-size:15px}.cc-page .cc-intro p{font-size:11px}}
+
+
+.cc-page .carteira-rfm-card[aria-pressed="true"]{border-color:var(--orange);outline:2px solid rgba(232,119,34,.21);outline-offset:1px}
+.cc-page .cc-more .goals-kpis{margin-bottom:0}
+.cc-page .cc-more .goals-chart-card{margin-top:0}
+.cc-page .cc-region-kpis,.cc-page .cc-product-kpis,.cc-page .cc-carteira-kpis{margin-bottom:15px}
+@media(max-width:1080px){.cc-page .cc-vendedores-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:650px){.cc-page .cc-vendedores-kpis{gap:9px!important}}
