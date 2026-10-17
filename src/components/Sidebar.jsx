@@ -51,6 +51,7 @@ const NAV = [
   { to: '/cotacoes', label: 'Oportunidades', Icon: IconChartPie },
   { to: '/regioes', label: 'Regiões', Icon: IconMapPin },
   { to: '/produtos', label: 'Produtos', Icon: IconBuildingStore },
+  { to: '/clientes-inteligencia', label: 'Inteligência de Clientes', Icon: IconChartBar },
   { to: '/estoque', label: 'Estoque', Icon: IconBox },
   { to: '/fechamentos', label: 'Apresentações', Icon: IconPresentation, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
 
@@ -66,7 +67,6 @@ const NAV = [
   { to: '/financeiro/auditoria', label: 'Auditoria financeira', Icon: IconShieldCheck, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
 
   { section: 'Execução em campo' },
-  { to: '/clientes-inteligencia', label: 'Inteligência de Clientes', Icon: IconChartBar },
   { to: '/carteira', label: 'Carteira Operacional', Icon: IconUsers },
   { to: '/visitas', label: 'Visitas', Icon: IconRoute },
   { to: '/checklists', label: 'Diagnósticos', Icon: IconClipboardList },
