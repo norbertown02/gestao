@@ -18,6 +18,22 @@ const median = values => {
 }
 const dateDiff = (a,b) => Math.max(0,Math.round((a-b)/86400000))
 const yearMonth = date => String(date || '').slice(0,7)
+const ONE_DAY = 86400000
+const toISO = d => d.toISOString().slice(0,10)
+const dateForUTC = (year,month,day=1) => new Date(Date.UTC(year,month,day))
+const clientKey = row => row.ultra_partner_id != null ? 'u:' + row.ultra_partner_id : 'f:' + row.farm_id
+function summarizeItems(rows) {
+  const buyers = new Set(),products = new Set(),categories = new Map()
+  let amount = 0
+  for (const row of rows) {
+    amount += Number(row.allocated_order_value || 0)
+    buyers.add(clientKey(row))
+    if (row.product_code) products.add(row.product_code)
+    const name = row.category || 'Sem categoria'
+    categories.set(name,(categories.get(name)||0)+Number(row.allocated_order_value||0))
+  }
+  return {valor:amount,clientes:buyers.size,produtos:products.size,categorias:categories}
+}
 const quarterChange=(current,previous)=>previous===0?null:100*(current-previous)/previous
 const changeLabel=(current,previous)=>{const rate=quarterChange(current,previous);return rate===null?'Sem base comparável':(rate>=0?'+':'')+rate.toFixed(1)+'%'}
 const CHART={orange:'#E87722',ink:'#171411',blue:'#426A8C',muted:'#A49B92'}
@@ -109,7 +125,8 @@ export default function InteligenciaClientes() {
     const missing=allQuality.filter(x=>x.item_count===0).length
     const unvalued=allQuality.filter(x=>x.data_quality==='sem_valores').length
     const divergent=new Set(active.filter(x=>x.data_quality==='rateado_divergencia').map(x=>x.sale_id)).size
-    const eligible=active.filter(x=>(year==='Todos'||x.sale_date?.startsWith(year))&&
+    const todayISO=toISO(dateForUTC(reference.getFullYear(),reference.getMonth(),reference.getDate()))
+    const eligible=active.filter(x=>x.sale_date && x.sale_date<=todayISO && (year==='Todos'||x.sale_date.startsWith(year))&&
       (market==='Todos'||x.market===market)&&
       (segment==='Todos'||x.segment===segment) && x.allocated_order_value!==null)
     const customers=new Map(),monthMap=new Map(),mix=new Map()
@@ -157,14 +174,50 @@ export default function InteligenciaClientes() {
       if(r.product_code)q.skus.add(r.product_code)
       const cat=r.category||'Sem categoria';q.categorias.set(cat,(q.categorias.get(cat)||0)+Number(r.allocated_order_value||0))
     }
-    const quarterData=[...quarters.values()].sort((a,b)=>a.name.localeCompare(b.name)).map(q=>({trimestre:q.name,clientes:q.clientes.size,produtos:q.skus.size,valor:q.valor,categorias:q.categorias}))
-    const comparison=quarterData.slice(1).map((q,i)=>{const prev=quarterData[i];const quarterNumber=Number(q.trimestre.split('T')[1]);const currentQuarter=reference.getFullYear()+'-T'+(Math.floor(reference.getMonth()/3)+1);const partial=q.trimestre===currentQuarter&&((reference.getMonth()%3)!==2||reference.getDate()<new Date(reference.getFullYear(),reference.getMonth()+1,0).getDate());return {periodo:prev.trimestre+' → '+q.trimestre,trimestre:q.trimestre,partial,receita:q.valor,clientes:q.clientes,produtos:q.produtos,prevReceita:prev.valor,prevClientes:prev.clientes,prevProdutos:prev.produtos,receitaPct:quarterChange(q.valor,prev.valor),clientesPct:quarterChange(q.clientes,prev.clientes),mixPct:quarterChange(q.produtos,prev.produtos)}})
-    const customerDistribution=[
-      {grupo:'1 pedido',clientes:customerRows.filter(c=>c.ordersCount===1).length},
-      {grupo:'2 pedidos',clientes:customerRows.filter(c=>c.ordersCount===2).length},
-      {grupo:'3–4 pedidos',clientes:customerRows.filter(c=>c.ordersCount>=3&&c.ordersCount<=4).length},
-      {grupo:'5+ pedidos',clientes:customerRows.filter(c=>c.ordersCount>=5).length}
-    ]
+    const currentQNumber=Math.floor(reference.getMonth()/3)+1
+    const currentQuarter=reference.getFullYear()+'-T'+currentQNumber
+    if (year!=='Todos') {
+      const selectedYear=Number(year)
+      if (Number.isInteger(selectedYear)) {
+        const lastQ=selectedYear===reference.getFullYear()?currentQNumber:4
+        for(let q=1;q<=lastQ;q++){
+          const key=selectedYear+'-T'+q
+          if(!quarters.has(key))quarters.set(key,{name:key,clientes:new Set(),skus:new Set(),categorias:new Map(),valor:0})
+        }
+      }
+    }
+    const quarterData=[...quarters.values()].sort((a,b)=>a.name.localeCompare(b.name))
+      .map(q=>({trimestre:q.name,clientes:q.clientes.size,produtos:q.skus.size,valor:q.valor,categorias:q.categorias}))
+    const quarterComparison=quarterData.map((q,i)=>{
+      const previous=quarterData[i-1]||null
+      if(!previous)return {...q,compared:null,shown:q,isQtd:false,windowText:''}
+      const isQtd=q.trimestre===currentQuarter
+      if(!isQtd)return {...q,compared:previous,shown:q,isQtd:false,windowText:''}
+      // QTD: same number of calendar days elapsed in current and previous quarters.
+      const currentStart=dateForUTC(reference.getFullYear(),(currentQNumber-1)*3)
+      const precedingStart=dateForUTC(reference.getFullYear(),(currentQNumber-2)*3)
+      const precedingEnd=dateForUTC(reference.getFullYear(),(currentQNumber-1)*3)
+      const daysElapsed=Math.floor((dateForUTC(reference.getFullYear(),reference.getMonth(),reference.getDate())-currentStart)/ONE_DAY)+1
+      const comparisonDays=Math.min(daysElapsed,Math.round((precedingEnd-precedingStart)/ONE_DAY))
+      const currentLimit=toISO(new Date(currentStart.getTime()+(comparisonDays-1)*ONE_DAY))
+      const priorLimit=toISO(new Date(precedingStart.getTime()+(comparisonDays-1)*ONE_DAY))
+      const shown=summarizeItems(eligible.filter(r=>r.sale_date>=toISO(currentStart)&&r.sale_date<=currentLimit))
+      const compared=summarizeItems(eligible.filter(r=>r.sale_date>=toISO(precedingStart)&&r.sale_date<=priorLimit))
+      return {...q,shown,compared,isQtd:true,
+        windowText:'1º a '+currentLimit.slice(8,10)+'/'+currentLimit.slice(5,7)+' vs. 1º a '+priorLimit.slice(8,10)+'/'+priorLimit.slice(5,7),
+        comparisonDays,previousQuarter:previous.trimestre}
+    })
+    const funnelStages=Array.from({length:5},(_,i)=>{
+      const reached=customerRows.filter(c=>c.ordersCount>=i+1)
+      const previousReached=i===0?reached.length:customerRows.filter(c=>c.ordersCount>=i).length
+      const gaps=i===0?[]:reached.map(c=>dateDiff(isoDate(c.dates[i]),isoDate(c.dates[i-1])))
+      return {stage:i+1,label:i===4?'5ª compra ou mais':(i+1)+'ª compra',clients:reached.length,
+        share:customerRows.length?100*reached.length/customerRows.length:0,
+        stepRate:i===0?100:previousReached?100*reached.length/previousReached:0,
+        avgDays:gaps.length?gaps.reduce((a,b)=>a+b,0)/gaps.length:null}
+    })
+    const allRepeatGaps=customerRows.flatMap(c=>c.dates.slice(1).map((date,i)=>dateDiff(isoDate(date),isoDate(c.dates[i]))))
+    const overallAvgReorderDays=allRepeatGaps.length?allRepeatGaps.reduce((a,b)=>a+b,0)/allRepeatGaps.length:null
     const reorderDistribution=[
       {grupo:'1 pedido · até 90d',clientes:one.filter(c=>c.days<=90).length},
       {grupo:'1 pedido · >90d',clientes:one.filter(c=>c.days>90).length},
@@ -172,9 +225,15 @@ export default function InteligenciaClientes() {
       {grupo:'Dentro do ciclo',clientes:recurring.filter(c=>c.situation==='Dentro do ciclo').length}
     ]
     const categoryNames=[...new Set(quarterData.flatMap(q=>[...q.categorias.keys()]))]
-    const categoryGrowth=categoryNames.map(name=>({name,periodos:quarterData.map(q=>({trimestre:q.trimestre,valor:q.categorias.get(name)||0})),latest:quarterData.at(-1)?.categorias.get(name)||0})).sort((a,b)=>b.latest-a.latest)
+    const categoryGrowth=categoryNames.map(name=>({
+      name,
+      periodos:quarterComparison.map(q=>({trimestre:q.trimestre,valor:q.shown.categorias.get(name)||0})),
+      latest:quarterComparison.at(-1)?.shown.categorias.get(name)||0,
+      previous:quarterComparison.at(-1)?.compared?.categorias.get(name)||0
+    })).sort((a,b)=>b.latest-a.latest)
     return {timeline,customerRows,one,recurring,risk,missing,unvalued,divergent,concentration,
-      quarterData,comparison,categoryGrowth,customerDistribution,reorderDistribution,mix:[...mix.entries()].map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value),
+      quarterData,quarterComparison,categoryGrowth,funnelStages,overallAvgReorderDays,
+      reorderDistribution,mix:[...mix.entries()].map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value),
       sum:eligible.reduce((a,x)=>a+Number(x.allocated_order_value||0),0),
       oneRecent:one.filter(c=>c.days<=90).length,
       oneOlder:one.filter(c=>c.days>90).length}
