@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
+import './CommercialClarity.css'
 import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import { CURRENT_MONTH, CURRENT_YEAR, historyStart, monthOptions, periodRange, previousPeriodRange, yearOptions } from '../lib/commercialPeriod'
 import {
@@ -568,7 +569,7 @@ export default function Produtos() {
         </button>
       </Topbar>
 
-      <div className="page produtos-page" style={{ overflowY: 'auto' }}>
+      <div className="page produtos-page cc-page" style={{ overflowY: 'auto' }}>
         <section className="produtos-toolbar">
           <div className="produtos-toolbar-left">
             <div className="produtos-filter-icon">
@@ -596,6 +597,11 @@ export default function Produtos() {
           </div>
         </section>
 
+        <div className="cc-intro">
+          <span className="cc-kicker">Vendas por produto</span>
+          <h2>Quais produtos sustentam nossas vendas?</h2>
+          <p>Veja o produto líder, o volume vendido e as categorias com maior faturamento. Rankings, histórico completo e produtos sem venda ficam disponíveis para consulta.</p>
+        </div>
         <section className="produtos-hero">
           <div>
             <span className="produtos-eyebrow">Produto líder do período</span>
@@ -621,14 +627,14 @@ export default function Produtos() {
           </div>
         </section>
 
-        <section className="produtos-kpi-grid">
-          <KpiCard icon={IconWallet} label="Valor dos pedidos" value={fmtK(dados.totalReceita)} atual={dados.totalReceita} anterior={dados.totalReceitaAnt} />
-          <KpiCard icon={IconTrendingUp} label="Margem bruta estimada" value={fmtK(dados.totalMargem)} sub={`${dados.margemPct.toFixed(1)}% da receita · custo atual Ultra`} tone="success" />
+        <section className="produtos-kpi-grid cc-product-kpis">
+
+          <KpiCard icon={IconTrendingUp} label="Margem estimada" value={fmtK(dados.totalMargem)} sub={`${dados.margemPct.toFixed(1)}% da venda; usa custos atuais` } tone="success" />
           <KpiCard icon={IconReceipt} label="Custo dos produtos" value={fmtK(dados.totalCusto)} sub="quantidade pedida × custo atual" />
           <KpiCard icon={IconPackage} label="Produtos vendidos" value={fmtInt(dados.porProduto.length)} sub={`${fmtInt(produtos.length)} produtos ativos`} />
-          <KpiCard icon={IconBox} label="Volume vendido" value={fmtInt(dados.totalQtd)} atual={dados.totalQtd} anterior={dados.totalQtdAnt} />
-          <KpiCard icon={IconReceipt} label="Ticket médio" value={fmtK(dados.ticketMedio)} sub="valor médio por item vendido" />
-          <KpiCard icon={IconAlertTriangle} label="Sem giro" value={fmtInt(dados.semVenda.length)} sub="produtos sem venda no filtro" tone={dados.semVenda.length ? 'danger' : 'success'} invert />
+
+          <KpiCard icon={IconReceipt} label="Valor médio por item" value={fmtK(dados.ticketMedio)} sub="valor médio por item vendido" />
+
           <KpiCard icon={IconTargetArrow} label="Produto líder" value={dados.topProduto ? `${dados.topProduto.participacao.toFixed(1)}%` : '—'} sub={dados.topProduto?.name || 'sem vendas'} />
         </section>
 
@@ -645,24 +651,23 @@ export default function Produtos() {
               </section>
             )}
 
+            <div className="cc-insight"><strong>Leitura rápida:</strong> o ranking destaca produtos com mais vendas; a margem é apenas uma estimativa com os custos atuais do Ultra, não o lucro contábil.</div>
             <section className="produtos-main-grid">
               <div className="produtos-card produtos-chart-card">
                 <div className="produtos-card-head">
-                  <div><span className="produtos-eyebrow">Concentração do mix</span><h3>Quanto os principais produtos representam</h3></div>
-                  <small>barras: valor de pedidos · linha: participação acumulada</small>
+                  <div><span className="produtos-eyebrow">Concentração do mix</span><h3>Os 7 produtos com maior venda</h3></div>
+                  <small>valor dos pedidos por produto</small>
                 </div>
 
                 {dados.porProduto.length > 0 ? (
                   <ResponsiveContainer width="100%" height={340}>
-                    <ComposedChart data={dados.pareto} margin={{ top: 10, right: 16, left: 2, bottom: 54 }}>
-                      <CartesianGrid strokeDasharray="3 7" vertical={false} />
-                      <XAxis dataKey="name" tickLine={false} axisLine={false} angle={-28} textAnchor="end" interval={0} height={70} tick={{ fontSize: 10 }} />
-                      <YAxis yAxisId="money" tickLine={false} axisLine={false} tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} />
-                      <YAxis yAxisId="share" orientation="right" domain={[0, 100]} tickLine={false} axisLine={false} tickFormatter={fmtPercent} />
-                      <Tooltip formatter={(value, name) => name === 'Acumulado' ? [fmtPercent(value), 'Participação acumulada'] : [`R$ ${fmt(value)}`, 'Valor de pedidos']} />
-                      <Bar yAxisId="money" dataKey="receita" name="Valor de pedidos" fill="var(--orange)" radius={[7, 7, 0, 0]} maxBarSize={34} />
-                      <Line yAxisId="share" type="monotone" dataKey="Acumulado" stroke="#292623" strokeWidth={2.5} dot={{ r: 3, fill: '#292623' }} />
-                    </ComposedChart>
+                    <BarChart data={dados.porProduto.slice(0,7)} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="3 7" horizontal={false} />
+                      <XAxis type="number" tickLine={false} axisLine={false} tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} />
+                      <YAxis type="category" dataKey="name" width={132} tickLine={false} axisLine={false} tick={{fontSize:10}} tickFormatter={value=>value.length>22?value.slice(0,21)+'…':value} />
+                      <Tooltip formatter={value => [`R$ ${fmt(value)}`, 'Vendas']} />
+                      <Bar dataKey="receita" name="Valor vendido" fill="var(--orange)" radius={[0,6,6,0]} maxBarSize={27}/>
+                    </BarChart>
                   </ResponsiveContainer>
                 ) : <Empty>Sem vendas no período</Empty>}
               </div>
@@ -686,6 +691,9 @@ export default function Produtos() {
               </div>
             </section>
 
+            <details className="cc-more">
+              <summary><span className="cc-summary-icon">↗</span><span className="cc-summary-text">Explorar histórico e catálogo completo<small>Evolução dos líderes, produtos em alta ou queda, tabela e itens sem venda</small></span><span className="cc-arrow">⌄</span></summary>
+              <div className="cc-more-body">
             <section className="produtos-card produtos-chart-card">
               <div className="produtos-card-head">
                 <div><span className="produtos-eyebrow">Tendência</span><h3>Evolução dos produtos líderes</h3></div>
@@ -731,6 +739,8 @@ export default function Produtos() {
               <div className="produtos-card-head"><div><span className="produtos-eyebrow">Sem giro</span><h3>Produtos ativos sem venda no período</h3></div><small>{fmtInt(dados.semVenda.length)} produtos</small></div>
               {dados.semVenda.length === 0 ? <Empty>Todos os produtos tiveram venda no filtro atual</Empty> : <div className="produtos-sem-giro">{dados.semVenda.map(p => <span key={p}>{p}</span>)}</div>}
             </section>
+              </div>
+            </details>
           </>
         )}
       </div>
