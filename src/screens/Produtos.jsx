@@ -6,7 +6,6 @@ import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import { CURRENT_MONTH, CURRENT_YEAR, historyStart, monthOptions, periodRange, previousPeriodRange, yearOptions } from '../lib/commercialPeriod'
 import {
   IconAlertTriangle,
-  IconBox,
   IconDownload,
   IconFilter,
   IconPackage,
@@ -14,12 +13,10 @@ import {
   IconTargetArrow,
   IconTrendingDown,
   IconTrendingUp,
-  IconWallet,
 } from '@tabler/icons-react'
 import {
   AreaChart,
   Area,
-  ComposedChart,
   Line,
   BarChart,
   Bar,
