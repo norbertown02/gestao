@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
-import { IconAdjustmentsHorizontal, IconChartBar, IconChevronDown, IconRotateClockwise, IconTrendingUp, IconUsers, IconPackage, IconAlertCircle, IconArrowUpRight, IconArrowDownRight, IconArrowRight } from '@tabler/icons-react'
+import { IconChartBar, IconChevronDown, IconRotateClockwise, IconTrendingUp, IconUsers, IconPackage, IconAlertCircle, IconArrowUpRight, IconArrowDownRight, IconArrowRight } from '@tabler/icons-react'
 import './InteligenciaClientes.css'
 import Topbar from '../components/Topbar'
 import { supabaseAdmin } from '../lib/supabase'
@@ -10,7 +10,6 @@ const currency = n => Number(n || 0).toLocaleString('pt-BR', { style: 'currency'
 const number = n => Number(n || 0).toLocaleString('pt-BR')
 const formatDays = n => n === null || n === undefined ? '—' : Number(n).toLocaleString('pt-BR',{maximumFractionDigits:1})+' dias'
 const isoDate = value => value ? new Date(value + 'T12:00:00') : null
-const dateBR = value => value ? isoDate(value).toLocaleDateString('pt-BR') : '—'
 const median = values => {
   if (!values.length) return 0
   const ordered = [...values].sort((a,b) => a-b)
@@ -186,6 +185,18 @@ export default function InteligenciaClientes() {
           if(!quarters.has(key))quarters.set(key,{name:key,clientes:new Set(),skus:new Set(),categorias:new Map(),valor:0})
         }
       }
+    } else if (eligible.length) {
+      const firstQuarter=[...quarters.keys()].sort()[0]
+      const startYear=Number(firstQuarter.slice(0,4))
+      const startQ=Number(firstQuarter.slice(-1))
+      for(let y=startYear;y<=reference.getFullYear();y++){
+        const begin=y===startYear?startQ:1
+        const end=y===reference.getFullYear()?currentQNumber:4
+        for(let q=begin;q<=end;q++){
+          const key=y+'-T'+q
+          if(!quarters.has(key))quarters.set(key,{name:key,clientes:new Set(),skus:new Set(),categorias:new Map(),valor:0})
+        }
+      }
     }
     const quarterData=[...quarters.values()].sort((a,b)=>a.name.localeCompare(b.name))
       .map(q=>({trimestre:q.name,clientes:q.clientes.size,produtos:q.skus.size,valor:q.valor,categorias:q.categorias}))
@@ -247,7 +258,6 @@ export default function InteligenciaClientes() {
   const firstMonth=analysis.timeline[0]?.mes
   const lastMonth=analysis.timeline.at(-1)?.mes
   const lastQuarter=analysis.quarterData.at(-1)
-  const currentQuarter=reference.getFullYear()+'-T'+(Math.floor(reference.getMonth()/3)+1)
   return <div>
     <Topbar title="Inteligência de Clientes" subtitle="Desempenho, evolução e composição da carteira"/>
     <main className="ci-page">
