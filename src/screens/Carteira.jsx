@@ -14,8 +14,6 @@ import {
   IconTargetArrow,
   IconTrendingDown,
   IconTrendingUp,
-  IconUsers,
-  IconWallet,
 } from '@tabler/icons-react'
 import {
   AreaChart,
