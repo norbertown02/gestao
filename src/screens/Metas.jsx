@@ -5,6 +5,7 @@ import { supabaseAdmin } from '../lib/supabase'
 import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import { useVendedores } from '../lib/sellers'
 import Topbar from '../components/Topbar'
+import './CommercialClarity.css'
 
 const money = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const moneyShort = value => {
@@ -130,7 +131,11 @@ export default function Metas() {
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Topbar title="Metas Comerciais" subtitle="Pedidos mensais e acumulados por vendedor" />
-      <div className="page goals-page" style={{ overflowY: 'auto' }}>
+      <div className="page goals-page cc-page" style={{ overflowY: 'auto' }}>
+        <div className="cc-intro"><span className="cc-kicker">Acompanhamento de objetivos</span>
+          <h2>Quanto já atingimos da meta?</h2>
+          <p>Escolha o mês e o vendedor. Veja o valor realizado, a meta e quanto falta. Clique em um vendedor para consultar seu desempenho individual.</p>
+        </div>
         <section className="goals-toolbar">
           <div>
             {selectedSeller !== 'todos' && <button className="goals-back" onClick={() => setSelectedSeller('todos')}><IconArrowLeft size={16} />Voltar ao time</button>}
@@ -144,29 +149,23 @@ export default function Metas() {
           <div className="goals-tabs"><button className={tab === 'acompanhamento' ? 'active' : ''} onClick={() => setTab('acompanhamento')}>Acompanhamento</button><button className={tab === 'cadastro' ? 'active' : ''} onClick={() => setTab('cadastro')}>Definir metas</button></div>
         </section>
 
+        <p className="cc-toolbar-help">Acompanhamento mostra resultados. Definir metas é a área de cadastro e não altera pedidos já realizados.</p>
         {loading ? <div className="empty">Carregando metas...</div> : tab === 'acompanhamento' ? <>
           <section className="goals-command">
             <div className="goals-command-main">
-              <span className="goals-eyebrow">Meta de pedidos · {monthName(month)} de {year} · {selectedName}</span>
+              <span className="goals-eyebrow">Meta de vendas · {monthName(month)} de {year} · {selectedName}</span>
               <div className="goals-command-values"><div><small>Realizado</small><h2>{moneyShort(data.current.Realizado)}</h2></div><div><small>Meta</small><strong>{data.current.Meta ? moneyShort(data.current.Meta) : '—'}</strong></div></div>
               <div className="goals-command-progress"><span style={{ width: `${Math.min(100, data.current.Meta ? (data.current.Realizado / data.current.Meta) * 100 : 0)}%` }} /></div>
               <div className="goals-command-foot"><strong>{data.current.Meta ? `${((data.current.Realizado / data.current.Meta) * 100).toFixed(1)}% atingido` : 'Meta não definida'}</strong><span>{data.current.Meta ? `${moneyShort(Math.max(0, data.current.Meta - data.current.Realizado))} para alcançar a meta` : 'Cadastre a meta para acompanhar o ritmo'}</span></div>
             </div>
             <div className="goals-command-side">
-              <span className="goals-eyebrow">Projeção no ritmo atual</span><strong>{moneyShort(data.projected)}</strong>
-              <small className={data.current.Meta && data.projected >= data.current.Meta ? 'on-track' : 'attention'}>{!data.current.Meta ? 'Sem meta para comparar' : data.projected >= data.current.Meta ? `Projeção ${moneyShort(data.projected - data.current.Meta)} acima da meta` : `Projeção ${moneyShort(data.current.Meta - data.projected)} abaixo da meta`}</small>
+              <span className="goals-eyebrow">{year < CURRENT_YEAR || (year === CURRENT_YEAR && month < CURRENT_MONTH) ? 'Valor ao encerrar o mês' : year > CURRENT_YEAR || (year === CURRENT_YEAR && month > CURRENT_MONTH) ? 'Mês ainda não iniciado' : 'Projeção até o fim do mês'}</span><strong>{year > CURRENT_YEAR || (year === CURRENT_YEAR && month > CURRENT_MONTH) ? '—' : moneyShort(data.projected)}</strong>
+              <small className={data.current.Meta && data.projected >= data.current.Meta ? 'on-track' : 'attention'}>{!data.current.Meta ? 'Sem meta para comparar' : year > CURRENT_YEAR || (year === CURRENT_YEAR && month > CURRENT_MONTH) ? 'Aguardando início do mês' : year < CURRENT_YEAR || (year === CURRENT_YEAR && month < CURRENT_MONTH) ? data.projected >= data.current.Meta ? `Meta superada em ${moneyShort(data.projected - data.current.Meta)}` : `Ficou ${moneyShort(data.current.Meta - data.projected)} abaixo da meta` : data.projected >= data.current.Meta ? `Ritmo aponta ${moneyShort(data.projected - data.current.Meta)} acima da meta` : `Ritmo aponta ${moneyShort(data.current.Meta - data.projected)} abaixo da meta`}</small>
             </div>
           </section>
 
-          <section className="goals-kpis goals-kpis-four">
-            <article><IconTrendingUp /><span>Ritmo realizado/dia</span><strong>{moneyShort(data.actualPace)}</strong></article>
-            <article><IconTargetArrow /><span>Ritmo necessário/dia</span><strong>{data.current.Meta && data.remainingDays ? moneyShort(data.requiredPace) : '—'}</strong></article>
-            <article><IconClock /><span>Dias restantes</span><strong>{data.remainingDays}</strong></article>
-            <article><IconCheck /><span>Acumulado no ano</span><strong>{moneyShort(data.realizedYtd)}</strong></article>
-          </section>
-
           {selectedSeller === 'todos' && <section className="goals-team-table-card">
-            <div className="goals-card-head"><div><span className="goals-eyebrow">Execução por vendedor</span><h3>Quem está puxando a meta — e onde agir</h3></div><small>ordenado por atingimento</small></div>
+            <div className="goals-card-head"><div><span className="goals-eyebrow">Execução por vendedor</span><h3>Como está a meta de cada vendedor</h3></div><small>ordenado por atingimento</small></div>
             <div className="goals-team-table">
               <div className="goals-team-head"><span>Vendedor</span><span>Meta</span><span>Pedidos</span><span>Saldo</span><span>Atingimento</span></div>
               {data.team.map(seller => <button key={seller.id} onClick={() => setSelectedSeller(seller.id)}>
@@ -174,6 +173,18 @@ export default function Metas() {
               </button>)}
             </div>
           </section>}
+
+          <details className="cc-more">
+            <summary><span className="cc-summary-icon">↗</span><span className="cc-summary-text">Ver ritmo de vendas e histórico do ano<small>Ritmo diário, dias restantes, realizado no ano e gráfico mensal de metas</small></span><span className="cc-arrow">⌄</span></summary>
+            <div className="cc-more-body">
+              <p className="cc-toolbar-help">Ritmo diário estimado por dias corridos. Use como referência, não como garantia de fechamento.</p>
+          <section className="goals-kpis goals-kpis-four">
+            <article><IconTrendingUp /><span>Ritmo realizado/dia</span><strong>{moneyShort(data.actualPace)}</strong></article>
+            <article><IconTargetArrow /><span>Ritmo necessário/dia</span><strong>{data.current.Meta && data.remainingDays ? moneyShort(data.requiredPace) : '—'}</strong></article>
+            <article><IconClock /><span>Dias restantes</span><strong>{data.remainingDays}</strong></article>
+            <article><IconCheck /><span>Acumulado no ano</span><strong>{moneyShort(data.realizedYtd)}</strong></article>
+          </section>
+
 
           <section className="goals-chart-card">
             <div className="goals-card-head"><div><span className="goals-eyebrow">Trajetória anual</span><h3>Pedidos versus meta mês a mês</h3></div><small>pedidos líquidos após cancelamentos e devoluções</small></div>
@@ -188,6 +199,9 @@ export default function Metas() {
               </ComposedChart>
             </ResponsiveContainer>
           </section>
+
+            </div>
+          </details>
         </> : <section className="goals-editor">
           <div className="goals-card-head"><div><span className="goals-eyebrow">Planejamento interno</span><h3>Metas de {monthName(month)} de {year}</h3></div><small>cadastro centralizado no Gestão</small></div>
           {data.sellerOptions.map(([sellerId, sellerName]) => <div className="goals-editor-row" key={sellerId}>
