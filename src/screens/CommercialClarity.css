@@ -74,3 +74,10 @@
     padding:8px 9px;
   }
 }
+
+@media(max-width:640px){
+ .goals-editor-row > .goals-budget-source{
+   grid-column:1/-1;
+   justify-self:start;
+ }
+}
