@@ -4,6 +4,8 @@ import { ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, 
 import { IconChartBar, IconChevronDown, IconRotateClockwise, IconTrendingUp, IconUsers, IconPackage, IconAlertCircle, IconArrowUpRight, IconArrowDownRight, IconArrowRight } from '@tabler/icons-react'
 import './InteligenciaClientes.css'
 import Topbar from '../components/Topbar'
+import ClientStarsPanel from '../components/ClientStarsPanel'
+import { commercialCategory } from '../lib/productTaxonomy'
 import { supabaseAdmin } from '../lib/supabase'
 
 const currency = n => Number(n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
@@ -29,15 +31,15 @@ function summarizeItems(rows) {
     amount += Number(row.allocated_order_value || 0)
     buyers.add(clientKey(row))
     if (row.product_code) products.add(row.product_code)
-    const name = row.category || 'Sem categoria'
-    categories.set(name,(categories.get(name)||0)+Number(row.allocated_order_value||0))
+    const name = commercialCategory(row.category, row.product_name)
+    if (name) categories.set(name,(categories.get(name)||0)+Number(row.allocated_order_value||0))
   }
   return {valor:amount,clientes:buyers.size,produtos:products.size,categorias:categories}
 }
 const quarterChange=(current,previous)=>previous===0?null:100*(current-previous)/previous
 const changeLabel=(current,previous)=>{const rate=quarterChange(current,previous);return rate===null?'Sem base comparável':(rate>=0?'+':'')+rate.toFixed(1)+'%'}
 const CHART={orange:'#E87722',ink:'#171411',blue:'#426A8C',muted:'#A49B92'}
-const MARKET_OPTIONS = ['Bovinos','Suínos','Multiespécie','Todos']
+const MARKET_OPTIONS = ['Bovinos','Suínos','Todos']
 
 function Kpi({label,value,note,Icon}) {
   return <article className="ci-kpi">
@@ -136,13 +138,14 @@ export default function InteligenciaClientes() {
       const c=customers.get(customerId),value=Number(r.allocated_order_value||0)
       c.orders.set(r.sale_id,{date:r.sale_date,value:(c.orders.get(r.sale_id)?.value||0)+value})
       if(r.product_code)c.skus.add(r.product_code)
-      if(r.category)c.categories.add(r.category)
+      const group = commercialCategory(r.category, r.product_name)
+      if(group)c.categories.add(group)
       c.last=!c.last||r.sale_date>c.last?r.sale_date:c.last
       const key=yearMonth(r.sale_date)
       if(!monthMap.has(key))monthMap.set(key,{mes:key,venda:0,clientes:new Set(),produtos:new Set()})
       const m=monthMap.get(key);m.venda+=value;m.clientes.add(customerId);if(r.product_code)m.produtos.add(r.product_code)
-      const mixKey=r.category||'Sem categoria'
-      mix.set(mixKey,(mix.get(mixKey)||0)+value)
+      const mixKey=commercialCategory(r.category, r.product_name)
+      if (mixKey) mix.set(mixKey,(mix.get(mixKey)||0)+value)
     }
     const months=[...monthMap.values()].sort((a,b)=>a.mes.localeCompare(b.mes))
     const timeline=months.map((m,i)=>{
@@ -172,7 +175,8 @@ export default function InteligenciaClientes() {
       const q=quarters.get(k);q.valor+=Number(r.allocated_order_value||0)
       q.clientes.add(r.ultra_partner_id!=null?'u:'+r.ultra_partner_id:'f:'+r.farm_id)
       if(r.product_code)q.skus.add(r.product_code)
-      const cat=r.category||'Sem categoria';q.categorias.set(cat,(q.categorias.get(cat)||0)+Number(r.allocated_order_value||0))
+      const cat=commercialCategory(r.category, r.product_name)
+      if(cat) q.categorias.set(cat,(q.categorias.get(cat)||0)+Number(r.allocated_order_value||0))
     }
     const currentQNumber=Math.floor(reference.getMonth()/3)+1
     const currentQuarter=reference.getFullYear()+'-T'+currentQNumber
@@ -434,9 +438,10 @@ export default function InteligenciaClientes() {
           <div className="ci-quality" role="status"><IconAlertCircle size={17}/>
             <span><strong>Qualidade da base geral:</strong> {analysis.missing} pedidos sem itens, {analysis.unvalued} sem valores e {analysis.divergent} com divergências/rateio. Valores segmentados são gerenciais, não conciliação fiscal.</span>
           </div>}
+        <ClientStarsPanel />
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',marginTop:22}}>
           <span className="ci-live"><span className="ci-live-dot"/> Nutrialle · Inteligência Comercial</span>
-          <Link className="ci-link" to="/carteira">Abrir carteira operacional <IconArrowRight size={14}/></Link>
+          <span className="ci-link">Carteira e inteligência em uma única tela <IconArrowRight size={14}/></span>
         </div>
       </>}
     </main>
