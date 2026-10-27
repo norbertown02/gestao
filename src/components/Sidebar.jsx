@@ -56,10 +56,9 @@ const NAV = [
   { to: '/estoque', label: 'Estoque', Icon: IconBox },
   { to: '/fechamentos', label: 'Apresentações', Icon: IconPresentation, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
 
-  { section: 'Equipe e metas' },
-  { to: '/metas', label: 'Metas', Icon: IconTarget },
+  { section: 'Equipe comercial' },
+  { to: '/vendedores', label: 'Equipe Comercial e Metas', Icon: IconUsers },
   { to: '/budget', label: 'Budget Comercial', Icon: IconCalendarStats, roles: ['admin', 'gestor', 'gestor_comercial'] },
-  { to: '/vendedores', label: 'Equipe Comercial', Icon: IconUsers },
 
   { section: 'Financeiro' },
   { to: '/tabela-precos', label: 'Tabela de Preços', Icon: IconCurrencyDollar, roles: ['gestor', 'gestor_financeiro'] },
@@ -69,7 +68,6 @@ const NAV = [
   { to: '/financeiro/auditoria', label: 'Auditoria financeira', Icon: IconShieldCheck, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
 
   { section: 'Execução em campo' },
-  { to: '/carteira', label: 'Carteira Operacional', Icon: IconUsers },
   { to: '/visitas', label: 'Visitas', Icon: IconRoute },
   { to: '/checklists', label: 'Diagnósticos', Icon: IconClipboardList },
 
