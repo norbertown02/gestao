@@ -18,6 +18,7 @@ import Pipeline from './screens/Pipeline'
 import Cotacoes from './screens/Cotacoes'
 import DashboardTime from './screens/DashboardTime'
 import Metas from './screens/Metas'
+import BudgetGestao from './screens/BudgetGestao'
 import Estoque from './screens/Estoque'
 import Fechamentos from './screens/Fechamentos'
 import Financeiro from './screens/Financeiro'
@@ -59,6 +60,7 @@ function AppContent() {
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/time" element={<DashboardTime />} />
           <Route path="/metas" element={<Metas />} />
+          <Route path="/budget" element={["admin","gestor","gestor_comercial"].includes(user?.role) ? <BudgetGestao /> : <Navigate to="/" replace />} />
           <Route path="/relatorio" element={<Navigate to="/" replace />} />
           <Route path="/fechamentos" element={<Fechamentos />} />
           <Route path="/cotacoes" element={<Cotacoes />} />
