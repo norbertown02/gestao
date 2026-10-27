@@ -30,11 +30,13 @@ const resolveKey = (rawKey, ultraToProfileId) => {
 const CURRENT_YEAR = new Date().getFullYear()
 const CURRENT_MONTH = new Date().getMonth() + 1
 
-export default function Metas() {
+export default function Metas({ embedded = false, activeTab, onTabChange }) {
   const [year, setYear] = useState(CURRENT_YEAR)
   const [month, setMonth] = useState(CURRENT_MONTH)
   const [selectedSeller, setSelectedSeller] = useState('todos')
-  const [tab, setTab] = useState('acompanhamento')
+  const [internalTab, setInternalTab] = useState('acompanhamento')
+  const tab = activeTab ?? internalTab
+  const setTab = onTabChange || setInternalTab
   const [sellers, setSellers] = useState([])
   const [goals, setGoals] = useState([])
   const [documents, setDocuments] = useState([])
@@ -144,13 +146,14 @@ export default function Metas() {
   }
 
   return (
-    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Topbar title="Metas Comerciais" subtitle="Pedidos mensais e acumulados por vendedor" />
-      <div className="page goals-page cc-page" style={{ overflowY: 'auto' }}>
+    <div style={{ flex: embedded ? 'none' : 1, overflow: embedded ? 'visible' : 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      {!embedded && <Topbar title="Metas Comerciais" subtitle="Pedidos mensais e acumulados por vendedor" />}
+      <div className="page goals-page cc-page" style={{ overflowY: embedded ? 'visible' : 'auto', padding: embedded ? '0' : undefined }}>
+        {!embedded && 
         <div className="cc-intro"><span className="cc-kicker">Acompanhamento de objetivos</span>
           <h2>Quanto já atingimos da meta?</h2>
           <p>Escolha o mês e o vendedor. Veja o valor realizado, a meta e quanto falta. Clique em um vendedor para consultar seu desempenho individual.</p>
-        </div>
+        </div>}
         <section className="goals-toolbar">
           <div>
             {selectedSeller !== 'todos' && <button className="goals-back" onClick={() => setSelectedSeller('todos')}><IconArrowLeft size={16} />Voltar ao time</button>}
