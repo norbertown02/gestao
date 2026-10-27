@@ -128,7 +128,7 @@ export default function BudgetExecutiveBreakdown({ cycle, assignments, budgetIte
         </div>
       </div>
       <div className="bex-section">
-        <div className="bex-section-heading"><div><span className="bex-kicker">03 / TIPO</span><h4>Tipos de produto</h4><p>Minerais, núcleos, proteinados, aditivos e demais categorias do catálogo Nutrialle.</p></div></div>
+        <div className="bex-section-heading"><div><span className="bex-kicker">03 / TIPO</span><h4>Tipos de produto</h4><p>Mineral, Núcleo e Aditivos. As classificações técnicas continuam preservadas no cadastro.</p></div></div>
         <div className="bex-category-list">
           {kinds.map(group=><CategoryLine key={group.name} group={group} maxBudget={maxCategoryAmount}/>)}
           {!kinds.length&&<div className="bex-no-rows">Sem categorias para o período selecionado.</div>}
