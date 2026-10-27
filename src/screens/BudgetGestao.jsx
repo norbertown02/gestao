@@ -32,7 +32,7 @@ function localDate(days = 0) {
 }
 const statusName = (a) => ({
   pending: 'Aguardando', draft: 'Em preenchimento', submitted: 'Enviado',
-  approved: 'Aprovado', revision_requested: 'Revisão solicitada',
+  approved: 'Aprovado · metas aplicadas', revision_requested: 'Revisão solicitada',
 })[a] || 'Aguardando'
 function cycleStatus(c) {
   if (c.status === 'draft') return { title: 'Não liberado', key: 'draft' }
@@ -200,12 +200,29 @@ export default function BudgetGestao() {
     if (status === 'revision_requested' && !feedback.trim()) {
       setNotice({ kind: 'error', text: 'Escreva uma orientação para solicitar a revisão.' }); return
     }
+    if (status === 'approved') {
+      const sellerItems = cycleItems.filter(i => i.seller_id === assignment.seller_id)
+      const value = sellerItems.reduce((sum, i) => sum + Number(i.quantity_kg) * Number(i.unit_price), 0)
+      const period = (selectedCycle?.months || []).map(monthName).join(', ')
+      const question = [
+        'Aprovar o Budget de ' + sellerName(assignment.seller_id) + '?',
+        '',
+        'Essa aprovação substituirá automaticamente as metas desse vendedor, mês a mês:',
+        period,
+        '',
+        'Previsão aprovada: ' + fmt(value) + '.',
+        'As metas anteriores ficarão registradas no histórico.',
+      ].join('\n')
+      if (!window.confirm(question)) return
+    }
     setSaving(true)
     const { error } = await supabase.from('budget_cycle_sellers').update({
       status, feedback: status === 'revision_requested' ? feedback.trim() : null,
     }).eq('cycle_id', assignment.cycle_id).eq('seller_id', assignment.seller_id)
-    if (error) setNotice({ kind: 'error', text: error.message })
-    else setNotice({ kind: 'success', text: 'Situação de ' + sellerName(assignment.seller_id) + ' atualizada.' })
+    if (error) setNotice({ kind: 'error', text: 'Não foi possível concluir a revisão e sincronizar as metas: ' + error.message })
+    else setNotice({ kind: 'success', text: status === 'approved'
+      ? 'Budget de ' + sellerName(assignment.seller_id) + ' aprovado. Metas atualizadas mês a mês no painel Metas.'
+      : 'Situação de ' + sellerName(assignment.seller_id) + ' atualizada.' })
     setFeedbackId(null); setFeedback('')
     await reload(); setSaving(false)
   }
@@ -369,7 +386,7 @@ export default function BudgetGestao() {
                         <textarea placeholder="Orientações para o vendedor corrigir..." value={feedback} onChange={e => setFeedback(e.target.value)}/>
                         <button disabled={saving || !feedback.trim()} onClick={() => setReview(a, 'revision_requested')}>Enviar revisão</button>
                         <button className="cancel" onClick={() => setFeedbackId(null)}>Cancelar</button>
-                      </div> : <><button disabled={saving} className="approve" onClick={() => setReview(a, 'approved')}><IconCheck size={14}/> Aprovar</button>
+                      </div> : <><button disabled={saving} className="approve" title="A aprovação também atualiza automaticamente as metas dos meses previstos" onClick={() => setReview(a, 'approved')}><IconCheck size={14}/> Aprovar e definir metas</button>
                         <button disabled={saving} className="revise" onClick={() => {setFeedbackId(a.seller_id);setFeedback('')}}>Devolver</button></>}
                     </div> : <span className="bgx-team-feedback">{a.feedback || '—'}</span>}
                   </div>
@@ -391,7 +408,7 @@ export default function BudgetGestao() {
               periodEnd={billedProducts[0]?.period_end}
             />
           </section>}
-          <p className="bgx-disclaimer">Budget é uma previsão comercial. Não altera as metas, os pedidos ou o faturamento do período.</p>
+          <p className="bgx-disclaimer">Enquanto não for aprovado, o Budget é somente uma previsão. Ao aprovar cada vendedor, os valores previstos de cada mês tornam-se automaticamente as metas comerciais oficiais desse vendedor. Os pedidos e o faturamento não são alterados.</p>
         </>}
       </main>
     </div>
