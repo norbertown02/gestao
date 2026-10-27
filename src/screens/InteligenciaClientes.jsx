@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { IconChartBar, IconChevronDown, IconRotateClockwise, IconTrendingUp, IconUsers, IconPackage, IconAlertCircle, IconArrowUpRight, IconArrowDownRight, IconArrowRight } from '@tabler/icons-react'
 import './InteligenciaClientes.css'
@@ -438,12 +437,12 @@ export default function InteligenciaClientes() {
           <div className="ci-quality" role="status"><IconAlertCircle size={17}/>
             <span><strong>Qualidade da base geral:</strong> {analysis.missing} pedidos sem itens, {analysis.unvalued} sem valores e {analysis.divergent} com divergências/rateio. Valores segmentados são gerenciais, não conciliação fiscal.</span>
           </div>}
-        <ClientStarsPanel />
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',marginTop:22}}>
           <span className="ci-live"><span className="ci-live-dot"/> Nutrialle · Inteligência Comercial</span>
           <span className="ci-link">Carteira e inteligência em uma única tela <IconArrowRight size={14}/></span>
         </div>
       </>}
+      <ClientStarsPanel />
     </main>
   </div>
 }
