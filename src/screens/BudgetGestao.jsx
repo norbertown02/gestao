@@ -5,12 +5,15 @@ import Topbar from '../components/Topbar'
 import {
   IconArrowRight, IconArrowLeft, IconCheck, IconCalendarMonth, IconChevronRight,
   IconClock, IconCircleCheck, IconDeviceFloppy, IconFilter, IconPlus, IconSearch,
-  IconSend, IconShieldCheck, IconUsers, IconX, IconRefresh
+  IconSend, IconShieldCheck, IconUsers, IconX, IconRefresh, IconTrendingUp, IconTrendingDown
 } from '@tabler/icons-react'
 import './BudgetGestao.css'
 
 const fmt = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const qty = value => Number(value || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+const percent = (planned, history) => history > 0 ? (planned / history - 1) * 100 : null
+const percentText = value => value == null ? 'Sem histórico' : (value > 0 ? '+' : '') + value.toLocaleString('pt-BR', {maximumFractionDigits:1}) + '%'
+const percentClass = value => value == null ? 'neutral' : value >= 0 ? 'positive' : 'negative'
 const initials = value => String(value || 'V').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()
 const MONTHS_FORWARD = 12
 function futureMonths() {
@@ -49,6 +52,8 @@ export default function BudgetGestao() {
   const [sellers, setSellers] = useState([])
   const [farms, setFarms] = useState([])
   const [products, setProducts] = useState([])
+  const [prospects, setProspects] = useState([])
+  const [baselines, setBaselines] = useState([])
   const [activeCycle, setActiveCycle] = useState('')
   const [filterSeller, setFilterSeller] = useState('all')
   const [mode, setMode] = useState('overview')
@@ -68,15 +73,17 @@ export default function BudgetGestao() {
   async function reload() {
     if (!manager) return
     setLoading(true)
-    const [c, a, i, p, f, pr] = await Promise.all([
+    const [c, a, i, p, f, pr, bc, bs] = await Promise.all([
       supabase.from('budget_cycles').select('*').order('created_at', { ascending: false }),
       supabase.from('budget_cycle_sellers').select('*'),
       supabase.from('budget_items').select('*'),
       supabase.from('profiles').select('id,name,role,active,ultra_salesman_id').eq('active', true),
       supabase.from('farms').select('id,name'),
       supabase.from('products').select('id,name'),
+      supabase.from('budget_prospects').select('id,name,cycle_id,seller_id'),
+      supabase.rpc('budget_sales_baselines'),
     ])
-    const error = [c, a, i, p, f, pr].find(r => r.error)?.error
+    const error = [c, a, i, p, f, pr, bc, bs].find(r => r.error)?.error
     if (error) setNotice({ text: 'Não foi possível atualizar os dados: ' + error.message, kind: 'error' })
     setCycles(c.data || [])
     setAssignments(a.data || [])
@@ -84,6 +91,8 @@ export default function BudgetGestao() {
     setSellers((p.data || []).filter(p => p.role === 'vendedor' || p.role === 'gestor_comercial').sort((x, y) => x.name.localeCompare(y.name, 'pt-BR')))
     setFarms(f.data || [])
     setProducts(pr.data || [])
+    setProspects(bc.data || [])
+    setBaselines(bs.data || [])
     setActiveCycle(current => current || c.data?.[0]?.id || '')
     setLoading(false)
   }
@@ -95,9 +104,18 @@ export default function BudgetGestao() {
   const visibleItems = cycleItems.filter(i => filterSeller === 'all' || i.seller_id === filterSeller)
   const plannedValue = cycleItems.reduce((a, i) => a + Number(i.quantity_kg) * Number(i.unit_price), 0)
   const plannedKg = cycleItems.reduce((a, i) => a + Number(i.quantity_kg), 0)
+  const baselineBySeller = useMemo(() => new Map(baselines.map(b=>[b.seller_id,b])), [baselines])
+  // Comparar periodos equivalentes: media dos ultimos 3 meses completos
+  // aplicada a quantidade de meses disponibilizados no ciclo.
+  const periodFactor = (selectedCycle?.months?.length || 0) / 3
+  const referenceAmount = people.reduce((a, p) => a + Number(baselineBySeller.get(p.seller_id)?.baseline_amount || 0) * periodFactor, 0)
+  const referenceKg = people.reduce((a, p) => a + Number(baselineBySeller.get(p.seller_id)?.baseline_kg || 0) * periodFactor, 0)
+  const revenueVariation = percent(plannedValue, referenceAmount)
+  const volumeVariation = percent(plannedKg, referenceKg)
   const sentCount = people.filter(p => p.status === 'submitted' || p.status === 'approved').length
   const productById = useMemo(() => new Map(products.map(p => [p.id, p.name])), [products])
   const farmById = useMemo(() => new Map(farms.map(f => [f.id, f.name])), [farms])
+  const prospectById = useMemo(() => new Map(prospects.map(p => [p.id, p.name])), [prospects])
   const sellerById = useMemo(() => new Map(sellers.map(s => [s.id, s.name])), [sellers])
   const availableSellers = sellers.filter(p => (p.name || '').toLowerCase().includes(sellerQuery.trim().toLowerCase()))
   const allPeopleCount = assignments.filter(a => cycles.some(c => c.id === a.cycle_id)).length
@@ -304,29 +322,51 @@ export default function BudgetGestao() {
             <div className="bgx-meta-line"><span><IconClock size={14}/> Abertura: {new Date(selectedCycle.opens_at).toLocaleString('pt-BR')}</span><span>Prazo: {new Date(selectedCycle.closes_at).toLocaleString('pt-BR')}</span></div>
             {selectedCycle.status === 'draft' && <p className="bgx-lock-note"><IconShieldCheck size={17}/> Os vendedores ainda não têm acesso. Revise os participantes e clique em “Liberar preenchimento” quando estiver pronto.</p>}
             <div className="bgx-detail-kpis">
-              <div><span>Volume projetado</span><strong>{qty(plannedKg / 1000)} t</strong></div>
-              <div><span>Valor previsto</span><strong>{fmt(plannedValue)}</strong></div>
-              <div><span>Enviados</span><strong>{sentCount} <em>/ {people.length}</em></strong></div>
-              <div><span>Clientes previstos</span><strong>{new Set(cycleItems.filter(i => Number(i.quantity_kg) > 0).map(i => i.farm_id)).size}</strong></div>
+              <div><span>Volume projetado</span><strong>{qty(plannedKg / 1000)} t</strong><small>Base anterior: {qty(referenceKg / 1000)} t</small></div>
+              <div><span>Faturamento previsto</span><strong>{fmt(plannedValue)}</strong><small>Base anterior: {fmt(referenceAmount)}</small></div>
+              <div className={'bgx-delta-kpi '+percentClass(revenueVariation)}><span>Variação de faturamento</span><strong>{percentText(revenueVariation)}</strong><small>vs. pedidos do período anterior</small></div>
+              <div className={'bgx-delta-kpi '+percentClass(volumeVariation)}><span>Variação de volume</span><strong>{percentText(volumeVariation)}</strong><small>vs. pedidos do período anterior</small></div>
+              <div><span>Enviados</span><strong>{sentCount} <em>/ {people.length}</em></strong><small>Participantes que enviaram</small></div>
+              <div><span>Clientes previstos</span><strong>{new Set(cycleItems.filter(i => Number(i.quantity_kg) > 0).map(i => i.budget_prospect_id ? 'budget:'+i.budget_prospect_id : i.farm_id)).size}</strong><small>Incluindo clientes só do budget</small></div>
             </div>
+            <p className="bgx-baseline-note">Referência: pedidos dos três últimos meses-calendário encerrados, proporcionalizados para {selectedCycle.months.length} {selectedCycle.months.length===1?'mês':'meses'}. As projeções ainda não enviadas também entram no total e podem mudar.</p>
             <div className="bgx-subhead"><h3>Acompanhamento da equipe</h3><small>{people.length} participantes</small></div>
-            <div className="bgx-team">
-              {people.map(a => { const amount = cycleItems.filter(i => i.seller_id === a.seller_id).reduce((s, i) => s + Number(i.quantity_kg) * Number(i.unit_price), 0); return (
-                <div className="bgx-team-row" key={a.seller_id}>
-                  <span className="bgx-avatar">{initials(sellerName(a.seller_id))}</span>
-                  <div className="bgx-team-name"><strong>{sellerName(a.seller_id)}</strong><span className={'bgx-substate ' + a.status}>{statusName(a.status)}</span></div>
-                  <strong className="bgx-team-amount">{fmt(amount)}</strong>
-                  {a.status === 'submitted' ? <div className="bgx-team-buttons">
-                    {feedbackId === a.seller_id ? <div className="bgx-feedback"><textarea placeholder="Orientações para o vendedor corrigir..." value={feedback} onChange={e => setFeedback(e.target.value)}/><button disabled={saving || !feedback.trim()} onClick={() => setReview(a, 'revision_requested')}>Enviar revisão</button><button className="cancel" onClick={() => setFeedbackId(null)}>Cancelar</button></div> :
-                    <><button disabled={saving} className="approve" onClick={() => setReview(a, 'approved')}><IconCheck size={14}/> Aprovar</button><button disabled={saving} className="revise" onClick={() => { setFeedbackId(a.seller_id);setFeedback('') }}>Devolver</button></>}
-                  </div> : <span className="bgx-team-feedback">{a.feedback || ''}</span>}
+            <div className="bgx-team-table">
+              <div className="bgx-team-col-head"><span>Vendedor</span><span>Volume previsto</span><span>Faturamento previsto</span><span>Variação R$</span><span>Avaliação</span></div>
+              {people.map(a => {
+                const sellerItems = cycleItems.filter(i => i.seller_id === a.seller_id)
+                const amount = sellerItems.reduce((s, i) => s + Number(i.quantity_kg) * Number(i.unit_price), 0)
+                const totalVolume = sellerItems.reduce((s, i) => s + Number(i.quantity_kg), 0)
+                const reference = Number(baselineBySeller.get(a.seller_id)?.baseline_amount || 0) * periodFactor
+                const change = sellerItems.length ? percent(amount, reference) : null
+                return <div className="bgx-team-row" key={a.seller_id}>
+                  <div className="bgx-team-person">
+                    <span className="bgx-avatar">{initials(sellerName(a.seller_id))}</span>
+                    <div className="bgx-team-name"><strong>{sellerName(a.seller_id)}</strong><span className={'bgx-substate '+a.status}>{statusName(a.status)}</span></div>
+                  </div>
+                  <strong className="bgx-team-volume">{sellerItems.length ? qty(totalVolume / 1000) + ' t' : '—'}</strong>
+                  <strong className="bgx-team-amount">{sellerItems.length ? fmt(amount) : '—'}</strong>
+                  <div className="bgx-team-change">
+                    <strong className={percentClass(change)}>{sellerItems.length ? percentText(change) : '—'}</strong>
+                    {sellerItems.length > 0 && <small>Base: {fmt(reference)}</small>}
+                  </div>
+                  <div className="bgx-team-buttons-area">
+                    {a.status === 'submitted' ? <div className="bgx-team-buttons">
+                      {feedbackId === a.seller_id ? <div className="bgx-feedback">
+                        <textarea placeholder="Orientações para o vendedor corrigir..." value={feedback} onChange={e => setFeedback(e.target.value)}/>
+                        <button disabled={saving || !feedback.trim()} onClick={() => setReview(a, 'revision_requested')}>Enviar revisão</button>
+                        <button className="cancel" onClick={() => setFeedbackId(null)}>Cancelar</button>
+                      </div> : <><button disabled={saving} className="approve" onClick={() => setReview(a, 'approved')}><IconCheck size={14}/> Aprovar</button>
+                        <button disabled={saving} className="revise" onClick={() => {setFeedbackId(a.seller_id);setFeedback('')}}>Devolver</button></>}
+                    </div> : <span className="bgx-team-feedback">{a.feedback || '—'}</span>}
+                  </div>
                 </div>
-              ) })}
+              })}
               {!people.length && <div className="bgx-empty-inline">Nenhum participante vinculado a este ciclo.</div>}
             </div>
             <div className="bgx-subhead bgx-subhead-detail"><div><h3>Previsão por cliente e produto</h3><small>Somente números registrados pelos vendedores.</small></div><label><IconFilter size={15}/><select value={filterSeller} onChange={e => setFilterSeller(e.target.value)}><option value="all">Todos os vendedores</option>{people.map(a => <option key={a.seller_id} value={a.seller_id}>{sellerName(a.seller_id)}</option>)}</select></label></div>
             <div className="bgx-table-wrap"><table><thead><tr><th>Vendedor</th><th>Cliente</th><th>Produto</th><th>Mês</th><th>Quantidade (kg)</th><th>Valor</th><th>Origem</th></tr></thead><tbody>
-              {visibleItems.filter(r => Number(r.quantity_kg) > 0).map(i => <tr key={i.id}><td>{sellerName(i.seller_id)}</td><td>{farmById.get(i.farm_id) || 'Cliente'}</td><td>{productById.get(i.product_id) || 'Produto'}</td><td>{monthName(i.month)}</td><td>{qty(i.quantity_kg)}</td><td>{fmt(Number(i.quantity_kg) * Number(i.unit_price))}</td><td>{i.source === 'opportunity' ? 'Oportunidade' : 'Carteira'}</td></tr>)}
+              {visibleItems.filter(r => Number(r.quantity_kg) > 0).map(i => <tr key={i.id}><td>{sellerName(i.seller_id)}</td><td>{i.budget_prospect_id ? <>{prospectById.get(i.budget_prospect_id)||'Cliente prospectado'} <small className="bgx-budget-only">Só budget</small></> : farmById.get(i.farm_id) || 'Cliente'}</td><td>{productById.get(i.product_id) || 'Produto'}</td><td>{monthName(i.month)}</td><td>{qty(i.quantity_kg)}</td><td>{fmt(Number(i.quantity_kg) * Number(i.unit_price))}</td><td>{i.source === 'opportunity' ? 'Oportunidade' : 'Carteira'}</td></tr>)}
             </tbody></table>{!visibleItems.some(i => Number(i.quantity_kg) > 0) && <div className="bgx-empty-inline">Nenhuma previsão preenchida para este filtro.</div>}</div>
           </section>}
           <p className="bgx-disclaimer">Budget é uma previsão comercial. Não altera as metas, os pedidos ou o faturamento do período.</p>
