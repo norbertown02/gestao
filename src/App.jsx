@@ -46,7 +46,7 @@ function AppContent() {
           <Route path="/vendas" element={<VendasFiltradasV2 />} />
           <Route path="/visitas" element={<Visitas />} />
           <Route path="/checklists" element={<Checklists />} />
-          <Route path="/carteira" element={<Carteira />} />
+          <Route path="/carteira" element={<Navigate to="/clientes-inteligencia" replace />} />
           <Route path="/clientes-inteligencia" element={<InteligenciaClientes />} />
           <Route path="/vendedores" element={<Vendedores />} />
           <Route path="/produtos" element={<Produtos />} />
@@ -59,7 +59,7 @@ function AppContent() {
           <Route path="/regioes" element={<Regioes />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/time" element={<DashboardTime />} />
-          <Route path="/metas" element={<Metas />} />
+          <Route path="/metas" element={<Navigate to="/vendedores?metas=cadastro" replace />} />
           <Route path="/budget" element={["admin","gestor","gestor_comercial"].includes(user?.role) ? <BudgetGestao /> : <Navigate to="/" replace />} />
           <Route path="/relatorio" element={<Navigate to="/" replace />} />
           <Route path="/fechamentos" element={<Fechamentos />} />
