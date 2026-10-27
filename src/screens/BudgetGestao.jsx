@@ -7,6 +7,7 @@ import {
   IconClock, IconCircleCheck, IconDeviceFloppy, IconFilter, IconPlus, IconSearch,
   IconSend, IconShieldCheck, IconUsers, IconX, IconRefresh, IconTrendingUp, IconTrendingDown
 } from '@tabler/icons-react'
+import BudgetExecutiveBreakdown from './BudgetExecutiveBreakdown'
 import './BudgetGestao.css'
 
 const fmt = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -50,12 +51,11 @@ export default function BudgetGestao() {
   const [assignments, setAssignments] = useState([])
   const [items, setItems] = useState([])
   const [sellers, setSellers] = useState([])
-  const [farms, setFarms] = useState([])
   const [products, setProducts] = useState([])
-  const [prospects, setProspects] = useState([])
-  const [baselines, setBaselines] = useState([])
+  const [categories, setCategories] = useState([])
+  const [classifications, setClassifications] = useState([])
+  const [billedProducts, setBilledProducts] = useState([])
   const [activeCycle, setActiveCycle] = useState('')
-  const [filterSeller, setFilterSeller] = useState('all')
   const [mode, setMode] = useState('overview')
   const [step, setStep] = useState(0)
   const [title, setTitle] = useState('Budget comercial trimestral')
@@ -73,26 +73,26 @@ export default function BudgetGestao() {
   async function reload() {
     if (!manager) return
     setLoading(true)
-    const [c, a, i, p, f, pr, bc, bs] = await Promise.all([
+    const [c, a, i, p, pr, cats, cls, bs] = await Promise.all([
       supabase.from('budget_cycles').select('*').order('created_at', { ascending: false }),
       supabase.from('budget_cycle_sellers').select('*'),
       supabase.from('budget_items').select('*'),
       supabase.from('profiles').select('id,name,role,active,ultra_salesman_id').eq('active', true),
-      supabase.from('farms').select('id,name'),
-      supabase.from('products').select('id,name'),
-      supabase.from('budget_prospects').select('id,name,cycle_id,seller_id'),
-      supabase.rpc('budget_sales_baselines'),
+      supabase.from('products').select('id,name,category_id,application_id,ultra_codproduto,ultra_codproduto_clas'),
+      supabase.from('product_categories').select('id,name'),
+      supabase.from('product_commercial_classifications').select('codproduto,codproduto_clas,market,segment,category'),
+      supabase.rpc('budget_fiscal_product_baselines'),
     ])
-    const error = [c, a, i, p, f, pr, bc, bs].find(r => r.error)?.error
+    const error = [c, a, i, p, pr, cats, cls, bs].find(r => r.error)?.error
     if (error) setNotice({ text: 'Não foi possível atualizar os dados: ' + error.message, kind: 'error' })
     setCycles(c.data || [])
     setAssignments(a.data || [])
     setItems(i.data || [])
     setSellers((p.data || []).filter(p => p.role === 'vendedor' || p.role === 'gestor_comercial').sort((x, y) => x.name.localeCompare(y.name, 'pt-BR')))
-    setFarms(f.data || [])
     setProducts(pr.data || [])
-    setProspects(bc.data || [])
-    setBaselines(bs.data || [])
+    setCategories(cats.data || [])
+    setClassifications(cls.data || [])
+    setBilledProducts(bs.data || [])
     setActiveCycle(current => current || c.data?.[0]?.id || '')
     setLoading(false)
   }
@@ -101,10 +101,18 @@ export default function BudgetGestao() {
   const selectedCycle = cycles.find(c => c.id === activeCycle)
   const people = assignments.filter(a => a.cycle_id === activeCycle)
   const cycleItems = items.filter(i => i.cycle_id === activeCycle)
-  const visibleItems = cycleItems.filter(i => filterSeller === 'all' || i.seller_id === filterSeller)
   const plannedValue = cycleItems.reduce((a, i) => a + Number(i.quantity_kg) * Number(i.unit_price), 0)
   const plannedKg = cycleItems.reduce((a, i) => a + Number(i.quantity_kg), 0)
-  const baselineBySeller = useMemo(() => new Map(baselines.map(b=>[b.seller_id,b])), [baselines])
+  const baselineBySeller = useMemo(() => {
+    const grouped = new Map()
+    for (const line of billedProducts) {
+      const current=grouped.get(line.seller_id)||{baseline_amount:0,baseline_kg:0}
+      current.baseline_amount+=Number(line.billed_amount||0)
+      current.baseline_kg+=Number(line.billed_kg||0)
+      grouped.set(line.seller_id,current)
+    }
+    return grouped
+  },[billedProducts])
   // Comparar periodos equivalentes: media dos ultimos 3 meses completos
   // aplicada a quantidade de meses disponibilizados no ciclo.
   const periodFactor = (selectedCycle?.months?.length || 0) / 3
@@ -119,9 +127,6 @@ export default function BudgetGestao() {
   const revenueVariation = percent(plannedValue, referenceAmount)
   const volumeVariation = percent(plannedKg, referenceKg)
   const sentCount = people.filter(p => p.status === 'submitted' || p.status === 'approved').length
-  const productById = useMemo(() => new Map(products.map(p => [p.id, p.name])), [products])
-  const farmById = useMemo(() => new Map(farms.map(f => [f.id, f.name])), [farms])
-  const prospectById = useMemo(() => new Map(prospects.map(p => [p.id, p.name])), [prospects])
   const sellerById = useMemo(() => new Map(sellers.map(s => [s.id, s.name])), [sellers])
   const availableSellers = sellers.filter(p => (p.name || '').toLowerCase().includes(sellerQuery.trim().toLowerCase()))
   const allPeopleCount = assignments.filter(a => cycles.some(c => c.id === a.cycle_id)).length
@@ -309,7 +314,7 @@ export default function BudgetGestao() {
             {cycles.length ? (
               <div className="bgx-cycles-grid">
                 {cycles.map(c => { const status = cycleStatus(c);const count = assignments.filter(a => a.cycle_id === c.id);const done = count.filter(a => ['submitted','approved'].includes(a.status)).length;return (
-                  <button type="button" key={c.id} onClick={() => { setActiveCycle(c.id);setFilterSeller('all') }} className={'bgx-cycle-tile ' + (activeCycle === c.id ? 'active' : '')}>
+                  <button type="button" key={c.id} onClick={() => { setActiveCycle(c.id) }} className={'bgx-cycle-tile ' + (activeCycle === c.id ? 'active' : '')}>
                     <div className="bgx-cycle-top"><span className={'bgx-state ' + status.key}>{status.title}</span><IconChevronRight size={17}/></div>
                     <strong>{c.title}</strong>
                     <small>{c.months.map(monthName).join(' · ')}</small>
@@ -328,14 +333,14 @@ export default function BudgetGestao() {
             <div className="bgx-meta-line"><span><IconClock size={14}/> Abertura: {new Date(selectedCycle.opens_at).toLocaleString('pt-BR')}</span><span>Prazo: {new Date(selectedCycle.closes_at).toLocaleString('pt-BR')}</span></div>
             {selectedCycle.status === 'draft' && <p className="bgx-lock-note"><IconShieldCheck size={17}/> Os vendedores ainda não têm acesso. Revise os participantes e clique em “Liberar preenchimento” quando estiver pronto.</p>}
             <div className="bgx-detail-kpis">
-              <div><span>Volume projetado</span><strong>{qty(plannedKg / 1000)} t</strong><small>Base anterior: {qty(referenceKg / 1000)} t</small></div>
-              <div><span>Faturamento previsto</span><strong>{fmt(plannedValue)}</strong><small>Base anterior: {fmt(referenceAmount)}</small></div>
-              <div className={'bgx-delta-kpi '+percentClass(revenueVariation)}><span>Variação de faturamento</span><strong>{percentText(revenueVariation)}</strong><small>vs. pedidos do período anterior</small></div>
+              <div><span>Volume projetado</span><strong>{qty(plannedKg / 1000)} t</strong><small>NF anterior: {qty(referenceKg / 1000)} t</small></div>
+              <div><span>Faturamento previsto</span><strong>{fmt(plannedValue)}</strong><small>NF anterior: {fmt(referenceAmount)}</small></div>
+              <div className={'bgx-delta-kpi '+percentClass(revenueVariation)}><span>Variação de faturamento</span><strong>{percentText(revenueVariation)}</strong><small>vs. NF do período anterior</small></div>
               <div className={'bgx-delta-kpi '+percentClass(volumeVariation)}><span>Variação de volume</span><strong>{percentText(volumeVariation)}</strong><small>vs. pedidos do período anterior</small></div>
               <div><span>Enviados</span><strong>{sentCount} <em>/ {people.length}</em></strong><small>Participantes que enviaram</small></div>
               <div><span>Clientes previstos</span><strong>{new Set(cycleItems.filter(i => Number(i.quantity_kg) > 0).map(i => i.budget_prospect_id ? 'budget:'+i.budget_prospect_id : i.farm_id)).size}</strong><small>Incluindo clientes só do budget</small></div>
             </div>
-            <p className="bgx-baseline-note">Referência: pedidos dos três últimos meses-calendário encerrados, proporcionalizados para {selectedCycle.months.length} {selectedCycle.months.length===1?'mês':'meses'}. O comparativo considera apenas {comparablePeople.length} de {people.length} vendedores que já registraram volume ou enviaram seu budget; vendedores sem preenchimento não são tratados como queda de vendas. Valores ainda não aprovados são provisórios.</p>
+            <p className="bgx-baseline-note">Referência: faturamento das notas fiscais dos três últimos meses-calendário encerrados, líquido de devoluções, proporcionalizado para {selectedCycle.months.length} {selectedCycle.months.length===1?'mês':'meses'}. O comparativo considera apenas {comparablePeople.length} de {people.length} vendedores que já registraram volume ou enviaram seu budget; vendedores sem preenchimento não são tratados como queda de vendas. Valores ainda não aprovados são provisórios.</p>
             <div className="bgx-subhead"><h3>Acompanhamento da equipe</h3><small>{people.length} participantes</small></div>
             <div className="bgx-team-table">
               <div className="bgx-team-col-head"><span>Vendedor</span><span>Volume previsto</span><span>Faturamento previsto</span><span>Variação R$</span><span>Avaliação</span></div>
@@ -356,7 +361,7 @@ export default function BudgetGestao() {
                   <strong className="bgx-team-amount">{hasForecast ? fmt(amount) : '—'}</strong>
                   <div className="bgx-team-change">
                     <strong className={percentClass(change)}>{hasForecast ? percentText(change) : '—'}</strong>
-                    {hasForecast && <small>Base: {fmt(reference)}</small>}
+                    {hasForecast && <small>NF anterior: {fmt(reference)}</small>}
                   </div>
                   <div className="bgx-team-buttons-area">
                     {a.status === 'submitted' ? <div className="bgx-team-buttons">
@@ -372,10 +377,19 @@ export default function BudgetGestao() {
               })}
               {!people.length && <div className="bgx-empty-inline">Nenhum participante vinculado a este ciclo.</div>}
             </div>
-            <div className="bgx-subhead bgx-subhead-detail"><div><h3>Previsão por cliente e produto</h3><small>Somente números registrados pelos vendedores.</small></div><label><IconFilter size={15}/><select value={filterSeller} onChange={e => setFilterSeller(e.target.value)}><option value="all">Todos os vendedores</option>{people.map(a => <option key={a.seller_id} value={a.seller_id}>{sellerName(a.seller_id)}</option>)}</select></label></div>
-            <div className="bgx-table-wrap"><table><thead><tr><th>Vendedor</th><th>Cliente</th><th>Produto</th><th>Mês</th><th>Quantidade (kg)</th><th>Valor</th><th>Origem</th></tr></thead><tbody>
-              {visibleItems.filter(r => Number(r.quantity_kg) > 0).map(i => <tr key={i.id}><td>{sellerName(i.seller_id)}</td><td>{i.budget_prospect_id ? <>{prospectById.get(i.budget_prospect_id)||'Cliente prospectado'} <small className="bgx-budget-only">Só budget</small></> : farmById.get(i.farm_id) || 'Cliente'}</td><td>{productById.get(i.product_id) || 'Produto'}</td><td>{monthName(i.month)}</td><td>{qty(i.quantity_kg)}</td><td>{fmt(Number(i.quantity_kg) * Number(i.unit_price))}</td><td>{i.source === 'opportunity' ? 'Oportunidade' : 'Carteira'}</td></tr>)}
-            </tbody></table>{!visibleItems.some(i => Number(i.quantity_kg) > 0) && <div className="bgx-empty-inline">Nenhuma previsão preenchida para este filtro.</div>}</div>
+            <BudgetExecutiveBreakdown
+              key={activeCycle}
+              cycle={selectedCycle}
+              assignments={people}
+              budgetItems={cycleItems}
+              billedItems={billedProducts}
+              products={products}
+              categories={categories}
+              classifications={classifications}
+              sellers={sellers}
+              periodStart={billedProducts[0]?.period_start}
+              periodEnd={billedProducts[0]?.period_end}
+            />
           </section>}
           <p className="bgx-disclaimer">Budget é uma previsão comercial. Não altera as metas, os pedidos ou o faturamento do período.</p>
         </>}
