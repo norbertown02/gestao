@@ -41,6 +41,7 @@ export default function Metas() {
   const [loading, setLoading] = useState(true)
   const [editGoals, setEditGoals] = useState({})
   const [saving, setSaving] = useState({})
+  const [saveNotice, setSaveNotice] = useState('')
   const { vendedores } = useVendedores()
 
   useEffect(() => {
@@ -110,7 +111,7 @@ export default function Metas() {
     return { sellerOptions, months, current, realizedYtd, goalYtd, attainmentYtd, team, elapsedDays, remainingDays, actualPace, requiredPace, projected }
   }, [documents, goals, sellers, vendedores, selectedSeller, month, year])
 
-  const years = Array.from({ length: 4 }, (_, index) => CURRENT_YEAR - index)
+  const years = Array.from({ length: 6 }, (_, index) => CURRENT_YEAR + 1 - index)
   const selectedName = selectedSeller === 'todos' ? 'Time comercial' : data.sellerOptions.find(([id]) => id === selectedSeller)?.[1]
 
   async function saveGoal(sellerId) {
@@ -118,13 +119,23 @@ export default function Metas() {
     setSaving(current => ({ ...current, [sellerId]: true }))
     const ultraToProfileId = buildUltraToProfileId(sellers)
     const existing = goals.find(goal => resolveKey(goalKey(goal), ultraToProfileId) === sellerId && goal.mes === month)
+    if (existing?.budget_cycle_id) {
+      setSaveNotice('Esta meta foi gerada por um Budget aprovado. Solicite a revisão do Budget para alterá-la.')
+      setSaving(current => ({ ...current, [sellerId]: false }))
+      return
+    }
+    setSaveNotice('')
     // Sempre grava o id do Ultra quando dá pra saber (mesmo pra vendedor com
     // login vinculado), pra meta ficar rastreável ao vendedor canônico.
     const ultraSalesmanId = sellerId.startsWith('ultra:') ? Number(sellerId.slice(6)) : sellers.find(s => s.id === sellerId)?.ultra_salesman_id || null
     const result = existing
       ? await supabaseAdmin.from('goals').update({ meta_fat: value, updated_at: new Date().toISOString() }).eq('id', existing.id).select().single()
-      : await supabaseAdmin.from('goals').insert({ seller_id: sellerId.startsWith('ultra:') ? null : sellerId, ultra_salesman_id: ultraSalesmanId, ano: year, mes: month, meta_fat: value }).select().single()
-    if (result.data) setGoals(current => existing ? current.map(goal => goal.id === existing.id ? result.data : goal) : [...current, result.data])
+      : await supabaseAdmin.from('goals').insert({ seller_id: ultraSalesmanId ? null : sellerId.startsWith('ultra:') ? null : sellerId, ultra_salesman_id: ultraSalesmanId, ano: year, mes: month, meta_fat: value }).select().single()
+    if (result.error) setSaveNotice('Não foi possível salvar a meta: ' + result.error.message)
+    if (result.data) {
+      setGoals(current => existing ? current.map(goal => goal.id === existing.id ? result.data : goal) : [...current, result.data])
+      setSaveNotice('Meta manual atualizada com sucesso.')
+    }
     setSaving(current => ({ ...current, [sellerId]: false }))
   }
 
@@ -203,12 +214,22 @@ export default function Metas() {
             </div>
           </details>
         </> : <section className="goals-editor">
-          <div className="goals-card-head"><div><span className="goals-eyebrow">Planejamento interno</span><h3>Metas de {monthName(month)} de {year}</h3></div><small>cadastro centralizado no Gestão</small></div>
-          {data.sellerOptions.map(([sellerId, sellerName]) => <div className="goals-editor-row" key={sellerId}>
-            <div className="goals-avatar">{(sellerName || 'V').charAt(0)}</div><div><strong>{sellerName}</strong><span>Meta mensal de pedidos</span></div>
-            <label>R$ <input type="number" value={editGoals[sellerId] || ''} onChange={event => setEditGoals(current => ({ ...current, [sellerId]: event.target.value }))} placeholder="0,00" /></label>
-            <button className="btn btn-primary btn-sm" onClick={() => saveGoal(sellerId)} disabled={saving[sellerId]}><IconCheck size={14} />{saving[sellerId] ? 'Salvando' : 'Salvar'}</button>
-          </div>)}
+          <div className="goals-card-head"><div><span className="goals-eyebrow">Planejamento interno</span><h3>Metas de {monthName(month)} de {year}</h3></div><small>Metas de budgets aprovados são automáticas e ficam vinculadas à aprovação</small></div>
+          {saveNotice && <p className="goals-save-notice" role="status">{saveNotice}</p>}
+          {data.sellerOptions.map(([sellerId, sellerName]) => {
+            const ultraToProfileId = buildUltraToProfileId(sellers)
+            const activeGoal = goals.find(goal =>
+              resolveKey(goalKey(goal), ultraToProfileId) === sellerId && goal.mes === month)
+            const fromBudget = Boolean(activeGoal?.budget_cycle_id)
+            return <div className="goals-editor-row" key={sellerId}>
+              <div className="goals-avatar">{(sellerName || 'V').charAt(0)}</div>
+              <div><strong>{sellerName}</strong><span>{fromBudget ? 'Meta oficial · Budget aprovado' : 'Meta mensal de pedidos'}</span></div>
+              <label>R$ <input type="number" value={editGoals[sellerId] ?? ''} disabled={fromBudget} onChange={event => setEditGoals(current => ({ ...current, [sellerId]: event.target.value }))} placeholder="0,00" /></label>
+              {fromBudget
+                ? <span className="goals-budget-source"><IconCheck size={14}/> Automática</span>
+                : <button className="btn btn-primary btn-sm" onClick={() => saveGoal(sellerId)} disabled={saving[sellerId]}><IconCheck size={14}/>{saving[sellerId] ? 'Salvando' : 'Salvar'}</button>}
+            </div>
+          } )}
         </section>}
       </div>
     </div>
