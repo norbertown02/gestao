@@ -185,3 +185,35 @@
  .bgx-wizard-footer .bgx-button{flex:1}
 }
 @media(max-width:380px){.bgx-step strong{font-size:9px}.bgx-step{padding:6px 5px}.bgx-month-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Comparativo de budget: receita, volume e desempenho por vendedor */
+.bgx-detail-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+.bgx-detail-kpis>div{gap:7px}
+.bgx-detail-kpis>div>small{font-size:10px;color:#9f958c;line-height:1.5}
+.bgx-delta-kpi.positive strong,.bgx-team-change strong.positive{color:#247f4b}
+.bgx-delta-kpi.negative strong,.bgx-team-change strong.negative{color:#be5948}
+.bgx-delta-kpi.neutral strong,.bgx-team-change strong.neutral{color:#97918a}
+.bgx-baseline-note{font-size:10px;line-height:1.7;color:#8d857e;background:#f7f6f4;border-radius:9px;padding:11px 12px}
+.bgx-team-table{width:100%;max-width:100%;overflow-x:auto;border:1px solid #ebe7e2;border-radius:11px;scrollbar-width:thin}
+.bgx-team-col-head,.bgx-team-table .bgx-team-row{min-width:810px;display:grid;grid-template-columns:minmax(210px,2.1fr) minmax(98px,.85fr) minmax(130px,1.3fr) minmax(130px,1.2fr) minmax(160px,1.4fr);gap:11px;align-items:center;padding:12px 14px}
+.bgx-team-col-head{background:#f8f7f5;border-bottom:1px solid #e9e6e1}
+.bgx-team-col-head span{font-size:10px;font-weight:800;color:#847c75}
+.bgx-team-table .bgx-team-row{border-bottom:1px solid #f0ece8;min-width:810px}
+.bgx-team-table .bgx-team-row:last-child{border-bottom:0}
+.bgx-team-person{display:flex;align-items:center;gap:10px;min-width:0}
+.bgx-team-name>strong{line-height:1.35;overflow-wrap:anywhere}
+.bgx-team-amount,.bgx-team-volume{font-size:12px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bgx-team-change{display:grid;gap:4px}
+.bgx-team-change strong{font-size:12px;white-space:nowrap}
+.bgx-team-change small{color:#9b958f;font-size:10px;white-space:nowrap}
+.bgx-team-buttons-area{min-width:0}
+.bgx-team-buttons{display:flex;gap:6px;flex-wrap:wrap}
+.bgx-team-feedback{text-align:left;display:inline-block;max-width:200px}
+.bgx-team-table .bgx-feedback{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.bgx-team-table .bgx-feedback textarea{min-width:155px;width:100%}
+.bgx-budget-only{display:inline-flex;padding:3px 5px;margin-left:5px;border-radius:5px;background:#fff1e7;color:#a8642c;font-size:9px;font-weight:750;white-space:nowrap}
+@media(max-width:900px){.bgx-detail-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:690px){
+ .bgx-detail-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .bgx-team-table .bgx-team-row{grid-template-columns:minmax(210px,2.1fr) minmax(98px,.85fr) minmax(130px,1.3fr) minmax(130px,1.2fr) minmax(160px,1.4fr)}
+}
