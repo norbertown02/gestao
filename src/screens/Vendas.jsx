@@ -17,6 +17,7 @@ import { supabase } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import { fiscalDocumentValue, grossOrderValue, hasNetOrderValue, netOrderValue, orderBaseValue } from '../lib/commercialMetrics'
 import { useVendedores } from '../lib/sellers'
+import { commercialOrderStage, commercialStageLabel } from '../lib/commercialOrderStage'
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 const money = value => Number(value || 0).toLocaleString('pt-BR', {
@@ -225,7 +226,7 @@ export default function Vendas() {
         row.sale_date,
         row.customer_name,
         row.ultra_salesman_name,
-        stageLabel[row.order_stage] || row.order_stage,
+        commercialStageLabel[commercialOrderStage(row)] || commercialOrderStage(row),
         orderBaseValue(row),
         grossOrderValue(row),
         row.fiscal_billed_value,
@@ -304,11 +305,11 @@ export default function Vendas() {
         <section className="commerce-panel commerce-daily-chart">
           <div className="commerce-panel-head"><div><span>Ritmo da competência</span><h3>Pedidos e faturamento por dia</h3></div><div className="chart-meta"><small>valores diários, incluindo devoluções</small><div className="chart-legend"><i className="billing" />Faturamento<i className="orders" />Pedidos</div></div></div>
           <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={dailySeries} margin={{ top: 20, right: 24, left: 8, bottom: 2 }}>
+            <ComposedChart data={dailySeries} margin={{ top: 12, right: 5, left: 0, bottom: 4 }}>
               <defs><linearGradient id="dailyBillingArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E87722" stopOpacity={0.2} /><stop offset="90%" stopColor="#E87722" stopOpacity={0.01} /></linearGradient></defs>
               <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
-              <XAxis dataKey="dia" tickLine={false} axisLine={false} />
-              <YAxis tickLine={false} axisLine={false} tickFormatter={value => `R$ ${Math.round(value / 1000)}k`} width={68} />
+              <XAxis dataKey="dia" tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={18} tickMargin={8} />
+              <YAxis tickLine={false} axisLine={false} tickMargin={4} tickFormatter={value => `${Math.round(value / 1000)}k`} width={52} />
               <Tooltip cursor={{ stroke: '#D8D0C8', strokeDasharray: '3 5' }} formatter={(value, name) => [money(value), name]} />
               <Area type="monotone" dataKey="Faturamento" stroke="#E87722" fill="url(#dailyBillingArea)" strokeWidth={3.2} dot={false} activeDot={{ r: 5, fill: '#E87722', stroke: '#fff', strokeWidth: 3 }} />
               <Line type="monotone" dataKey="Pedidos" stroke="#292623" strokeWidth={2.7} dot={false} activeDot={{ r: 5, fill: '#292623', stroke: '#fff', strokeWidth: 3 }} />
@@ -372,7 +373,7 @@ export default function Vendas() {
                             <td><button className="commerce-order-toggle" aria-expanded={expandedOrder === row.id}><strong>#{row.ultra_order_number}</strong>{expandedOrder === row.id ? <IconChevronUp size={15} /> : <IconChevronDown size={15} />}</button></td>
                             <td><strong>{row.customer_name || 'Cliente não identificado'}</strong><small>{dateBR(row.sale_date)}</small></td>
                             <td>{row.ultra_salesman_name || '—'}</td>
-                            <td><span className={`commerce-status ${row.order_stage}`}>{stageLabel[row.order_stage] || row.order_stage}</span></td>
+                            <td><span className={`commerce-status ${commercialOrderStage(row)}`}>{commercialStageLabel[commercialOrderStage(row)] || commercialOrderStage(row)}</span></td>
                             <td className="num"><strong>{money(orderBaseValue(row))}</strong></td>
                           </tr>
                           {expandedOrder === row.id && <tr className="commerce-order-items"><td colSpan="5"><div><span>Itens faturados deste pedido</span><p style={{ margin: '0 0 12px', color: 'var(--text-dim)' }}>Valor líquido do pedido: <strong>{money(orderBaseValue(row))}</strong>{grossOrderValue(row) && grossOrderValue(row) !== orderBaseValue(row) ? ` · Valor bruto de referência: ${money(grossOrderValue(row))}` : ''}</p>{(orderItems[row.id] || []).length ? <table><thead><tr><th>Produto</th><th className="num">Quantidade</th><th className="num">Valor unitário</th><th className="num">Total</th></tr></thead><tbody>{orderItems[row.id].map((item, index) => <tr key={`${item.product_code}-${index}`}><td><strong>{item.product_name || 'Produto'}</strong><small>{item.product_code || '—'}</small></td><td className="num">{integer(item.quantity)} {item.unit || ''}</td><td className="num">{money(item.unit_value)}</td><td className="num"><strong>{money(item.product_total)}</strong></td></tr>)}</tbody></table> : <p>Os itens ainda não foram vinculados a uma nota fiscal deste pedido.</p>}</div></td></tr>}
