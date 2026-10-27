@@ -465,8 +465,9 @@ export default function VendasFiltradasV2() {
 
         <section className="commerce-panel commerce-daily-chart">
           <div className="commerce-panel-head"><div><span>Ritmo da competência</span><h3>Pedidos e faturamento por dia</h3></div><div className="chart-meta"><small>valores diários com os filtros aplicados</small><div className="chart-legend"><i className="billing" />Faturamento<i className="orders" />Pedidos</div></div></div>
-          <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={dailySeries} margin={{ top: 12, right: 5, left: 0, bottom: 4 }}>
+          <div className="commerce-daily-plot">
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+            <ComposedChart data={dailySeries} margin={{ top: 12, right: 10, left: 0, bottom: 6 }}>
               <defs><linearGradient id="dailyBillingArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E87722" stopOpacity={0.2} /><stop offset="90%" stopColor="#E87722" stopOpacity={0.01} /></linearGradient></defs>
               <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
               <XAxis dataKey="dia" tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={18} tickMargin={8} />
@@ -475,14 +476,15 @@ export default function VendasFiltradasV2() {
               <Area type="monotone" dataKey="Faturamento" stroke="#E87722" fill="url(#dailyBillingArea)" strokeWidth={3.2} dot={false} activeDot={{ r: 5, fill: '#E87722', stroke: '#fff', strokeWidth: 3 }} />
               <Line type="monotone" dataKey="Pedidos" stroke="#292623" strokeWidth={2.7} dot={false} activeDot={{ r: 5, fill: '#292623', stroke: '#fff', strokeWidth: 3 }} />
             </ComposedChart>
-          </ResponsiveContainer>
+            </ResponsiveContainer>
+          </div>
         </section>
 
         {loading ? <Empty>Atualizando movimentos comerciais…</Empty> : (
           <section className="commerce-panel commerce-panel-full">
             <div className="commerce-panel-head" style={{ alignItems: 'flex-end', gap: 16 }}><div><span>Detalhamento comercial</span><h3>{tableView === 'pedidos' ? 'Pedidos do mês' : tableView === 'faturados' ? 'Faturados do mês' : 'Pedidos em aberto'}</h3></div><strong>{tableView === 'pedidos' ? money(summary.generated) : tableView === 'faturados' ? money(summary.netBilling) : money(summary.openValue)}</strong></div>
-            <div style={{display:'inline-flex',gap:4,padding:4,margin:'0 0 18px',borderRadius:12,background:'var(--surface-2)',border:'1px solid var(--line)'}}>
-              {[['pedidos','Pedidos do mês',orders.length],['faturados','Faturados do mês',salesDocuments.length],['abertos','Pedidos em aberto',portfolio.length]].map(([id,label,count]) => <button key={id} type="button" onClick={()=>{setTableView(id);setExpandedOrder(null)}} style={{border:'none',borderRadius:9,padding:'9px 14px',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:700,background:tableView===id?'var(--surface)':'transparent',color:tableView===id?'var(--text)':'var(--text-dim)',boxShadow:tableView===id?'0 1px 4px rgba(20,18,16,.08)':'none'}}>{label} <span style={{opacity:.55,marginLeft:4}}>{count}</span></button>)}
+            <div className="commerce-detail-tabs" role="group" aria-label="Tipo de movimento comercial">
+              {[['pedidos','Pedidos do mês','Pedidos',orders.length],['faturados','Faturados do mês','Faturados',salesDocuments.length],['abertos','Pedidos em aberto','Em aberto',portfolio.length]].map(([id,label,short,count]) => <button key={id} type="button" aria-pressed={tableView===id} className={tableView===id?'active':''} onClick={()=>{setTableView(id);setExpandedOrder(null)}}><span className="commerce-tab-desktop">{label}</span><span className="commerce-tab-mobile">{short}</span><span className="commerce-tab-count">{count}</span></button>)}
             </div>
 
             <div className="commerce-table-wrap">
