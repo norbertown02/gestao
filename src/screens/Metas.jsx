@@ -66,14 +66,18 @@ export default function Metas() {
 
   const data = useMemo(() => {
     const profileMap = new Map(sellers.map(seller => [seller.id, seller]))
-    // Só existe vendedor que vem do Ultra: a lista de opções (e quem aparece
-    // pra definir/acompanhar meta) é sempre a lista canônica -- não emerge
-    // mais de quem já tem meta ou pedido lançado, então um vendedor novo já
-    // aparece pra receber meta antes da primeira venda.
+    // A lista canônica do Ultra também precisa incluir os vendedores ativos
+    // que ainda não têm código Ultra mas participam de um Budget aprovado.
     const ultraToProfileId = new Map(sellers.filter(s => s.ultra_salesman_id).map(s => [s.ultra_salesman_id, s.id]))
-    const sellerOptions = vendedores
-      .map(v => [ultraToProfileId.get(v.id) || `ultra:${v.id}`, v.name])
-      .sort((a, b) => a[1].localeCompare(b[1]))
+    const ultraOptions = vendedores.map(v => [ultraToProfileId.get(v.id) || `ultra:${v.id}`, v.name])
+    const ultraCodes = new Set(vendedores.map(v => Number(v.id)))
+    const additionalProfiles = sellers
+      .filter(p => ['vendedor','gestor_comercial'].includes(p.role))
+      .filter(p => !p.ultra_salesman_id || !ultraCodes.has(Number(p.ultra_salesman_id)))
+      .filter(p => !ultraOptions.some(([id]) => id === p.id))
+      .map(p => [p.id, p.name || 'Vendedor sem nome'])
+    const sellerOptions = [...ultraOptions, ...additionalProfiles]
+      .sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'))
     const docKey = doc => resolveKey(sellerKey(doc), ultraToProfileId)
     const goalRowKey = goal => resolveKey(goalKey(goal), ultraToProfileId)
     const filteredDocs = selectedSeller === 'todos' ? documents : documents.filter(doc => docKey(doc) === selectedSeller)
