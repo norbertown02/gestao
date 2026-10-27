@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
+import { COMMERCIAL_CATEGORIES, commercialCategory } from '../lib/productTaxonomy'
 import './CommercialClarity.css'
 import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import { CURRENT_MONTH, CURRENT_YEAR, historyStart, monthOptions, periodRange, previousPeriodRange, yearOptions } from '../lib/commercialPeriod'
@@ -105,22 +106,11 @@ function catalogProductCode(product) {
 }
 
 function getCategoria(produto) {
-  const raw = String(
-    produto?.category || produto?.categoria || produto?.line || produto?.linha ||
-    produto?.raw?.DSCGRUPO_N1 || produto?.raw?.dscgrupo_n1 || ''
-  ).trim()
-
-  if (raw) return raw
-
-  const nome = String(produto?.name || '').toLowerCase()
-
-  if (nome.includes('protein') || nome.includes('proteína') || nome.includes('gold')) return 'Proteinados'
-  if (nome.includes('phós') || nome.includes('phos') || nome.includes('mineral')) return 'Minerais'
-  if (nome.includes('detox')) return 'Aditivos'
-  if (nome.includes('lacto')) return 'Leite'
-  if (nome.includes('lisina') || nome.includes('metionina') || nome.includes('treonina') || nome.includes('triptofano')) return 'Aminoácidos'
-
-  return 'Outros'
+  return commercialCategory(
+    produto?.commercial_classification || produto?.category || produto?.categoria ||
+    produto?.line || produto?.linha || produto?.raw?.DSCGRUPO_N1 || produto?.raw?.dscgrupo_n1,
+    produto?.name
+  )
 }
 
 function VarBadge({ atual, anterior, invert = false }) {
@@ -210,11 +200,16 @@ export default function Produtos() {
   }, [periodo, mesReferencia, anoReferencia])
 
   async function carregarBase() {
-    const prodRes = await supabaseAdmin.from('erp_products').select('id,codproduto,codproduto_clas,name,class_name,unit,price,minimum_price,stock,raw,updated_at').is('inactive_date', null).order('name')
+    const [prodRes, classRes] = await Promise.all([
+      supabaseAdmin.from('erp_products').select('id,codproduto,codproduto_clas,name,class_name,unit,price,minimum_price,stock,raw,updated_at').is('inactive_date', null).order('name'),
+      supabaseAdmin.from('product_commercial_classifications').select('codproduto,codproduto_clas,category'),
+    ])
+    const byCode = new Map((classRes.data || []).map(row => [`${row.codproduto}/${row.codproduto_clas || 1}`, row.category]))
 
     setProdutos((prodRes.data || []).map(product => ({
       ...product,
       active: true,
+      commercial_classification: byCode.get(`${product.codproduto}/${product.codproduto_clas || 1}`) || null,
       ultra_codproduto: product.codproduto,
       ultra_codproduto_clas: product.codproduto_clas,
       ultra_raw: product.raw,
@@ -364,6 +359,7 @@ export default function Produtos() {
           const name = productName(item)
           const produto = productByCode.get(productCode(item)) || productByName.get(String(name).toLowerCase())
           const cat = getCategoria(produto || { name, raw: item.raw })
+          if (!cat) return // Embalagens e volumosos ficam fora do mix comercial.
 
           if (categoria !== 'todos' && String(cat).toLowerCase() !== categoria) return
 
@@ -425,8 +421,9 @@ export default function Produtos() {
 
     const produtosAtivos = produtos
       .filter(p => {
-        if (categoria === 'todos') return true
-        return String(getCategoria(p)).toLowerCase() === categoria
+        const grupo = getCategoria(p)
+        if (!grupo) return false
+        return categoria === 'todos' || grupo.toLowerCase() === categoria
       })
       .map(p => p.name)
 
@@ -500,9 +497,7 @@ export default function Produtos() {
       .sort((a, b) => a.mes.localeCompare(b.mes))
       .slice(-6)
 
-    const categoriasDisponiveis = [...new Set([...produtos.map(getCategoria), ...porProduto.map(p => p.categoria)])]
-      .filter(Boolean)
-      .sort()
+    const categoriasDisponiveis = COMMERCIAL_CATEGORIES
 
     return {
       porProduto: porProdutoComparado,
@@ -572,6 +567,11 @@ export default function Produtos() {
             <div className="produtos-filter-icon">
               <IconFilter size={15} />
             </div>
+
+            <select aria-label="Categoria comercial" value={categoria} onChange={e => setCategoria(e.target.value)}>
+              <option value="todos">Todas as categorias</option>
+              {COMMERCIAL_CATEGORIES.map(group => <option key={group} value={group.toLowerCase()}>{group}</option>)}
+            </select>
 
             <select value={periodo} onChange={e => setPeriodo(e.target.value)}>
               <option value="mes">Mês</option>
