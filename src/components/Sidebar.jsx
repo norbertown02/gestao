@@ -13,6 +13,7 @@ import {
   IconBuildingStore,
   IconChartPie,
   IconTarget,
+  IconCalendarStats,
   IconArrowLeft,
   IconBox,
   IconPresentation,
@@ -57,6 +58,7 @@ const NAV = [
 
   { section: 'Equipe e metas' },
   { to: '/metas', label: 'Metas', Icon: IconTarget },
+  { to: '/budget', label: 'Budget Comercial', Icon: IconCalendarStats, roles: ['admin', 'gestor', 'gestor_comercial'] },
   { to: '/vendedores', label: 'Equipe Comercial', Icon: IconUsers },
 
   { section: 'Financeiro' },
