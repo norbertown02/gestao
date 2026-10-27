@@ -25,12 +25,11 @@ import { useAuth } from '../lib/useAuth'
 const MAIN = [
   { to: '/', label: 'Dashboard', Icon: IconLayoutDashboard },
   { to: '/vendas', label: 'Comercial', Icon: IconReceipt },
-  { to: '/metas', label: 'Metas', Icon: IconTarget },
+  { to: '/vendedores', label: 'Equipe', Icon: IconUsers },
 ]
 
 const MORE = [
   { to: '/cotacoes', label: 'Oportunidades', Icon: IconChartPie },
-  { to: '/vendedores', label: 'Equipe Comercial', Icon: IconUsers },
   { to: '/regioes', label: 'Regiões', Icon: IconMapPin },
   { to: '/produtos', label: 'Produtos', Icon: IconBuildingStore },
   { to: '/estoque', label: 'Estoque', Icon: IconBox },
@@ -38,7 +37,7 @@ const MORE = [
   { to: '/tabela-precos', label: 'Tabela de Preços', Icon: IconCurrencyDollar, roles: ['gestor','gestor_financeiro'] },
   { to: '/financeiro', label: 'Financeiro', Icon: IconReportMoney, roles: ['admin','gestor','gestor_comercial','gestor_financeiro'] },
   { to: '/dre', label: 'DRE', Icon: IconFileInvoice, roles: ['admin','gestor','gestor_comercial','gestor_financeiro'] },
-  { to: '/carteira', label: 'Carteira de Clientes', Icon: IconChartBar },
+  { to: '/clientes-inteligencia', label: 'Inteligência de Clientes', Icon: IconChartBar },
   { to: '/visitas', label: 'Visitas', Icon: IconRoute },
   { to: '/checklists', label: 'Diagnósticos', Icon: IconClipboardList },
   { to: '/config', label: 'Configurações', Icon: IconSettings },
