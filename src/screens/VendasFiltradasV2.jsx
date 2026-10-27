@@ -83,6 +83,40 @@ function fiscalItemValue(item) {
   return Number.isFinite(direct) ? Math.abs(direct) : 0
 }
 
+
+function codeOfItem(item) {
+  const raw = item?.productKey || item?.product_code || item?.productCode ||
+    (item?.ultra_codproduto != null ? `${item.ultra_codproduto}/${item.ultra_codproduto_clas || 1}` : '')
+  return String(raw || '').trim().toUpperCase()
+}
+function orderItemQuantity(item) {
+  return Number(item?.quantityKg ?? item?.quantity ?? item?.qty ?? 0)
+}
+function pendingProducts(saleItems, invoicedItems, matchesProduct) {
+  const original = parseItems(saleItems)
+  if (!original.length) return []
+  const invoices = new Map()
+  for (const item of invoicedItems || []) {
+    const code = codeOfItem(item)
+    if (code) invoices.set(code, (invoices.get(code) || 0) + Number(item.quantity || 0))
+  }
+  return original.filter(matchesProduct).map(item => {
+    const code = codeOfItem(item)
+    const ordered = orderItemQuantity(item)
+    const billed = code ? (invoices.get(code) || 0) : 0
+    const remaining = Math.max(ordered - billed, 0)
+    const unitPrice = Number(item?.unitPrice ?? item?.priceKg ?? item?.unit_price ?? 0)
+    return {
+      product_code: code,
+      product_name: item.productName || item.product_name || item.name || 'Produto',
+      quantity: ordered, billed, remaining,
+      unit: item.unit || 'kg',
+      unit_value: unitPrice,
+      open_total: remaining * unitPrice,
+    }
+  }).filter(item => item.remaining > 0)
+}
+
 function Metric({ icon: Icon, label, value, note, tone = 'ink' }) {
   return (
     <article className={`commerce-metric ${tone}`}>
@@ -108,6 +142,7 @@ export default function VendasFiltradasV2() {
   const [portfolio, setPortfolio] = useState([])
   const [goals, setGoals] = useState([])
   const [orderItems, setOrderItems] = useState({})
+  const [portfolioItems, setPortfolioItems] = useState({})
   const [expandedOrder, setExpandedOrder] = useState(null)
   const [tableView, setTableView] = useState('pedidos')
   const [loading, setLoading] = useState(true)
@@ -204,7 +239,7 @@ export default function VendasFiltradasV2() {
     if (failure) {
       console.error('Falha ao carregar gestão comercial:', failure)
       setError('Não foi possível atualizar os indicadores. Tente novamente.')
-      setOrders([]); setDocuments([]); setPortfolio([]); setGoals([]); setOrderItems({})
+      setOrders([]); setDocuments([]); setPortfolio([]); setGoals([]); setOrderItems({}); setPortfolioItems({})
       setLoading(false)
       return
     }
@@ -259,6 +294,33 @@ export default function VendasFiltradasV2() {
     setDocuments(filteredDocuments)
     setPortfolio(filteredPortfolio)
     setGoals(hasTaxonomyFilter ? [] : (goalsResult.data || []))
+
+    // Carteira: itens originais do pedido menos quantidades das notas vinculadas.
+    // O saldo oficial do Ultra permanece o número de referência no cabeçalho.
+    const portfolioIds = filteredPortfolio.map(row => row.id).filter(Boolean)
+    if (portfolioIds.length) {
+      const billedLinks = await supabase
+        .from('sales_fiscal_links')
+        .select('sale_id,link_type,fiscal_documents(fiscal_document_items(product_code,product_name,quantity,unit,unit_value,product_total))')
+        .in('sale_id', portfolioIds).eq('link_type', 'faturamento')
+      const billedBySale = {}
+      if (!billedLinks.error) (billedLinks.data || []).forEach(link => {
+        billedBySale[link.sale_id] = [
+          ...(billedBySale[link.sale_id] || []),
+          ...(link.fiscal_documents?.fiscal_document_items || []),
+        ]
+      })
+      const pendingBySale = {}
+      filteredPortfolio.forEach(row => {
+        const sale = salesById.get(String(row.id))
+        pendingBySale[row.id] = {
+          items: pendingProducts(sale?.items, billedBySale[row.id] || [], item => productMatches(productFromItem(item, maps))),
+          hasOrderItems: parseItems(sale?.items).length > 0,
+          invoiceDataAvailable: !billedLinks.error,
+        }
+      })
+      setPortfolioItems(pendingBySale)
+    } else setPortfolioItems({})
 
     const orderIds = filteredOrders.map(row => row.id).filter(Boolean)
     if (orderIds.length) {
@@ -426,9 +488,9 @@ export default function VendasFiltradasV2() {
             <div className="commerce-table-wrap">
               {tableView === 'pedidos' && <><table className="commerce-table"><thead><tr><th>Pedido</th><th>Data / cliente</th><th>Vendedor</th><th>Situação</th><th className="num">Valor líquido</th></tr></thead><tbody>{orders.map(row => <Fragment key={row.id}><tr className="commerce-order-row" onClick={()=>setExpandedOrder(current=>current===row.id?null:row.id)}><td><button className="commerce-order-toggle" aria-expanded={expandedOrder===row.id}><strong>#{row.ultra_order_number}</strong>{expandedOrder===row.id?<IconChevronUp size={15}/>:<IconChevronDown size={15}/>}</button></td><td><strong>{row.customer_name||'Cliente não identificado'}</strong><small>{dateBR(row.sale_date)}</small></td><td>{row.ultra_salesman_name||'—'}</td><td><span className={`commerce-status ${commercialOrderStage(row)}`}>{commercialStageLabel[commercialOrderStage(row)] || commercialOrderStage(row)}</span></td><td className="num"><strong>{money(orderBaseValue(row))}</strong></td></tr>{expandedOrder===row.id&&<tr className="commerce-order-items"><td colSpan="5"><div><span>Itens do pedido</span><p style={{margin:'0 0 12px',color:'var(--text-dim)'}}>Valor líquido considerado: <strong>{money(orderBaseValue(row))}</strong></p>{(orderItems[row.id]||[]).length?<table><thead><tr><th>Produto</th><th className="num">Quantidade</th><th className="num">Valor unitário</th><th className="num">Total</th></tr></thead><tbody>{orderItems[row.id].map((item,index)=><tr key={`${item.product_code}-${index}`}><td><strong>{item.product_name||'Produto'}</strong><small>{item.product_code||'—'}</small></td><td className="num">{integer(item.quantity)} {item.unit||''}</td><td className="num">{money(item.unit_value)}</td><td className="num"><strong>{money(fiscalItemValue(item))}</strong></td></tr>)}</tbody></table>:<p>Os itens deste pedido ainda não estão disponíveis.</p>}</div></td></tr>}</Fragment>)}</tbody></table>{!orders.length&&<Empty>Nenhum pedido para os filtros selecionados.</Empty>}</>}
 
-              {tableView === 'faturados' && <><table className="commerce-table"><thead><tr><th>NF</th><th>Data / cliente</th><th>Pedido vinculado</th><th>Vendedor</th><th className="num">Valor</th></tr></thead><tbody>{salesDocuments.map(row=>{const link=Array.isArray(row.sales_fiscal_links)?row.sales_fiscal_links[0]:row.sales_fiscal_links;const linkedOrder=Array.isArray(link?.sales)?link.sales[0]:link?.sales;const orderNumber=linkedOrder?.ultra_order_number||linkedOrder?.ultra_order_id;return <tr key={row.ultra_document_id}><td><strong>NF {row.invoice_number}</strong></td><td><strong>{row.partner_name||'Cliente'}</strong><small>{dateBR(row.issue_date)}</small></td><td>{orderNumber?<strong>Pedido #{orderNumber}</strong>:<span style={{color:'var(--text-faint)'}}>Sem pedido vinculado</span>}</td><td>{row.salesman_name||'—'}</td><td className="num"><strong>{money(row.document_total)}</strong></td></tr>})}</tbody></table>{!salesDocuments.length&&<Empty>Nenhum faturamento para os filtros selecionados.</Empty>}</>}
+              {tableView === 'faturados' && <><table className="commerce-table"><thead><tr><th>NF</th><th>Data / cliente</th><th>Pedido vinculado</th><th>Vendedor</th><th className="num">Valor</th></tr></thead><tbody>{salesDocuments.map(row=>{const link=Array.isArray(row.sales_fiscal_links)?row.sales_fiscal_links[0]:row.sales_fiscal_links;const linkedOrder=Array.isArray(link?.sales)?link.sales[0]:link?.sales;const orderNumber=linkedOrder?.ultra_order_number||linkedOrder?.ultra_order_id;const rowKey='nf:'+row.ultra_document_id;const invoiceItems=(row.fiscal_document_items||[]).filter(item=>productMatches(productFromItem(item,{byId:new Map(),byUltra:new Map(),byName:new Map()})) || !hasTaxonomyFilter);return <Fragment key={rowKey}><tr className="commerce-order-row" onClick={()=>setExpandedOrder(current=>current===rowKey?null:rowKey)}><td><button className="commerce-order-toggle" aria-expanded={expandedOrder===rowKey}><strong>NF {row.invoice_number}</strong>{expandedOrder===rowKey?<IconChevronUp size={15}/>:<IconChevronDown size={15}/>}</button></td><td><strong>{row.partner_name||'Cliente'}</strong><small>{dateBR(row.issue_date)}</small></td><td>{orderNumber?<strong>Pedido #{orderNumber}</strong>:<span style={{color:'var(--text-faint)'}}>Sem pedido vinculado</span>}</td><td>{row.salesman_name||'—'}</td><td className="num"><strong>{money(row.document_total)}</strong></td></tr>{expandedOrder===rowKey&&<tr className="commerce-order-items"><td colSpan="5"><div><span>Itens da NF {row.invoice_number}</span>{invoiceItems.length?<table><thead><tr><th>Produto</th><th className="num">Quantidade</th><th className="num">Valor unitário</th><th className="num">Total</th></tr></thead><tbody>{invoiceItems.map((item,index)=><tr key={`${item.product_code}-${index}`}><td><strong>{item.product_name||'Produto'}</strong><small>{item.product_code||'—'}</small></td><td className="num">{integer(item.quantity)} {item.unit||''}</td><td className="num">{money(item.unit_value)}</td><td className="num"><strong>{money(fiscalItemValue(item))}</strong></td></tr>)}</tbody></table>:<p>Não há itens detalhados disponíveis para esta NF.</p>}</div></td></tr>}</Fragment>})}</tbody></table>{!salesDocuments.length&&<Empty>Nenhum faturamento para os filtros selecionados.</Empty>}</>}
 
-              {tableView === 'abertos' && <><table className="commerce-table"><thead><tr><th>Pedido</th><th>Data / cliente</th><th>Vendedor</th><th className="num">Quantidade aberta</th><th className="num">Saldo em aberto</th></tr></thead><tbody>{portfolio.map(row=><tr key={row.id}><td><strong>#{row.ultra_order_number}</strong></td><td><strong>{row.customer_name||'Cliente não identificado'}</strong><small>{dateBR(row.sale_date)}</small></td><td>{row.ultra_salesman_name||'—'}</td><td className="num">{integer(row.quantity_open)}</td><td className="num"><strong>{money(row.open_value)}</strong></td></tr>)}</tbody></table>{!portfolio.length&&<Empty>Nenhum pedido em aberto para os filtros selecionados.</Empty>}</>}
+              {tableView === 'abertos' && <><table className="commerce-table"><thead><tr><th>Pedido</th><th>Data / cliente</th><th>Vendedor</th><th className="num">Quantidade aberta</th><th className="num">Saldo em aberto</th></tr></thead><tbody>{portfolio.map(row=><Fragment key={row.id}><tr className="commerce-order-row" onClick={()=>setExpandedOrder(current=>current===row.id?null:row.id)}><td><button className="commerce-order-toggle" aria-expanded={expandedOrder===row.id}><strong>#{row.ultra_order_number}</strong>{expandedOrder===row.id?<IconChevronUp size={15}/>:<IconChevronDown size={15}/>}</button></td><td><strong>{row.customer_name||'Cliente não identificado'}</strong><small>{dateBR(row.sale_date)}</small></td><td>{row.ultra_salesman_name||'—'}</td><td className="num">{integer(row.quantity_open)}</td><td className="num"><strong>{money(row.open_value)}</strong></td></tr>{expandedOrder===row.id&&<tr className="commerce-order-items"><td colSpan="5"><div><span>Produtos pendentes deste pedido</span><p style={{margin:'0 0 12px',color:'var(--text-dim)'}}>Saldo total oficial do Ultra: <strong>{money(row.open_value)}</strong> · Quantidade total aberta: <strong>{integer(row.quantity_open)}</strong></p>{(portfolioItems[row.id]?.items||[]).length?<table><thead><tr><th>Produto</th><th className="num">Pedido</th><th className="num">Faturado</th><th className="num">Em aberto</th></tr></thead><tbody>{portfolioItems[row.id].items.map((item,index)=><tr key={`${item.product_code}-${index}`}><td><strong>{item.product_name}</strong><small>{item.product_code||'—'}</small></td><td className="num">{integer(item.quantity)} {item.unit}</td><td className="num">{integer(item.billed)} {item.unit}</td><td className="num"><strong>{integer(item.remaining)} {item.unit}</strong></td></tr>)}</tbody></table>:<p>Não há detalhamento confiável dos produtos pendentes para este pedido.</p>}{!portfolioItems[row.id]?.invoiceDataAvailable&&<p>Notas fiscais não puderam ser consultadas; confira o saldo oficial antes de usar as quantidades por produto.</p>}</div></td></tr>}</Fragment>)}</tbody></table>{!portfolio.length&&<Empty>Nenhum pedido em aberto para os filtros selecionados.</Empty>}</>}
             </div>
           </section>
         )}
