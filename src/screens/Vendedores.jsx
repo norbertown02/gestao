@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import { isVendedorValido, useVendedores } from '../lib/sellers'
 import Topbar from '../components/Topbar'
+import Metas from './Metas'
 import './CommercialClarity.css'
 import { CURRENT_MONTH, CURRENT_YEAR, historyStart, monthOptions, periodRange, previousPeriodRange, yearOptions } from '../lib/commercialPeriod'
 import {
@@ -176,6 +177,8 @@ export default function Vendedores() {
   const [loading, setLoading] = useState(true)
   const [detalheId, setDetalheId] = useState(null)
   const [mostrarTudo, setMostrarTudo] = useState(false)
+  const [metaTab, setMetaTab] = useState(() => new URLSearchParams(window.location.search).get('metas') === 'cadastro' ? 'cadastro' : 'acompanhamento')
+  const metasRef = useRef(null)
   const { vendedores, vendedoresById } = useVendedores()
 
   useEffect(() => {
@@ -521,7 +524,13 @@ export default function Vendedores() {
 
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Topbar title="Equipe Comercial" subtitle="Uma leitura direta de vendas, atividade e carteira por vendedor">
+      <Topbar title="Equipe Comercial" subtitle="Vendedores, pedidos, atividade e acompanhamento de metas">
+        <button className="btn btn-primary btn-sm" onClick={() => {
+          setMetaTab('cadastro')
+          metasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }}>
+          <IconTargetArrow size={14} /> Cadastrar metas
+        </button>
         <button className="btn btn-ghost btn-sm" onClick={exportCSV}>
           <IconDownload size={14} />
           Exportar
@@ -595,6 +604,19 @@ export default function Vendedores() {
             atual={dados.totalVisitas}
             anterior={dados.totalVisitasAnt}
           />
+        </section>
+
+        <section ref={metasRef} id="equipe-metas" className="vendedores-card" style={{ marginBottom: 18, scrollMarginTop: 20 }}>
+          <div className="vendedores-card-head" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+            <div><span className="vendedores-eyebrow">Objetivos comerciais</span><h3>Metas e atingimento do time</h3>
+              <p style={{ margin: '5px 0 0', fontSize: 12, color: '#71685F' }}>Acompanhe valores previstos, realizados e desvios por vendedor no mesmo lugar.</p></div>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMetaTab(metaTab === 'cadastro' ? 'acompanhamento' : 'cadastro')}>
+              <IconTargetArrow size={15} /> {metaTab === 'cadastro' ? 'Ver acompanhamento' : 'Cadastrar metas'}
+            </button>
+          </div>
+          <div style={{ padding: '0 16px 18px', minWidth: 0 }}>
+            <Metas embedded activeTab={metaTab} onTabChange={setMetaTab} />
+          </div>
         </section>
 
         {loading ? (
