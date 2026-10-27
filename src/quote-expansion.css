@@ -1,0 +1,43 @@
+
+/* Cotacoes: expansao de produtos sem alterar o desenho da listagem. */
+.pipeline-quote-rank-toggle {
+  display:flex;align-items:center;justify-content:space-between;width:100%;
+  border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;
+  padding:0;gap:10px;font:inherit;
+}
+.pipeline-quote-rank-toggle > .pipeline-ranking-row { flex:1;min-width:0; }
+.pipeline-quote-rank-toggle > svg { flex:none;color:var(--text-dim); }
+.pipeline-quote-rank-toggle:hover,.pipeline-quote-clickable:hover { background:rgba(232,119,34,.045); }
+.pipeline-quote-rank-toggle:focus-visible,.pipeline-quote-clickable:focus-visible {
+  outline:2px solid var(--orange);outline-offset:2px;
+}
+.pipeline-quote-clickable { cursor:pointer; }
+.pipeline-quote-clickable td:first-child svg { vertical-align:middle;color:var(--orange); }
+.pipeline-quote-expanded-row > td { padding:0 !important;background:var(--bg-soft); }
+.pipeline-quote-detail {
+  width:100%;max-width:100%;min-width:0;padding:14px;border:1px solid var(--line);
+  border-radius:12px;background:var(--surface);box-sizing:border-box;
+}
+.pipeline-quote-expanded-row .pipeline-quote-detail { border-radius:0;border-left:0;border-right:0; }
+.pipeline-quote-detail-head,.pipeline-quote-detail-total {
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+}
+.pipeline-quote-detail-head { margin-bottom:12px; }
+.pipeline-quote-detail-head > span { font-size:12px;color:var(--text-dim); }
+.pipeline-quote-products-scroll { max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch; }
+.pipeline-quote-products { width:100%;min-width:440px;border-collapse:collapse;font-size:12px; }
+.pipeline-quote-products th,.pipeline-quote-products td {
+  padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;
+}
+.pipeline-quote-products th { color:var(--text-dim);font-size:11px;white-space:nowrap; }
+.pipeline-quote-products .num { text-align:right;white-space:nowrap; }
+.pipeline-quote-products td:first-child { min-width:155px;white-space:normal;overflow-wrap:anywhere; }
+.pipeline-quote-products td:first-child small { display:block;color:var(--text-dim);margin-top:3px; }
+.pipeline-quote-detail-total { padding-top:12px;font-size:12px; }
+.pipeline-quote-detail-total strong { font-size:14px; }
+@media(max-width:780px) {
+  .pipeline-quote-rank-toggle { gap:5px; }
+  .pipeline-quote-detail { padding:10px; }
+  .pipeline-quote-products { min-width:405px;font-size:11px; }
+  .pipeline-quote-products th,.pipeline-quote-products td { padding:8px 7px; }
+}
