@@ -1,0 +1,32 @@
+.budget-manage-shell{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.budget-manage{overflow-y:auto!important;display:grid;gap:18px;padding-bottom:110px}
+.budget-card{background:#fff;border:1px solid var(--line);padding:22px;border-radius:17px;display:grid;gap:16px;min-width:0}
+.budget-heading span,.budget-section-label{font-size:11px;letter-spacing:.08em;font-weight:750;color:var(--orange)}
+.budget-heading h2{font-size:22px;margin:5px 0}
+.budget-heading p,.budget-caption{font-size:12px;color:var(--text-dim);line-height:1.5}
+.budget-form-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:12px}
+.budget-form-grid label,.budget-select{font-size:12px;color:var(--text-dim);font-weight:700;display:grid;gap:7px}
+.budget-form-grid input,.budget-select select{border:1px solid var(--line);border-radius:10px;padding:12px 10px;width:100%;min-width:0;background:#fff;color:var(--text);font-size:13px}
+.budget-month-list,.budget-seller-list{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
+.budget-month-list label,.budget-seller-list label{display:flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:10px 13px;font-size:12px;cursor:pointer}
+.budget-month-list input,.budget-seller-list input{accent-color:var(--orange)}
+.budget-primary,.budget-manage-actions button,.budget-review-actions button{background:#141414;color:#fff;border:0;border-radius:10px;padding:12px 16px;font-size:12px;font-weight:750;cursor:pointer}
+.budget-primary{background:var(--orange);justify-self:start}
+.budget-manage button:disabled{opacity:.5;cursor:not-allowed}
+.budget-cycle-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-dim)}
+.budget-manage-actions{display:flex;gap:8px}
+.budget-manage-actions button{background:var(--orange)}
+.budget-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.budget-kpis article{padding:16px;border:1px solid var(--line);border-radius:12px;display:grid;gap:8px;min-width:0}
+.budget-kpis span{font-size:12px;color:var(--text-dim)}
+.budget-kpis strong{font-size:clamp(17px,2vw,26px);overflow-wrap:anywhere}
+.budget-table-scroll{width:100%;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.budget-table-scroll table{width:100%;min-width:720px;border-collapse:collapse;font-size:12px}
+.budget-table-scroll th,.budget-table-scroll td{padding:11px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+.budget-table-scroll th{background:var(--surface-2);font-size:11px;white-space:nowrap;color:var(--text-dim)}
+.budget-review-actions{display:flex;gap:6px}
+.budget-review-actions button{padding:8px;background:var(--green)}
+.budget-review-actions button:last-child{background:var(--amber)}
+.budget-msg{padding:12px;background:var(--orange-bg);border:1px solid var(--orange);border-radius:9px;font-size:13px}
+.budget-manage h3{font-size:15px;margin-top:7px}
+@media(max-width:780px){.budget-card{padding:14px}.budget-form-grid,.budget-kpis{grid-template-columns:1fr!important}.budget-primary{width:100%}.budget-cycle-meta{display:grid;gap:5px}}
