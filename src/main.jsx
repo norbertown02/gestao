@@ -7,6 +7,7 @@ import './desktop-preserve.css'
 import './mobile-review.css'
 import './mobile-stability.css'
 import './commerce-mobile-fix.css'
+import './quote-expansion.css'
 import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(
