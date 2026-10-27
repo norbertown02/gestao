@@ -113,20 +113,18 @@ export default function BudgetGestao() {
     }
     return grouped
   },[billedProducts])
-  // Comparar periodos equivalentes: media dos ultimos 3 meses completos
-  // aplicada a quantidade de meses disponibilizados no ciclo.
+  // Referencia historica integral: todos os vendedores participantes,
+  // independentemente de quem ja preencheu ou enviou seu planejamento.
   const periodFactor = (selectedCycle?.months?.length || 0) / 3
-  // Um preenchimento parcial não é uma queda de toda a Nutrialle.
-  // Só comparar com o histórico dos vendedores que já lançaram volume
-  // ou enviaram formalmente seu planejamento (mesmo que zerado).
-  const comparablePeople = people.filter(p =>
-    ['submitted', 'approved'].includes(p.status) ||
-    cycleItems.some(i => i.seller_id === p.seller_id && Number(i.quantity_kg) > 0))
-  const referenceAmount = comparablePeople.reduce((a, p) => a + Number(baselineBySeller.get(p.seller_id)?.baseline_amount || 0) * periodFactor, 0)
-  const referenceKg = comparablePeople.reduce((a, p) => a + Number(baselineBySeller.get(p.seller_id)?.baseline_kg || 0) * periodFactor, 0)
+  const referenceAmount = people.reduce((a, p) =>
+    a + Number(baselineBySeller.get(p.seller_id)?.baseline_amount || 0) * periodFactor, 0)
+  const referenceKg = people.reduce((a, p) =>
+    a + Number(baselineBySeller.get(p.seller_id)?.baseline_kg || 0) * periodFactor, 0)
   const revenueVariation = percent(plannedValue, referenceAmount)
   const volumeVariation = percent(plannedKg, referenceKg)
   const sentCount = people.filter(p => p.status === 'submitted' || p.status === 'approved').length
+  const outstandingCount = Math.max(0, people.length - sentCount)
+  const isPartial = outstandingCount > 0
   const sellerById = useMemo(() => new Map(sellers.map(s => [s.id, s.name])), [sellers])
   const availableSellers = sellers.filter(p => (p.name || '').toLowerCase().includes(sellerQuery.trim().toLowerCase()))
   const allPeopleCount = assignments.filter(a => cycles.some(c => c.id === a.cycle_id)).length
@@ -350,14 +348,14 @@ export default function BudgetGestao() {
             <div className="bgx-meta-line"><span><IconClock size={14}/> Abertura: {new Date(selectedCycle.opens_at).toLocaleString('pt-BR')}</span><span>Prazo: {new Date(selectedCycle.closes_at).toLocaleString('pt-BR')}</span></div>
             {selectedCycle.status === 'draft' && <p className="bgx-lock-note"><IconShieldCheck size={17}/> Os vendedores ainda não têm acesso. Revise os participantes e clique em “Liberar preenchimento” quando estiver pronto.</p>}
             <div className="bgx-detail-kpis">
-              <div><span>Volume projetado</span><strong>{qty(plannedKg / 1000)} t</strong><small>NF anterior: {qty(referenceKg / 1000)} t</small></div>
-              <div><span>Faturamento previsto</span><strong>{fmt(plannedValue)}</strong><small>NF anterior: {fmt(referenceAmount)}</small></div>
-              <div className={'bgx-delta-kpi '+percentClass(revenueVariation)}><span>Variação de faturamento</span><strong>{percentText(revenueVariation)}</strong><small>vs. NF do período anterior</small></div>
-              <div className={'bgx-delta-kpi '+percentClass(volumeVariation)}><span>Variação de volume</span><strong>{percentText(volumeVariation)}</strong><small>vs. pedidos do período anterior</small></div>
+              <div><span>Volume projetado {isPartial ? '(parcial)' : ''}</span><strong>{qty(plannedKg / 1000)} t</strong><small>NF anterior · toda a equipe: {qty(referenceKg / 1000)} t</small></div>
+              <div><span>Faturamento previsto {isPartial ? '(parcial)' : ''}</span><strong>{fmt(plannedValue)}</strong><small>NF anterior · toda a equipe: {fmt(referenceAmount)}</small></div>
+              <div className={'bgx-delta-kpi '+percentClass(revenueVariation)}><span>{isPartial ? 'Variação parcial de faturamento' : 'Variação de faturamento'}</span><strong>{percentText(revenueVariation)}</strong><small>vs. NF de todos os participantes</small></div>
+              <div className={'bgx-delta-kpi '+percentClass(volumeVariation)}><span>{isPartial ? 'Variação parcial de volume' : 'Variação de volume'}</span><strong>{percentText(volumeVariation)}</strong><small>vs. NF de todos os participantes</small></div>
               <div><span>Enviados</span><strong>{sentCount} <em>/ {people.length}</em></strong><small>Participantes que enviaram</small></div>
               <div><span>Clientes previstos</span><strong>{new Set(cycleItems.filter(i => Number(i.quantity_kg) > 0).map(i => i.budget_prospect_id ? 'budget:'+i.budget_prospect_id : i.farm_id)).size}</strong><small>Incluindo clientes só do budget</small></div>
             </div>
-            <p className="bgx-baseline-note">Referência: faturamento das notas fiscais dos três últimos meses-calendário encerrados, líquido de devoluções, proporcionalizado para {selectedCycle.months.length} {selectedCycle.months.length===1?'mês':'meses'}. O comparativo considera apenas {comparablePeople.length} de {people.length} vendedores que já registraram volume ou enviaram seu budget; vendedores sem preenchimento não são tratados como queda de vendas. Valores ainda não aprovados são provisórios.</p>
+            <p className="bgx-baseline-note">Referência: notas fiscais dos três últimos meses-calendário encerrados, líquidas de devoluções, para <strong>todos os {people.length} vendedores do ciclo</strong>, incluindo quem ainda não preencheu. O histórico é proporcionalizado para {selectedCycle.months.length} {selectedCycle.months.length === 1 ? 'mês' : 'meses'}. {isPartial ? `Atenção: somente ${sentCount} de ${people.length} enviaram. A variação compara o budget parcial com o histórico completo da equipe; não representa uma queda definitiva de vendas.` : 'As previsões já foram enviadas, mas os valores podem depender de aprovação.'}</p>
             <div className="bgx-subhead"><h3>Acompanhamento da equipe</h3><small>{people.length} participantes</small></div>
             <div className="bgx-team-table">
               <div className="bgx-team-col-head"><span>Vendedor</span><span>Volume previsto</span><span>Faturamento previsto</span><span>Variação R$</span><span>Avaliação</span></div>
