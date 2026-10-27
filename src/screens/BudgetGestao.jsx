@@ -108,8 +108,14 @@ export default function BudgetGestao() {
   // Comparar periodos equivalentes: media dos ultimos 3 meses completos
   // aplicada a quantidade de meses disponibilizados no ciclo.
   const periodFactor = (selectedCycle?.months?.length || 0) / 3
-  const referenceAmount = people.reduce((a, p) => a + Number(baselineBySeller.get(p.seller_id)?.baseline_amount || 0) * periodFactor, 0)
-  const referenceKg = people.reduce((a, p) => a + Number(baselineBySeller.get(p.seller_id)?.baseline_kg || 0) * periodFactor, 0)
+  // Um preenchimento parcial não é uma queda de toda a Nutrialle.
+  // Só comparar com o histórico dos vendedores que já lançaram volume
+  // ou enviaram formalmente seu planejamento (mesmo que zerado).
+  const comparablePeople = people.filter(p =>
+    ['submitted', 'approved'].includes(p.status) ||
+    cycleItems.some(i => i.seller_id === p.seller_id && Number(i.quantity_kg) > 0))
+  const referenceAmount = comparablePeople.reduce((a, p) => a + Number(baselineBySeller.get(p.seller_id)?.baseline_amount || 0) * periodFactor, 0)
+  const referenceKg = comparablePeople.reduce((a, p) => a + Number(baselineBySeller.get(p.seller_id)?.baseline_kg || 0) * periodFactor, 0)
   const revenueVariation = percent(plannedValue, referenceAmount)
   const volumeVariation = percent(plannedKg, referenceKg)
   const sentCount = people.filter(p => p.status === 'submitted' || p.status === 'approved').length
@@ -329,7 +335,7 @@ export default function BudgetGestao() {
               <div><span>Enviados</span><strong>{sentCount} <em>/ {people.length}</em></strong><small>Participantes que enviaram</small></div>
               <div><span>Clientes previstos</span><strong>{new Set(cycleItems.filter(i => Number(i.quantity_kg) > 0).map(i => i.budget_prospect_id ? 'budget:'+i.budget_prospect_id : i.farm_id)).size}</strong><small>Incluindo clientes só do budget</small></div>
             </div>
-            <p className="bgx-baseline-note">Referência: pedidos dos três últimos meses-calendário encerrados, proporcionalizados para {selectedCycle.months.length} {selectedCycle.months.length===1?'mês':'meses'}. As projeções ainda não enviadas também entram no total e podem mudar.</p>
+            <p className="bgx-baseline-note">Referência: pedidos dos três últimos meses-calendário encerrados, proporcionalizados para {selectedCycle.months.length} {selectedCycle.months.length===1?'mês':'meses'}. O comparativo considera apenas {comparablePeople.length} de {people.length} vendedores que já registraram volume ou enviaram seu budget; vendedores sem preenchimento não são tratados como queda de vendas. Valores ainda não aprovados são provisórios.</p>
             <div className="bgx-subhead"><h3>Acompanhamento da equipe</h3><small>{people.length} participantes</small></div>
             <div className="bgx-team-table">
               <div className="bgx-team-col-head"><span>Vendedor</span><span>Volume previsto</span><span>Faturamento previsto</span><span>Variação R$</span><span>Avaliação</span></div>
@@ -338,17 +344,19 @@ export default function BudgetGestao() {
                 const amount = sellerItems.reduce((s, i) => s + Number(i.quantity_kg) * Number(i.unit_price), 0)
                 const totalVolume = sellerItems.reduce((s, i) => s + Number(i.quantity_kg), 0)
                 const reference = Number(baselineBySeller.get(a.seller_id)?.baseline_amount || 0) * periodFactor
-                const change = sellerItems.length ? percent(amount, reference) : null
+                const hasForecast = sellerItems.some(i => Number(i.quantity_kg) > 0) ||
+                  ['submitted','approved'].includes(a.status)
+                const change = hasForecast ? percent(amount, reference) : null
                 return <div className="bgx-team-row" key={a.seller_id}>
                   <div className="bgx-team-person">
                     <span className="bgx-avatar">{initials(sellerName(a.seller_id))}</span>
                     <div className="bgx-team-name"><strong>{sellerName(a.seller_id)}</strong><span className={'bgx-substate '+a.status}>{statusName(a.status)}</span></div>
                   </div>
-                  <strong className="bgx-team-volume">{sellerItems.length ? qty(totalVolume / 1000) + ' t' : '—'}</strong>
-                  <strong className="bgx-team-amount">{sellerItems.length ? fmt(amount) : '—'}</strong>
+                  <strong className="bgx-team-volume">{hasForecast ? qty(totalVolume / 1000) + ' t' : '—'}</strong>
+                  <strong className="bgx-team-amount">{hasForecast ? fmt(amount) : '—'}</strong>
                   <div className="bgx-team-change">
-                    <strong className={percentClass(change)}>{sellerItems.length ? percentText(change) : '—'}</strong>
-                    {sellerItems.length > 0 && <small>Base: {fmt(reference)}</small>}
+                    <strong className={percentClass(change)}>{hasForecast ? percentText(change) : '—'}</strong>
+                    {hasForecast && <small>Base: {fmt(reference)}</small>}
                   </div>
                   <div className="bgx-team-buttons-area">
                     {a.status === 'submitted' ? <div className="bgx-team-buttons">
