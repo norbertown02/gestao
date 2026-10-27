@@ -1,0 +1,77 @@
+.bex-report{display:flex;flex-direction:column;gap:24px;padding-top:24px;border-top:1px solid #ece8e3;min-width:0;color:#252320}
+.bex-report-header{display:flex;justify-content:space-between;align-items:end;gap:14px;min-width:0}
+.bex-kicker{font-size:10px;letter-spacing:.115em;font-weight:800;color:#c16f35;display:block}
+.bex-report-header h3{font-size:20px;letter-spacing:-.04em;font-weight:800;margin:6px 0}
+.bex-report-header p,.bex-section-heading p{font-size:11px;color:#8c847c;line-height:1.6}
+.bex-filter{display:flex;gap:7px;align-items:center;border:1px solid #e2ddd7;border-radius:9px;background:#fff;padding:9px 10px;flex-shrink:0;color:#867c73}
+.bex-filter select{background:transparent;border:0;outline:0;color:#3c3630;font-size:11px;min-width:120px;max-width:210px;cursor:pointer}
+.bex-method{display:flex;flex-wrap:wrap;gap:8px 22px;background:#f7f5f2;border:1px solid #eee9e3;border-radius:9px;padding:12px 14px;font-size:10px;color:#857d75;line-height:1.6}
+.bex-method strong{font-weight:800;color:#4f4943}
+.bex-section{display:flex;flex-direction:column;gap:14px;min-width:0}
+.bex-section-heading{display:flex;align-items:end;justify-content:space-between;gap:12px}
+.bex-section-heading h4{font-size:16px;letter-spacing:-.03em;margin:6px 0;font-weight:800}
+.bex-section-heading>small{font-size:10px;color:#8f8880;white-space:nowrap}
+.bex-product-table{max-width:100%;overflow-x:auto;border:1px solid #e9e5e0;border-radius:11px;-webkit-overflow-scrolling:touch}
+.bex-product-head,.bex-product-row,.bex-product-total{min-width:755px;display:grid;grid-template-columns:minmax(195px,2.15fr) minmax(122px,1.1fr) minmax(125px,1.1fr) minmax(75px,.8fr) minmax(160px,1.2fr);align-items:center;column-gap:12px}
+.bex-product-head{padding:12px 13px;background:#f8f7f5;font-size:10px;color:#89827a;font-weight:800;line-height:1.3;border-bottom:1px solid #ede8e1}
+.bex-product-row{padding:11px 13px;border-bottom:1px solid #f1efeb;background:#fff;min-height:61px}
+.bex-product-row:nth-of-type(even){background:#fffdfb}
+.bex-product-title{min-width:0;display:grid;gap:5px}
+.bex-product-title strong{font-size:12px;line-height:1.4;color:#302b26;overflow-wrap:anywhere}
+.bex-product-title small{font-size:10px;color:#9a938b;line-height:1.4}
+.bex-money{font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;color:#49423b}
+.bex-delta{font-size:11px;font-weight:800;white-space:nowrap}
+.bex-delta.is-positive,.bex-market-title strong.is-positive{color:#2b8151}
+.bex-delta.is-negative,.bex-market-title strong.is-negative{color:#bf6758}
+.bex-delta.is-new,.bex-market-title strong.is-new{color:#b4762b}
+.bex-delta.is-neutral,.bex-market-title strong.is-neutral{color:#918a83}
+.bex-kg{font-size:10px;color:#918980;display:flex;align-items:center;gap:5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bex-kg strong{font-size:10px;color:#3d3934;font-weight:800}
+.bex-product-total{padding:14px 13px;background:#292624;color:#fff;border-top:1px solid #4c4640}
+.bex-product-total>strong{font-size:11px;color:#fff}
+.bex-product-total>span:not(.bex-delta){color:#e5dcd3;font-size:11px;white-space:nowrap}
+.bex-product-total .bex-kg strong{color:#fff}
+.bex-product-total .bex-delta.is-negative{color:#ffb5aa}
+.bex-product-total .bex-delta.is-positive{color:#9de1b6}
+.bex-product-total .bex-delta.is-new{color:#ffd49b}
+.bex-see-more{border:0;background:#fbf8f4;padding:12px 14px;color:#b66c30;font-size:11px;font-weight:800;display:flex;align-items:center;gap:6px;justify-content:center;width:100%}
+.bex-see-more:hover{background:#f8ede3}
+.bex-market-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.bex-market-card{border:1px solid #ebe6df;background:#fff;border-radius:12px;padding:17px;display:flex;flex-direction:column;gap:13px;min-width:0}
+.bex-market-title{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.bex-market-title>span{font-size:12px;color:#4b4640;font-weight:800}
+.bex-market-title strong{font-size:11px;background:#f7f5f1;padding:6px 8px;border-radius:7px;white-space:nowrap}
+.bex-market-value{font-size:clamp(20px,2.5vw,28px);letter-spacing:-.045em;line-height:1.1;overflow-wrap:anywhere}
+.bex-market-prev{display:flex;justify-content:space-between;align-items:center;gap:9px;font-size:10px;color:#8f867d}
+.bex-market-prev strong{font-size:12px;color:#554d45;font-weight:750;white-space:nowrap}
+.bex-market-bar{height:6px;border-radius:9px;background:#f3eee9;overflow:hidden}
+.bex-market-bar>span{background:#e87722;height:100%;display:block;border-radius:9px}
+.bex-market-kg{display:flex;justify-content:space-between;gap:10px}
+.bex-market-kg>span{font-size:10px;color:#a19a91;display:grid;gap:4px}
+.bex-market-kg strong{font-size:11px;color:#56514a}
+.bex-market-branches{border-top:1px solid #eee9e5;padding-top:11px;display:grid;gap:7px}
+.bex-market-branches>div{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10px;color:#90847a}
+.bex-market-branches strong{font-size:11px;color:#4d433c}
+.bex-category-list{border:1px solid #ece6e0;border-radius:11px;overflow:hidden}
+.bex-category-line{display:grid;grid-template-columns:minmax(130px,.8fr) minmax(300px,2fr);column-gap:18px;row-gap:8px;align-items:center;padding:15px 16px;border-bottom:1px solid #f0ece7;background:#fff}
+.bex-category-line:last-child{border-bottom:0}
+.bex-category-name{display:grid;gap:5px}
+.bex-category-name>strong{font-size:12px;color:#3c342e}
+.bex-category-name>small{font-size:10px;color:#9c9288}
+.bex-category-metrics{display:grid;grid-template-columns:1fr 1fr minmax(62px,.6fr);gap:10px;align-items:center}
+.bex-category-metrics>div:not(.bex-delta){display:grid;gap:5px}
+.bex-category-metrics small{font-size:10px;color:#aaa198}
+.bex-category-metrics span,.bex-category-metrics strong{font-size:12px;color:#4d453f;font-variant-numeric:tabular-nums}
+.bex-category-metrics strong{font-weight:800}
+.bex-category-bar{grid-column:1/-1;background:#f4f1ed;height:5px;border-radius:8px;overflow:hidden}
+.bex-category-bar>span{display:block;height:100%;background:#dc914e;border-radius:8px}
+.bex-category-kg{grid-column:1/-1;font-size:10px;color:#938b81}
+.bex-category-kg>span{padding:0 4px;color:#c3bdb7}
+.bex-no-data{padding:30px 20px;display:flex;align-items:center;flex-direction:column;text-align:center;gap:11px;border:1px dashed #e2dbd2;border-radius:10px;color:#bc7a45;background:#fffdfb}
+.bex-no-data strong{font-size:13px;color:#3c3530}
+.bex-no-data p{max-width:430px;color:#958b81;font-size:11px;line-height:1.65}
+.bex-no-rows{font-size:12px;color:#a99b8b;padding:22px;text-align:center}
+.bex-footnote{display:flex;align-items:flex-start;gap:9px;background:#f9f7f4;border-radius:9px;padding:12px;color:#93877c;font-size:10px;line-height:1.65}
+.bex-footnote svg{flex-shrink:0;color:#c39b7a}
+@media(max-width:830px){.bex-category-line{grid-template-columns:1fr}.bex-category-metrics{grid-template-columns:1fr 1fr minmax(50px,.6fr)}}
+@media(max-width:690px){.bex-report{padding-top:18px;gap:18px}.bex-report-header{align-items:stretch;flex-direction:column}.bex-filter{align-self:stretch;justify-content:space-between}.bex-filter select{flex:1;max-width:none}.bex-market-grid{grid-template-columns:1fr}.bex-market-card{padding:15px}.bex-category-line{padding:13px 12px;gap:9px}.bex-category-metrics{gap:6px}.bex-category-metrics span,.bex-category-metrics strong{font-size:11px}.bex-method{padding:10px 12px}.bex-section-heading h4{font-size:15px}}
