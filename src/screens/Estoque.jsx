@@ -3,6 +3,7 @@ import { IconAlertTriangle, IconBox, IconChartBar, IconCoins, IconPackage, IconT
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import Topbar from '../components/Topbar'
 import { supabaseAdmin } from '../lib/supabase'
+import { COMMERCIAL_CATEGORIES, commercialCategory } from '../lib/productTaxonomy'
 
 const number = value => Number(value || 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })
 const numberInt = value => Number(value || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
@@ -58,12 +59,15 @@ export default function Estoque() {
     async function load() {
       const start = new Date()
       start.setDate(start.getDate() - 90)
-      const [productsResult, itemsResult] = await Promise.all([
+      const [productsResult, itemsResult, classificationResult] = await Promise.all([
         supabaseAdmin.from('erp_products').select('id,name,codproduto,codproduto_clas,updated_at,raw'),
         supabaseAdmin.from('fiscal_document_items').select('product_code,quantity,fiscal_documents!inner(issue_date,movement_type)').gte('fiscal_documents.issue_date', start.toISOString().slice(0, 10)),
+        supabaseAdmin.from('product_commercial_classifications').select('codproduto,codproduto_clas,category'),
       ])
+      const classMap = new Map((classificationResult.data || []).map(row => [`${row.codproduto}/${row.codproduto_clas || 1}`, row.category]))
       setProducts((productsResult.data || []).map(product => ({
         ...product,
+        commercial_classification: classMap.get(`${product.codproduto}/${product.codproduto_clas || 1}`) || null,
         ultra_codproduto: product.codproduto,
         ultra_codproduto_clas: product.codproduto_clas,
         ultra_last_sync_at: product.updated_at,
@@ -104,7 +108,7 @@ export default function Estoque() {
       const stockRisk = stockRiskLabel({ stockKg, theoreticalBalance, minimumStock })
       return {
         ...product,
-        category: raw.DSCGRUPO || raw.DSCGRUPO_NIVEL1 || 'Outros',
+        category: commercialCategory(product.commercial_classification || raw.DSCGRUPO || raw.DSCGRUPO_NIVEL1, product.name),
         unit: raw.UND_MEDIDA || 'UN', stock, stockKg, pendingOrders, theoreticalBalance, minimumStock, cost, price, sold,
         costValue: Math.max(0, stockKg) * cost,
         billingCapacity: Math.max(0, stockKg) * price,
@@ -129,7 +133,7 @@ export default function Estoque() {
     const annualizedTurnover = stock > 0 ? (sold90Total / stock) * 4 : 0
     return {
       rows: filtered.sort((a, b) => b.costValue - a.costValue), stock, costValue, billingCapacity, potentialMargin, withoutStock, slow, sold90: sold90Total, annualizedTurnover,
-      categories: [...new Set(rows.map(row => row.category))].sort(),
+      categories: COMMERCIAL_CATEGORIES,
       topValue: [...filtered].sort((a, b) => b.costValue - a.costValue).slice(0, 10),
       updatedAt: products.map(product => product.ultra_last_sync_at).filter(Boolean).sort().at(-1),
     }
@@ -185,7 +189,7 @@ export default function Estoque() {
                   {data.rows.filter(row => row.stockKg > 0).map(row => (
                     <tr key={row.id}>
                       <td><strong>{row.name}</strong></td>
-                      <td>{row.category}</td>
+                      <td>{row.category || '—'}</td>
                       <td style={{ textAlign: 'right' }}>{weight(row.stockKg)} kg</td>
                       <td style={{ textAlign: 'right' }}>{row.pendingOrders === null ? '—' : weight(row.pendingOrders)}</td>
                       <td style={{ textAlign: 'right' }}>{row.theoreticalBalance === null ? '—' : weight(row.theoreticalBalance)}</td>
