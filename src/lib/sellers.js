@@ -7,14 +7,58 @@ import { supabaseAdmin } from './supabase'
 export const CONTA_PADRAO_ULTRA_ID = 4 // Nutrialle Nutrição Animal -- fallback pra venda sem vendedor atribuído
 
 export async function fetchVendedores() {
-  const { data, error } = await supabaseAdmin
-    .from('erp_vendedores')
-    .select('id,name,document,is_conta_padrao')
-    .order('is_conta_padrao')
-    .order('name')
+  // O espelho ERP nao e atualizado na mesma velocidade dos cadastros de
+  // vendedores do app. Conciliamos a lista comercial com os perfis ativos.
+  // Perfis administrativos ligados a um ID Ultra NAO viram vendedores.
+  const [erpResult, profilesResult] = await Promise.all([
+    supabaseAdmin.from('erp_vendedores')
+      .select('id,name,document,is_conta_padrao')
+      .order('is_conta_padrao')
+      .order('name'),
+    supabaseAdmin.from('profiles')
+      .select('id,name,role,active,ultra_salesman_id')
+      .eq('active', true),
+  ])
 
-  if (error) throw error
-  return data || []
+  if (erpResult.error) throw erpResult.error
+  if (profilesResult.error) throw profilesResult.error
+
+  const profiles = profilesResult.data || []
+  const authorizedRoles = new Set(['vendedor', 'gestor_comercial'])
+  const linked = profiles.filter(p =>
+    p.ultra_salesman_id != null && Number.isFinite(Number(p.ultra_salesman_id))
+  )
+  const excludedIds = new Set(linked
+    .filter(p => !authorizedRoles.has(p.role))
+    .map(p => Number(p.ultra_salesman_id)))
+  const activeByUltraId = new Map(linked
+    .filter(p => authorizedRoles.has(p.role))
+    .map(p => [Number(p.ultra_salesman_id), p]))
+
+  const merged = new Map()
+  for (const seller of erpResult.data || []) {
+    const id = Number(seller.id)
+    if (seller.is_conta_padrao || excludedIds.has(id)) continue
+    const profile = activeByUltraId.get(id)
+    merged.set(id, {
+      ...seller,
+      id,
+      name: profile?.name?.trim() || seller.name,
+    })
+  }
+  // Vendedores novos com vinculo Ultra correto entram antes da sincronizacao
+  // do espelho ERP, mesmo que ainda nao tenham pedidos.
+  for (const [id, profile] of activeByUltraId) {
+    if (!merged.has(id)) merged.set(id, {
+      id,
+      name: profile.name?.trim() || `Vendedor Ultra #${id}`,
+      document: null,
+      is_conta_padrao: false,
+    })
+  }
+
+  return [...merged.values()].sort((a, b) =>
+    String(a.name).localeCompare(String(b.name), 'pt-BR'))
 }
 
 export function useVendedores() {
