@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import {
@@ -14,6 +14,8 @@ import {
   IconTrendingDown,
   IconTrendingUp,
   IconUsers,
+  IconChevronDown,
+  IconChevronUp,
 } from '@tabler/icons-react'
 import {
   AreaChart,
@@ -206,6 +208,46 @@ function RankingRow({ index, title, subtitle, value, max, extra }) {
   )
 }
 
+
+function quoteItems(quote) {
+  if (Array.isArray(quote?.items)) return quote.items
+  if (typeof quote?.items === 'string') {
+    try {
+      const parsed = JSON.parse(quote.items)
+      return Array.isArray(parsed) ? parsed : []
+    } catch { return [] }
+  }
+  return []
+}
+
+function QuotationProducts({ quote }) {
+  const items = quoteItems(quote)
+  return (
+    <div className="pipeline-quote-detail">
+      <div className="pipeline-quote-detail-head">
+        <strong>Produtos da cotação</strong>
+        <span>{items.length} {items.length === 1 ? 'produto' : 'produtos'}</span>
+      </div>
+      {items.length ? (
+        <div className="pipeline-quote-products-scroll">
+          <table className="pipeline-quote-products">
+            <thead><tr><th>Produto</th><th className="num">Quantidade</th><th className="num">Preço unitário</th><th className="num">Subtotal</th></tr></thead>
+            <tbody>{items.map((item, index) => (
+              <tr key={`${item.product_id || item.productId || index}-${index}`}>
+                <td><strong>{item.product_name || item.productName || item.name || 'Produto'}</strong>{(item.product_code || item.productKey) && <small>{item.product_code || item.productKey}</small>}</td>
+                <td className="num">{fmtInt(item.quantity ?? item.qty)} {item.unit || ''}</td>
+                <td className="num">R$ {fmt(item.unit_price ?? item.unitPrice ?? item.price_kg ?? item.priceKg)}</td>
+                <td className="num"><strong>R$ {fmt(item.subtotal ?? item.total ?? item.product_total ?? 0)}</strong></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      ) : <p>Os produtos desta cotação não estão disponíveis no registro.</p>}
+      <div className="pipeline-quote-detail-total"><span>Total da cotação</span><strong>R$ {fmt(quote.totalNumber)}</strong></div>
+    </div>
+  )
+}
+
 function Empty({ children = 'Sem dados para exibir' }) {
   return <div className="empty">{children}</div>
 }
@@ -219,6 +261,8 @@ export default function Cotacoes() {
   const [periodo, setPeriodo] = useState('semestre')
   const [filtroStatus, setFiltroStatus] = useState('todos')
   const [filtroSegmento, setFiltroSegmento] = useState('todos')
+  const [expandedQuote, setExpandedQuote] = useState(null)
+  const toggleQuote = id => setExpandedQuote(current => current === id ? null : id)
 
   useEffect(() => {
     carregarBase()
@@ -757,15 +801,20 @@ export default function Cotacoes() {
                 {dados.topAbertas.length > 0 ? (
                   <div className="pipeline-ranking">
                     {dados.topAbertas.map((q, i) => (
-                      <RankingRow
-                        key={q.id}
-                        index={i}
-                        title={q.farmName}
-                        subtitle={`${q.sellerName} · ${STATUS[q.statusNorm]?.label || q.statusNorm}`}
-                        value={q.totalNumber}
-                        max={abertasMax}
-                        extra={`${q.diasAberta} dias`}
-                      />
+                      <div key={q.id} className="pipeline-quote-expand-group">
+                        <button type="button" className="pipeline-quote-rank-toggle" aria-expanded={expandedQuote === q.id} onClick={() => toggleQuote(q.id)}>
+                          <RankingRow
+                            index={i}
+                            title={q.farmName}
+                            subtitle={`${q.sellerName} · ${STATUS[q.statusNorm]?.label || q.statusNorm}`}
+                            value={q.totalNumber}
+                            max={abertasMax}
+                            extra={`${q.diasAberta} dias`}
+                          />
+                          {expandedQuote === q.id ? <IconChevronUp size={17} /> : <IconChevronDown size={17} />}
+                        </button>
+                        {expandedQuote === q.id && <QuotationProducts quote={q} />}
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -811,9 +860,10 @@ export default function Cotacoes() {
                         const expirou = q.valid_until && q.valid_until < new Date().toISOString().split('T')[0]
 
                         return (
-                          <tr key={q.id}>
+                          <Fragment key={q.id}>
+                          <tr className="pipeline-quote-clickable" onClick={() => toggleQuote(q.id)} aria-expanded={expandedQuote === q.id}>
                             <td>
-                              <strong>{q.farmName}</strong>
+                              <strong>{q.farmName}</strong> {expandedQuote === q.id ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
                               {q.farmProspect && <span className="pipeline-prospect">prospecto</span>}
                             </td>
                             <td>{q.sellerName}</td>
@@ -832,6 +882,10 @@ export default function Cotacoes() {
                               <strong className="pipeline-total">{fmtK(q.totalNumber)}</strong>
                             </td>
                           </tr>
+                          {expandedQuote === q.id && (
+                            <tr className="pipeline-quote-expanded-row"><td colSpan={7}><QuotationProducts quote={q} /></td></tr>
+                          )}
+                          </Fragment>
                         )
                       })
                     )}
