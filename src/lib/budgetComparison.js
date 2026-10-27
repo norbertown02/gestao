@@ -1,10 +1,12 @@
 // Consolidação comercial do Budget. Todos os valores monetários de referência
 // vêm de notas fiscais, com devoluções e descontos já reconciliados no banco.
 // Não transformar a ausência de orçamento do vendedor em uma queda de -100%.
+import { COMMERCIAL_CATEGORIES, commercialCategory } from './productTaxonomy'
+
 const numeric = value => Number(value) || 0
 
 const MARKET_ORDER = ['Bovinos','Suínos','Multiespécie','A classificar','Outros']
-const CATEGORY_ORDER = ['Núcleo','Mineral','Proteinado','Premix','Aditivo','Aminoácido','Matéria-prima','Material de embalagem','Sem classificação']
+const CATEGORY_ORDER = COMMERCIAL_CATEGORIES
 
 function marketFor(product, classification) {
   const market = (classification?.market || '').toLowerCase()
@@ -25,8 +27,8 @@ function useFor(product, classification, market) {
   return 'Bovinos'
 }
 function categoryFor(product, classification, categories) {
-  const name = categories.get(product?.category_id)
-  return name || classification?.category || 'Sem classificação'
+  const name = classification?.category || categories.get(product?.category_id)
+  return commercialCategory(name, product?.name)
 }
 
 export function prepareBudgetComparison({ budgetItems = [], billedItems = [], products = [], categories = [],
@@ -84,6 +86,7 @@ export function sumBudgetComparison(rows) {
 export function groupBudgetComparison(rows, key) {
   const grouped = new Map()
   for (const row of rows) {
+    if (key === 'category' && !row.category) continue // itens operacionais sem categoria comercial
     const label=row[key] || 'A classificar'
     if (!grouped.has(label)) grouped.set(label,{name:label,priorAmount:0,plannedAmount:0,priorKg:0,plannedKg:0,products:0})
     const group=grouped.get(label)
