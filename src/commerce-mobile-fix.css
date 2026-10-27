@@ -137,7 +137,7 @@
 .route-vendas .commerce-daily-plot .recharts-surface {
   max-height: 100% !important;
 }
-.route-vendas .commerce-detail-tabs {
+.route-vendas .commerce-panel-full > div.commerce-detail-tabs {
   display: inline-grid;
   grid-template-columns: repeat(3, max-content);
   gap: 4px;
@@ -231,7 +231,7 @@
   .route-vendas .commerce-panel-full {
     min-width: 0;
   }
-  .route-vendas .commerce-detail-tabs {
+  .route-vendas .commerce-panel-full > div.commerce-detail-tabs {
     display: grid !important;
     grid-template-columns: repeat(3, minmax(0,1fr)) !important;
     width: calc(100% - 24px) !important;
