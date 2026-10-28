@@ -88,7 +88,14 @@ export default function BudgetGestao() {
     setCycles(c.data || [])
     setAssignments(a.data || [])
     setItems(i.data || [])
-    setSellers((p.data || []).filter(p => p.role === 'vendedor' || p.role === 'gestor_comercial').sort((x, y) => x.name.localeCompare(y.name, 'pt-BR')))
+    // O Budget só pode incluir vendedores comerciais vinculados a um código Ultra.
+    // Contas de clientes e perfis adicionais sem esse vínculo não devem entrar no planejamento.
+    setSellers((p.data || [])
+      .filter(p => (p.role === 'vendedor' || p.role === 'gestor_comercial')
+        && p.ultra_salesman_id != null
+        && Number.isInteger(Number(p.ultra_salesman_id))
+        && Number(p.ultra_salesman_id) > 0)
+      .sort((x, y) => x.name.localeCompare(y.name, 'pt-BR')))
     setProducts(pr.data || [])
     setCategories(cats.data || [])
     setClassifications(cls.data || [])
