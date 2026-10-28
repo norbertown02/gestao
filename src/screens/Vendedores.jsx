@@ -651,7 +651,7 @@ export default function Vendedores() {
           <Empty>Carregando equipe comercial...</Empty>
         ) : (
           <>
-            <section className="vendedores-card" style={{ marginBottom: 14 }}>
+            <section className="vendedores-card vendedores-team-card" style={{ marginBottom: 14 }}>
               <div className="vendedores-card-head" style={{ alignItems: 'center' }}>
                 <div>
                   <span className="vendedores-eyebrow">Visão principal</span>
@@ -663,94 +663,91 @@ export default function Vendedores() {
                 <div className="cc-table-head-actions"><small>Selecione um vendedor para abrir os detalhes</small></div>
               </div>
 
-              <div className="table-wrap vendedores-table-wrap">
-                <table className="vendedores-summary-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Vendedor</th>
-                      <th scope="col" className="vendedores-align-right">Valor dos pedidos</th>
-                      <th scope="col">Meta e atingimento</th>
-                      <th scope="col" className="vendedores-align-right">Variação</th>
-                      <th scope="col" className="vendedores-align-center">Pedidos</th>
-                      <th scope="col" className="vendedores-align-center">Carteira</th>
-                      <th scope="col"><span className="sr-only">Detalhes</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dados.vendedores.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="vendedores-empty-state">Nenhum vendedor com dados no período</td>
-                      </tr>
-                    ) : dados.vendedores.map(s => {
-                      const variacao = pct(s.fat, s.fatAnt)
-                      const aberto = detalheId === s.id
-                      const alternarDetalhe = () => setDetalheId(aberto ? null : s.id)
-                      return (
-                        <Fragment key={s.id}>
-                          <tr
-                            className={'vendedores-summary-row' + (aberto ? ' vendedores-row-active' : '')}
-                            onClick={alternarDetalhe}
-                            onKeyDown={event => {
-                              if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
-                                event.preventDefault()
-                                alternarDetalhe()
-                              }
-                            }}
-                            tabIndex={0}
-                            aria-expanded={aberto}
-                          >
-                            <td className="vendedores-cell-name">
-                              <div className="vendedores-person">
-                                <div className="vendedores-avatar"><IconUser size={17} /></div>
-                                <div className="vendedores-person-info">
-                                  <strong className="vendedores-person-name" title={s.name}>{String(s.name || '').trim() || 'Vendedor não identificado'}</strong>
-                                  <small>{s.fazendas ? `${fmtInt(s.fazendas)} clientes na carteira` : 'Sem carteira vinculada'}</small>
-                                </div>
+              <div className="vendedores-summary-list" role="table" aria-label="Pedidos e metas por vendedor">
+                <div className="vendedores-summary-head" role="rowgroup">
+                  <div className="vendedores-summary-head-row" role="row">
+                    <span role="columnheader">Vendedor</span>
+                    <span role="columnheader" className="vendedores-align-right">Valor dos pedidos</span>
+                    <span role="columnheader">Meta e atingimento</span>
+                    <span role="columnheader" className="vendedores-align-right">Variação</span>
+                    <span role="columnheader" className="vendedores-align-center">Pedidos</span>
+                    <span role="columnheader" className="vendedores-align-center">Carteira</span>
+                    <span role="columnheader" aria-label="Abrir detalhes"></span>
+                  </div>
+                </div>
+                <div className="vendedores-summary-body" role="rowgroup">
+                  {dados.vendedores.length === 0 ? (
+                    <div role="row" className="vendedores-empty-state">Nenhum vendedor com dados no período</div>
+                  ) : dados.vendedores.map(s => {
+                    const variacao = pct(s.fat, s.fatAnt)
+                    const aberto = detalheId === s.id
+                    const alternarDetalhe = () => setDetalheId(aberto ? null : s.id)
+                    return (
+                      <Fragment key={s.id}>
+                        <div
+                          role="row" tabIndex={0} aria-expanded={aberto}
+                          className={'vendedores-summary-row' + (aberto ? ' vendedores-row-active' : '')}
+                          onClick={alternarDetalhe}
+                          onKeyDown={event => {
+                            if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                              event.preventDefault()
+                              alternarDetalhe()
+                            }
+                          }}
+                        >
+                          <div role="cell" className="vendedores-cell-name">
+                            <div className="vendedores-person">
+                              <div className="vendedores-avatar"><IconUser size={17} /></div>
+                              <div className="vendedores-person-info">
+                                <strong className="vendedores-person-name" title={s.name}>{String(s.name || '').trim() || 'Vendedor não identificado'}</strong>
+                                <small>{s.fazendas ? `${fmtInt(s.fazendas)} clientes na carteira` : 'Sem carteira vinculada'}</small>
                               </div>
-                            </td>
-                            <td className="vendedores-cell-revenue vendedores-align-right">
-                              <strong className="vendedores-money">{fmtK(s.fat)}</strong>
-                            </td>
-                            <td className="vendedores-cell-goal">
-                              {segmento !== 'todos' ? (
-                                <span className="vendedores-goal-muted">Meta disponível no consolidado</span>
-                              ) : s.atingimento === null ? (
-                                <span className="vendedores-goal-muted">Sem meta cadastrada</span>
-                              ) : (
-                                <div className="vendedores-goal-content">
-                                  <div className="vendedores-goal-progress">
-                                    <span className={'vendedores-goal-track' + (s.atingimento >= 100 ? ' achieved' : '')}
-                                      role="progressbar" aria-label={'Meta atingida por ' + s.name}
-                                      aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.max(0, Math.round(s.atingimento)))}
-                                      aria-valuetext={s.atingimento.toFixed(1) + '% da meta atingida'}>
-                                      <i style={{ width: Math.min(100, Math.max(0, s.atingimento)) + '%' }} />
-                                    </span>
-                                    <strong className="vendedores-goal-percent">{s.atingimento.toFixed(0)}%</strong>
-                                  </div>
-                                  <span className="vendedores-goal-meta">Meta: <strong>{fmtK(s.meta)}</strong></span>
+                            </div>
+                          </div>
+                          <div role="cell" className="vendedores-cell-revenue vendedores-align-right">
+                            <strong className="vendedores-money">{fmtK(s.fat)}</strong>
+                          </div>
+                          <div role="cell" className="vendedores-cell-goal">
+                            {segmento !== 'todos' ? (
+                              <span className="vendedores-goal-muted">Meta disponível no consolidado</span>
+                            ) : s.atingimento === null ? (
+                              <span className="vendedores-goal-muted">Sem meta cadastrada</span>
+                            ) : (
+                              <div className="vendedores-goal-content">
+                                <div className="vendedores-goal-progress">
+                                  <span className={'vendedores-goal-track' + (s.atingimento >= 100 ? ' achieved' : '')}
+                                    role="progressbar" aria-label={'Meta atingida por ' + s.name}
+                                    aria-valuemin={0} aria-valuemax={100}
+                                    aria-valuenow={Math.min(100, Math.max(0, Math.round(s.atingimento)))}
+                                    aria-valuetext={s.atingimento.toFixed(1) + '% da meta atingida'}>
+                                    <i style={{ width: Math.min(100, Math.max(0, s.atingimento)) + '%' }} />
+                                  </span>
+                                  <strong className="vendedores-goal-percent">{s.atingimento.toFixed(0)}%</strong>
                                 </div>
-                              )}
-                            </td>
-                            <td className="vendedores-cell-variation vendedores-align-right">
-                              <span className={'vendedores-var ' + (variacao >= 0 ? 'up' : 'down')}>
-                                {variacao >= 0 ? <IconTrendingUp size={14} /> : <IconTrendingDown size={14} />}
-                                {variacao >= 0 ? '+' : ''}{variacao.toFixed(1)}%
-                              </span>
-                            </td>
-                            <td className="vendedores-cell-orders vendedores-align-center"><strong>{fmtInt(s.pedidos)}</strong></td>
-                            <td className="vendedores-cell-wallet vendedores-align-center">{fmtInt(s.fazendas)}</td>
-                            <td className="vendedores-cell-expand">
-                              <button type="button" className="vendedores-expand-button"
-                                onClick={event => { event.stopPropagation(); alternarDetalhe() }}
-                                aria-expanded={aberto} aria-label={(aberto ? 'Fechar' : 'Abrir') + ' detalhes de ' + s.name}>
-                                {aberto ? <IconChevronUp size={17} /> : <IconChevronDown size={17} />}
-                              </button>
-                            </td>
-                          </tr>
+                                <span className="vendedores-goal-meta">Meta: <strong>{fmtK(s.meta)}</strong></span>
+                              </div>
+                            )}
+                          </div>
+                          <div role="cell" className="vendedores-cell-variation vendedores-align-right">
+                            <span className={'vendedores-var ' + (variacao >= 0 ? 'up' : 'down')}>
+                              {variacao >= 0 ? <IconTrendingUp size={14} /> : <IconTrendingDown size={14} />}
+                              {variacao >= 0 ? '+' : ''}{variacao.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div role="cell" className="vendedores-cell-orders vendedores-align-center"><strong>{fmtInt(s.pedidos)}</strong></div>
+                          <div role="cell" className="vendedores-cell-wallet vendedores-align-center">{fmtInt(s.fazendas)}</div>
+                          <div role="cell" className="vendedores-cell-expand">
+                            <button type="button" className="vendedores-expand-button"
+                              onClick={event => { event.stopPropagation(); alternarDetalhe() }}
+                              aria-expanded={aberto} aria-label={(aberto ? 'Fechar' : 'Abrir') + ' detalhes de ' + s.name}>
+                              {aberto ? <IconChevronUp size={17} /> : <IconChevronDown size={17} />}
+                            </button>
+                          </div>
+                        </div>
 
                           {detalheId === s.id && (
-                            <tr className="vendedores-detail-row">
-                              <td colSpan={7} className="vendedores-detail-cell">
+                            <div className="vendedores-detail-row" role="row">
+                              <div className="vendedores-detail-cell" role="cell">
                                 <div className="vendedores-detail-layout">
                                   <div className="vendedores-detail-chart">
                                     <div className="vendedores-card-head">
@@ -834,14 +831,13 @@ export default function Vendedores() {
                                     </div>
                                   </div>
                                 </div>
-                              </td>
-                            </tr>
+                              </div>
+                            </div>
                           )}
                         </Fragment>
                       )
                     })}
-                  </tbody>
-                </table>
+                </div>
               </div>
             </section>
 

@@ -84,190 +84,212 @@
 
 
 
-/* Equipe Comercial: tabela consolidada refinada, sem larguras herdadas da tabela antiga. */
-.vendedores-page .vendedores-card:has(.vendedores-summary-table) { padding: 0; overflow: hidden; border-radius: 16px; }
-.vendedores-page .vendedores-card:has(.vendedores-summary-table) > .vendedores-card-head {
-  margin: 0; padding: 22px 26px 18px; align-items: center; flex-wrap: wrap; gap: 12px;
+
+/* Equipe e metas — grade isolada dos estilos herdados de table/table-wrap.
+   Sem altura fixa nem overflow escondido: a lista e os detalhes sempre aparecem. */
+.vendedores-page .vendedores-team-card {
+  box-sizing: border-box; display: block; height: auto; min-height: 0;
+  max-height: none; overflow: visible; padding: 0; border-radius: 15px;
 }
-.vendedores-page .vendedores-card:has(.vendedores-summary-table) > .vendedores-card-head h3 {
-  font-size: 18px; letter-spacing: -.025em; font-weight: 750;
+.vendedores-page .vendedores-team-card > .vendedores-card-head {
+  margin: 0; padding: 22px 26px; min-height: 0;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 16px;
 }
-.vendedores-page .vendedores-card:has(.vendedores-summary-table) > .vendedores-card-head p {
+.vendedores-page .vendedores-team-card > .vendedores-card-head h3 {
+  font-size: 18px; letter-spacing: -.025em; font-weight: 750; line-height: 1.35;
+}
+.vendedores-page .vendedores-team-card > .vendedores-card-head p {
   font-size: 12px !important; line-height: 1.5; color: #857b72 !important;
 }
-.vendedores-page .vendedores-table-wrap { overflow-x: auto; max-width: 100%; border: 0; border-radius: 0; }
-.vendedores-page .vendedores-table-wrap > .vendedores-summary-table {
-  width: 100%; min-width: 940px; table-layout: fixed; border-collapse: collapse;
-  font-size: 13px;
+.vendedores-page .vendedores-summary-list {
+  display: block; box-sizing: border-box; width: 100%; min-height: 70px;
+  overflow-x: auto; overflow-y: visible;
+  border-top: 1px solid #eae5df; border-radius: 0 0 14px 14px;
+  background: #fff;
+  --seller-cols: minmax(220px,1.4fr) minmax(150px,.85fr) minmax(280px,1.4fr) minmax(115px,.7fr) 72px 72px 48px;
 }
-.vendedores-page .vendedores-table-wrap th:nth-child(1) { width: 27%; }
-.vendedores-page .vendedores-table-wrap th:nth-child(2) { width: 15%; }
-.vendedores-page .vendedores-table-wrap th:nth-child(3) { width: 28%; }
-.vendedores-page .vendedores-table-wrap th:nth-child(4) { width: 12%; }
-.vendedores-page .vendedores-table-wrap th:nth-child(5) { width: 7%; }
-.vendedores-page .vendedores-table-wrap th:nth-child(6) { width: 8%; }
-.vendedores-page .vendedores-table-wrap th:nth-child(7) { width: 3%; }
-.vendedores-page .vendedores-table-wrap thead th {
-  padding: 13px 15px; font-size: 10px; font-weight: 750;
-  letter-spacing: .075em; background: #f8f6f2;
-  color: #756d65; white-space: normal; line-height: 1.35; vertical-align: middle;
+.vendedores-page .vendedores-summary-head { display: block; min-width: 1060px; }
+.vendedores-page .vendedores-summary-head-row,
+.vendedores-page .vendedores-summary-row {
+  box-sizing: border-box; display: grid; grid-template-columns: var(--seller-cols);
+  align-items: center; width: 100%; min-width: 1060px;
 }
-.vendedores-page .vendedores-table-wrap tbody .vendedores-summary-row td {
-  padding: 16px 15px; line-height: 1.35; vertical-align: middle;
-  border-bottom: 1px solid #eee9e4;
+.vendedores-page .vendedores-summary-head-row {
+  background: #f8f6f2; border-bottom: 1px solid #e9e3dc;
 }
-.vendedores-page .vendedores-summary-row { cursor: pointer; transition: background-color .16s ease; }
-.vendedores-page .vendedores-summary-row:hover { background: #fbf8f5; }
-.vendedores-page .vendedores-summary-row.vendedores-row-active { background: #fff9f2; }
-.vendedores-page .vendedores-summary-row:focus-visible { outline: 2px solid #df7628; outline-offset: -2px; }
+.vendedores-page .vendedores-summary-head-row > span {
+  min-width: 0; box-sizing: border-box; padding: 14px 12px;
+  color: #756e67; font-size: 10px; font-weight: 760;
+  line-height: 1.4; letter-spacing: .065em; text-transform: uppercase;
+}
+.vendedores-page .vendedores-summary-body { display: block; min-width: 1060px; }
+.vendedores-page .vendedores-summary-row {
+  padding: 0; border-bottom: 1px solid #eee9e4;
+  cursor: pointer; min-height: 79px;
+  transition: background-color .15s ease;
+}
+.vendedores-page .vendedores-summary-row:hover { background: #fbf8f4; }
+.vendedores-page .vendedores-summary-row.vendedores-row-active { background: #fff9f1; }
+.vendedores-page .vendedores-summary-row:focus-visible {
+  outline: 2px solid #df7628; outline-offset: -2px;
+}
+.vendedores-page .vendedores-summary-row > [role="cell"] {
+  display: block; box-sizing: border-box;
+  min-width: 0; padding: 14px 12px;
+  line-height: 1.4;
+}
 .vendedores-page .vendedores-align-right { text-align: right; }
 .vendedores-page .vendedores-align-center { text-align: center; }
-.vendedores-page .vendedores-person { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.vendedores-page .vendedores-person .vendedores-avatar { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 13px; }
+.vendedores-page .vendedores-person { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.vendedores-page .vendedores-person .vendedores-avatar {
+  flex: 0 0 38px; width: 38px; height: 38px; border-radius: 12px;
+}
 .vendedores-page .vendedores-person-info { min-width: 0; flex: 1; }
 .vendedores-page .vendedores-person .vendedores-person-name {
-  color: #2e2925; font-size: 13px; line-height: 1.4;
-  font-weight: 750; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  display: block; color: #302a26; font-size: 13px; line-height: 1.35;
+  font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .vendedores-page .vendedores-person-info small {
-  display: block; color: #91877d; font-size: 11px; line-height: 1.45;
-  margin-top: 3px; white-space: normal;
+  display: block; margin-top: 3px; color: #91877d; font-size: 11px; line-height: 1.45;
 }
 .vendedores-page .vendedores-cell-revenue .vendedores-money {
-  color: #dc7429; font-size: 15px; font-weight: 780; line-height: 1.25;
-  white-space: nowrap; display: inline-block;
+  color: #de792c; font-size: 14px; font-weight: 780; white-space: nowrap;
 }
-.vendedores-page .vendedores-cell-goal { min-width: 0; }
-.vendedores-page .vendedores-goal-content { min-width: 0; max-width: 330px; display: flex; flex-direction: column; gap: 7px; }
+.vendedores-page .vendedores-goal-content {
+  min-width: 0; width: 100%; display: flex; flex-direction: column; gap: 7px;
+}
 .vendedores-page .vendedores-goal-progress {
-  display: flex; align-items: center; gap: 12px; min-width: 0; width: 100%;
+  display: flex; align-items: center; gap: 11px; width: 100%; min-width: 0;
 }
 .vendedores-page .vendedores-goal-track {
-  display: block; min-width: 0; flex: 1 1 auto; height: 8px; border-radius: 20px;
-  background: #eee6dc; overflow: hidden; position: relative;
+  display: block; position: relative; flex: 1 1 auto;
+  min-width: 0; height: 8px; border-radius: 20px; overflow: hidden;
+  background: #eee6dc;
 }
 .vendedores-page .vendedores-goal-track i {
-  position: absolute; inset: 0 auto 0 0; display: block;
-  border-radius: inherit; height: 100%;
-  background: linear-gradient(90deg,#f3a65b,#e87722);
-  transition: width .25s ease;
+  display: block; position: absolute; inset: 0 auto 0 0;
+  height: 100%; background: linear-gradient(90deg,#ef9c4e,#e87722);
+  border-radius: inherit;
 }
-.vendedores-page .vendedores-goal-track.achieved i { background: #2a846b; }
+.vendedores-page .vendedores-goal-track.achieved i { background: #298268; }
 .vendedores-page .vendedores-goal-percent {
-  flex: 0 0 auto; min-width: 42px; font-size: 12px;
-  color: #302b26; font-weight: 780; text-align: right; white-space: nowrap;
+  display: inline-block; flex: 0 0 auto; min-width: 46px;
+  text-align: right; font-size: 12px; font-weight: 770; color: #332d27;
 }
 .vendedores-page .vendedores-goal-meta {
-  color: #8b8178; font-size: 11px; line-height: 1.4;
-  display: block; white-space: nowrap;
+  font-size: 11px; color: #887e74; white-space: nowrap;
 }
-.vendedores-page .vendedores-goal-meta strong { color: #625a51; font-weight: 730; }
+.vendedores-page .vendedores-goal-meta strong { color: #655b53; font-weight: 720; }
 .vendedores-page .vendedores-goal-muted { color: #92867a; font-size: 11px; line-height: 1.5; }
 .vendedores-page .vendedores-cell-variation .vendedores-var {
-  display: inline-flex; align-items: center; justify-content: flex-end;
+  display: inline-flex; justify-content: flex-end; align-items: center;
   gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;
 }
-.vendedores-page .vendedores-cell-orders strong { color: #403a34; font-weight: 760; }
+.vendedores-page .vendedores-cell-orders strong { font-weight: 750; }
 .vendedores-page .vendedores-cell-wallet { color: #847c73; font-weight: 600; }
-.vendedores-page .vendedores-cell-expand { text-align: center; padding-left: 1px !important; padding-right: 8px !important; }
+.vendedores-page .vendedores-cell-expand { text-align: center; padding: 12px 8px !important; }
 .vendedores-page .vendedores-expand-button {
-  width: 29px; height: 29px; display: inline-grid; place-items: center;
-  border: 0; border-radius: 8px; color: #746b62;
-  background: transparent; cursor: pointer;
+  width: 30px; height: 30px; display: inline-grid; place-items: center;
+  border: 0; border-radius: 8px; color: #746b62; background: transparent; cursor: pointer;
 }
 .vendedores-page .vendedores-expand-button:hover { color: #d87324; background: #faecdc; }
-.vendedores-page .vendedores-expand-button:focus-visible { outline: 2px solid #dc762c; outline-offset: 2px; }
 .vendedores-page .vendedores-empty-state {
-  padding: 28px !important; color: #8d8176; text-align: center;
+  padding: 28px; font-size: 12px; color: #897d72; text-align: center;
 }
-.vendedores-page .vendedores-detail-row .vendedores-detail-cell {
-  padding: 17px 20px 21px !important; background: #faf8f5;
+.vendedores-page .vendedores-detail-row {
+  display: block; width: 100%; padding: 15px 18px 19px; box-sizing: border-box;
+  background: #faf8f5; border-bottom: 1px solid #e8e0d8;
 }
+.vendedores-page .vendedores-detail-cell { display: block; box-sizing: border-box; width: 100%; }
 .vendedores-page .vendedores-detail-layout {
-  display: grid; grid-template-columns: minmax(0,1.18fr) minmax(300px,.82fr);
-  gap: 16px; align-items: stretch; min-width: 0;
+  display: grid; grid-template-columns: minmax(0,1.12fr) minmax(300px,.88fr);
+  gap: 14px; min-width: 0;
 }
-.vendedores-page .vendedores-detail-chart { min-width: 0; margin: 0; padding: 15px 12px 6px; }
+.vendedores-page .vendedores-detail-chart {
+  min-width: 0; margin: 0; padding: 15px 12px 6px;
+}
 .vendedores-page .vendedores-detail-stats {
-  display: grid; grid-template-columns: repeat(2,minmax(0,1fr));
-  gap: 9px; align-content: start; min-width: 0;
+  min-width: 0; display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; align-content: start;
 }
-.vendedores-page .vendedores-detail-stats .vendedores-detail-box { min-width: 0; border-radius: 12px; padding: 13px; }
+.vendedores-page .vendedores-detail-stats .vendedores-detail-box {
+  min-width: 0; padding: 13px; border-radius: 12px;
+}
 .vendedores-page .vendedores-detail-stats .vendedores-detail-box strong {
   font-size: clamp(13px,1.2vw,18px); line-height: 1.35; overflow-wrap: anywhere;
 }
 .vendedores-page .vendedores-detail-stats .vendedores-detail-box small {
   font-size: 10px; line-height: 1.45; overflow-wrap: anywhere;
 }
-.vendedores-page .vendedores-detail-goal { background: #fff7ec; border-color: #efdfcb; }
+.vendedores-page .vendedores-detail-goal {
+  background: #fff7ec; border-color: #efdfcb;
+}
 .vendedores-page .vendedores-chart-legend {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 7px;
-  color: #786e65; font-size: 11px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+  margin-top: 7px; color: #786e65; font-size: 11px;
 }
 .vendedores-page .vendedores-chart-legend > span { display: inline-flex; align-items: center; gap: 5px; }
-.vendedores-page .vendedores-chart-legend i { display: inline-block; width: 18px; height: 3px; background: #e87722; border-radius: 3px; }
+.vendedores-page .vendedores-chart-legend i {
+  display: inline-block; width: 18px; height: 3px; background: #e87722; border-radius: 3px;
+}
 .vendedores-page .vendedores-chart-legend i.meta { background: #246e6a; }
-
 @media(max-width:1180px) {
   .vendedores-page .vendedores-detail-layout { grid-template-columns: 1fr; }
   .vendedores-page .vendedores-detail-stats { grid-template-columns: repeat(3,minmax(0,1fr)); }
 }
-@media(max-width:720px) {
-  .vendedores-page .vendedores-card:has(.vendedores-summary-table) > .vendedores-card-head { padding: 18px 16px; }
-  .vendedores-page .vendedores-table-wrap { overflow: visible; }
-  .vendedores-page .vendedores-table-wrap > .vendedores-summary-table {
-    display: block; min-width: 0; width: 100%;
+@media(max-width:760px) {
+  .vendedores-page .vendedores-team-card > .vendedores-card-head { padding: 18px 16px; }
+  .vendedores-page .vendedores-summary-list { overflow-x: visible; }
+  .vendedores-page .vendedores-summary-head { display: none; }
+  .vendedores-page .vendedores-summary-body {
+    min-width: 0; display: flex; flex-direction: column;
+    gap: 10px; padding: 12px;
   }
-  .vendedores-page .vendedores-summary-table thead { display: none; }
-  .vendedores-page .vendedores-summary-table tbody {
-    display: flex; flex-direction: column; padding: 12px; gap: 10px;
+  .vendedores-page .vendedores-summary-row {
+    min-width: 0; width: 100%; min-height: 0;
+    display: grid; box-sizing: border-box;
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr) 30px;
+    grid-template-areas:
+      "seller seller expand"
+      "revenue variation variation"
+      "goal goal goal"
+      "orders wallet wallet";
+    align-items: center; gap: 13px 8px; padding: 14px;
+    border: 1px solid #eae4dd; border-radius: 13px; background: #fff;
   }
-  .vendedores-page .vendedores-summary-table tbody .vendedores-summary-row {
-    display: grid; width: 100%; box-sizing: border-box;
-    grid-template-columns: minmax(0,1fr) minmax(0,1fr) 32px;
-    grid-template-areas: "seller seller expand" "revenue variation variation" "goal goal goal" "orders wallet wallet";
-    align-items: center; gap: 12px 8px; padding: 15px;
-    border: 1px solid #ebe5df; border-radius: 13px; background: #fff;
+  .vendedores-page .vendedores-summary-row > [role="cell"] {
+    padding: 0; width: auto; text-align: left; min-width: 0;
   }
-  .vendedores-page .vendedores-summary-table tbody .vendedores-summary-row td {
-    padding: 0 !important; border: 0; text-align: left;
-    width: auto; min-width: 0;
-  }
-  .vendedores-page .vendedores-summary-row .vendedores-cell-name { grid-area: seller; }
-  .vendedores-page .vendedores-summary-row .vendedores-cell-revenue { grid-area: revenue; }
-  .vendedores-page .vendedores-summary-row .vendedores-cell-goal { grid-area: goal; }
-  .vendedores-page .vendedores-summary-row .vendedores-cell-variation { grid-area: variation; text-align: right; }
-  .vendedores-page .vendedores-summary-row .vendedores-cell-orders { grid-area: orders; }
-  .vendedores-page .vendedores-summary-row .vendedores-cell-wallet { grid-area: wallet; }
-  .vendedores-page .vendedores-summary-row .vendedores-cell-expand { grid-area: expand; text-align: right; }
-  .vendedores-page .vendedores-person .vendedores-person-name { font-size: 13px; }
+  .vendedores-page .vendedores-cell-name { grid-area: seller; }
+  .vendedores-page .vendedores-cell-revenue { grid-area: revenue; }
+  .vendedores-page .vendedores-cell-goal { grid-area: goal; }
+  .vendedores-page .vendedores-cell-variation { grid-area: variation; text-align: right !important; }
+  .vendedores-page .vendedores-cell-orders { grid-area: orders; }
+  .vendedores-page .vendedores-cell-wallet { grid-area: wallet; }
+  .vendedores-page .vendedores-cell-expand { grid-area: expand; text-align: right; }
   .vendedores-page .vendedores-cell-revenue::before,
   .vendedores-page .vendedores-cell-variation::before,
   .vendedores-page .vendedores-cell-orders::before,
   .vendedores-page .vendedores-cell-wallet::before {
     display: block; margin-bottom: 4px; color: #a2998f;
-    text-transform: uppercase; letter-spacing: .055em;
-    font-size: 9px; font-weight: 750;
+    font-size: 9px; font-weight: 740; letter-spacing: .05em; text-transform: uppercase;
   }
   .vendedores-page .vendedores-cell-revenue::before { content: 'Valor dos pedidos'; }
   .vendedores-page .vendedores-cell-variation::before { content: 'Variação'; }
   .vendedores-page .vendedores-cell-orders::before { content: 'Pedidos'; }
   .vendedores-page .vendedores-cell-wallet::before { content: 'Carteira'; }
-  .vendedores-page .vendedores-goal-content { max-width: none; gap: 6px; background: #faf6f1; padding: 12px; border-radius: 10px; }
-  .vendedores-page .vendedores-goal-progress { gap: 12px; }
-  .vendedores-page .vendedores-goal-meta { font-size: 11px; }
-  .vendedores-page .vendedores-summary-table tbody .vendedores-detail-row { display: block; width: 100%; }
-  .vendedores-page .vendedores-detail-row .vendedores-detail-cell {
-    display: block; width: 100%; box-sizing: border-box; padding: 14px 10px !important;
-    border-radius: 12px; border: 1px solid #ebe5df;
+  .vendedores-page .vendedores-goal-content {
+    gap: 7px; padding: 12px; border-radius: 10px; background: #faf6f1;
   }
-  .vendedores-page .vendedores-detail-layout { display: grid; grid-template-columns: 1fr; gap: 10px; }
-  .vendedores-page .vendedores-detail-chart { padding: 12px 6px 4px; }
+  .vendedores-page .vendedores-detail-row {
+    min-width: 0; padding: 12px; border: 1px solid #eae4dd; border-radius: 12px;
+  }
+  .vendedores-page .vendedores-detail-layout { display: grid; grid-template-columns: 1fr; gap: 12px; }
   .vendedores-page .vendedores-detail-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media(max-width:380px) {
-  .vendedores-page .vendedores-summary-table tbody { padding: 8px; }
-  .vendedores-page .vendedores-summary-table tbody .vendedores-summary-row { padding: 12px; }
-  .vendedores-page .vendedores-person .vendedores-avatar { flex-basis: 34px; width: 34px; height: 34px; }
+  .vendedores-page .vendedores-summary-body { padding: 8px; }
+  .vendedores-page .vendedores-summary-row { padding: 11px; }
   .vendedores-page .vendedores-detail-stats { grid-template-columns: 1fr; }
 }
