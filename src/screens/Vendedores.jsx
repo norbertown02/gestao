@@ -23,10 +23,9 @@ import {
   IconWallet,
 } from '@tabler/icons-react'
 import {
-  AreaChart,
+  ComposedChart,
   Area,
-  BarChart,
-  Bar,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -163,6 +162,7 @@ export default function Vendedores() {
   const [anoReferencia, setAnoReferencia] = useState(CURRENT_YEAR)
   const [segmento, setSegmento] = useState('todos')
   const [sellers, setSellers] = useState([])
+  const [metas, setMetas] = useState([])
   const [farms, setFarms] = useState([])
   const [sales, setSales] = useState([])
   const [salesAnt, setSalesAnt] = useState([])
@@ -192,6 +192,22 @@ export default function Vendedores() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodo, mesReferencia, anoReferencia])
 
+  useEffect(() => {
+    if (metaTab !== 'cadastro') return
+    metasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [metaTab])
+
+  async function carregarMetas() {
+    const { data, error } = await supabaseAdmin
+      .from('goals')
+      .select('seller_id,ultra_salesman_id,ano,mes,meta_fat')
+    if (error) {
+      console.error('Erro ao carregar metas comerciais:', error)
+      return
+    }
+    setMetas(data || [])
+  }
+
   async function carregarBase() {
     const [rSellers, rFarms] = await Promise.all([
       supabaseAdmin.from('profiles').select('*').eq('active', true).order('name'),
@@ -200,6 +216,7 @@ export default function Vendedores() {
 
     setSellers(rSellers.data || [])
     setFarms(rFarms.data || [])
+    await carregarMetas()
   }
 
   async function carregarPeriodo() {
@@ -267,12 +284,30 @@ export default function Vendedores() {
     // válido (ex.: gestor puro, ou vínculo quebrado apontando pra um id que
     // não é vendedor real) não contam como vendedor nesta tela.
     const sellersAtivos = sellers.filter(s => isVendedorValido(s.ultra_salesman_id, vendedoresById))
-    const ultraToProfileId = new Map(sellersAtivos.filter(s => s.ultra_salesman_id).map(s => [s.ultra_salesman_id, s.id]))
+    const ultraToProfileId = new Map(sellersAtivos.filter(s => s.ultra_salesman_id).map(s => [Number(s.ultra_salesman_id), s.id]))
+    const metaPorVendedorMes = new Map()
+    metas.forEach(meta => {
+      const codigo = Number(meta.ultra_salesman_id)
+      const id = codigo
+        ? ultraToProfileId.get(codigo) || `ultra:${codigo}`
+        : meta.seller_id
+      if (!id || !meta.ano || !meta.mes) return
+      const chave = `${id}:${meta.ano}-${String(meta.mes).padStart(2, '0')}`
+      metaPorVendedorMes.set(chave, (metaPorVendedorMes.get(chave) || 0) + Number(meta.meta_fat || 0))
+    })
+    const [inicioMeta, fimMeta] = periodRange(periodo, anoReferencia, mesReferencia)
+    const mesesMeta = []
+    for (let d = new Date(inicioMeta.getFullYear(), inicioMeta.getMonth(), 1);
+      d <= fimMeta;
+      d.setMonth(d.getMonth() + 1)) {
+      mesesMeta.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+    }
+    const metaDoMes = (sellerId, mes) => metaPorVendedorMes.get(`${sellerId}:${mes}`) ?? null
     // Prioriza resolver pelo id do Ultra quando o perfil dono dele já existe
     // (evita duplicar a mesma pessoa em duas linhas -- uma pelo seller_id do
     // app, outra pelo ultra_salesman_id solto na venda/documento).
     const saleSellerKey = row => {
-      if (row.ultra_salesman_id && ultraToProfileId.has(row.ultra_salesman_id)) return ultraToProfileId.get(row.ultra_salesman_id)
+      if (row.ultra_salesman_id && ultraToProfileId.has(Number(row.ultra_salesman_id))) return ultraToProfileId.get(Number(row.ultra_salesman_id))
       if (row.seller_id) return row.seller_id
       if (row.ultra_salesman_id && vendedoresById.has(row.ultra_salesman_id)) return `ultra:${row.ultra_salesman_id}`
       return null
@@ -314,7 +349,7 @@ export default function Vendedores() {
     // cotações, que usam seller_id=uuid do app); quem ainda não tem login
     // entra como "ultra:<id>" mesmo assim, pra aparecer se tiver atividade.
     const sellerIdsAtivos = new Set(
-      vendedores.map(v => ultraToProfileId.get(v.id) || `ultra:${v.id}`),
+      vendedores.map(v => ultraToProfileId.get(Number(v.id)) || `ultra:${v.id}`),
     )
 
     const rows = [...sellerIdsAtivos].map(id => {
@@ -378,22 +413,28 @@ export default function Vendedores() {
       )
 
       const evolucao = Array.from({ length: 6 }, (_, index) => {
-        const today = new Date()
-        const date = new Date(today.getFullYear(), today.getMonth() - (5 - index), 1)
+        const date = new Date(anoReferencia, mesReferencia - 1 - (5 - index), 1)
         const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
         const total = documentsHistory
           .filter(doc => saleSellerKey(doc) === id && doc.sale_date?.startsWith(key))
           .reduce((sum, doc) => sum + Number(doc.total || 0), 0)
         return {
-          mes: date.toLocaleDateString('pt-BR', { month: 'short' }),
+          mes: date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
           Pedidos: total,
+          Meta: segmento === 'todos' ? metaDoMes(id, key) : null,
         }
       })
+      const metasPeriodo = mesesMeta.map(mes => metaDoMes(id, mes))
+      const existeMeta = metasPeriodo.some(valor => valor !== null)
+      const meta = existeMeta ? metasPeriodo.reduce((total, valor) => total + Number(valor || 0), 0) : null
+      const atingimento = meta > 0 ? (fat / meta) * 100 : null
 
       return {
         ...seller,
         fat,
         fatAnt,
+        meta,
+        atingimento,
         pedidos,
         ticket,
         visitas: visitasSeller.length,
@@ -459,7 +500,7 @@ export default function Vendedores() {
     const barData = topFaturamento.map(v => ({
       name: v.name || v.email || '—',
       Pedidos: v.fat,
-      Meta: Number(v.monthly_goal || v.goal || 0),
+      Meta: v.meta,
     }))
 
     return {
@@ -481,7 +522,7 @@ export default function Vendedores() {
       barData,
       totalCarteira: carteiraFiltrada.length,
     }
-  }, [sellers, vendedores, vendedoresById, farms, sales, salesAnt, documents, documentsAnt, documentsHistory, visits, visitsAnt, quotes, quotesAnt, checklists, segmento])
+  }, [sellers, metas, vendedores, vendedoresById, farms, sales, salesAnt, documents, documentsAnt, documentsHistory, visits, visitsAnt, quotes, quotesAnt, checklists, segmento, periodo, mesReferencia, anoReferencia])
 
   const topFatMax = Math.max(...dados.topFaturamento.map(v => v.fat), 1)
   const topConvMax = Math.max(...dados.topConversao.map(v => v.txConversao), 1)
@@ -490,13 +531,15 @@ export default function Vendedores() {
 
   function exportCSV() {
     const rows = [
-      ['Nome', 'Email', 'Função', 'Fazendas', 'Faturamento', 'Pedidos', 'Ticket Médio', 'Cotações', 'Convertidas', 'Conversão %', 'Visitas', 'Cobertura Visitas %', 'Cobertura Vendas %', 'Clientes em risco', 'Score Médio'],
+      ['Nome', 'Email', 'Função', 'Fazendas', 'Faturamento', 'Meta do período', 'Atingimento %', 'Pedidos', 'Ticket Médio', 'Cotações', 'Convertidas', 'Conversão %', 'Visitas', 'Cobertura Visitas %', 'Cobertura Vendas %', 'Clientes em risco', 'Score Médio'],
       ...dados.vendedores.map(s => [
         s.name,
         s.email,
         s.role,
         s.fazendas,
         s.fat,
+        s.meta ?? '',
+        s.atingimento === null ? '' : s.atingimento.toFixed(1),
         s.pedidos,
         s.ticket,
         s.cotacoes,
@@ -525,10 +568,7 @@ export default function Vendedores() {
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Topbar title="Equipe Comercial" subtitle="Vendedores, pedidos, atividade e acompanhamento de metas">
-        <button className="btn btn-primary btn-sm" onClick={() => {
-          setMetaTab('cadastro')
-          metasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }}>
+        <button className="btn btn-primary btn-sm" onClick={() => setMetaTab('cadastro')}>
           <IconTargetArrow size={14} /> Cadastrar metas
         </button>
         <button className="btn btn-ghost btn-sm" onClick={exportCSV}>
@@ -606,18 +646,7 @@ export default function Vendedores() {
           />
         </section>
 
-        <section ref={metasRef} id="equipe-metas" className="vendedores-card" style={{ marginBottom: 18, scrollMarginTop: 20 }}>
-          <div className="vendedores-card-head" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-            <div><span className="vendedores-eyebrow">Objetivos comerciais</span><h3>Metas e atingimento do time</h3>
-              <p style={{ margin: '5px 0 0', fontSize: 12, color: '#71685F' }}>Acompanhe valores previstos, realizados e desvios por vendedor no mesmo lugar.</p></div>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMetaTab(metaTab === 'cadastro' ? 'acompanhamento' : 'cadastro')}>
-              <IconTargetArrow size={15} /> {metaTab === 'cadastro' ? 'Ver acompanhamento' : 'Cadastrar metas'}
-            </button>
-          </div>
-          <div style={{ padding: '0 16px 18px', minWidth: 0 }}>
-            <Metas embedded activeTab={metaTab} onTabChange={setMetaTab} />
-          </div>
-        </section>
+
 
         {loading ? (
           <Empty>Carregando equipe comercial...</Empty>
@@ -627,7 +656,7 @@ export default function Vendedores() {
               <div className="vendedores-card-head" style={{ alignItems: 'center' }}>
                 <div>
                   <span className="vendedores-eyebrow">Visão principal</span>
-                  <h3>Como está cada vendedor</h3>
+                  <h3>Pedidos e metas por vendedor</h3>
                   <p style={{ margin: '4px 0 0', fontSize: 10, color: 'var(--text-faint)' }}>
                     Resultado comercial primeiro. Campo e carteira aparecem como contexto para entender cada desempenho.
                   </p>
@@ -641,6 +670,7 @@ export default function Vendedores() {
                     <tr>
                       <th>Vendedor</th>
                       <th style={{ textAlign: 'right' }}>Valor dos pedidos</th>
+                      <th>Meta e atingimento</th>
                       <th style={{ textAlign: 'right' }}>Variação</th>
                       <th style={{ textAlign: 'center' }}>Pedidos</th>
                       <th style={{ textAlign: 'right' }}>Ticket médio</th>
@@ -656,7 +686,7 @@ export default function Vendedores() {
                   <tbody>
                     {dados.vendedores.length === 0 ? (
                       <tr>
-                        <td colSpan={mostrarTudo ? 11 : 7} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>
+                        <td colSpan={12} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>
                           Nenhum vendedor com dados no período
                         </td>
                       </tr>
@@ -699,6 +729,22 @@ export default function Vendedores() {
                               <strong className="vendedores-money" style={{ fontSize: 14 }}>{fmtK(s.fat)}</strong>
                             </td>
 
+                            <td className="vendedores-goal-cell">
+                              {segmento !== 'todos' ? (
+                                <small className="vendedores-goal-muted">Meta total · selecione todos os segmentos</small>
+                              ) : s.atingimento === null ? (
+                                <span className="vendedores-goal-muted">Sem meta cadastrada</span>
+                              ) : (
+                                <div className="vendedores-goal-row">
+                                  <span className={`vendedores-goal-track ${s.atingimento >= 100 ? 'achieved' : ''}`}>
+                                    <i style={{ width: `${Math.min(100, Math.max(0, s.atingimento))}%` }} />
+                                  </span>
+                                  <strong className="vendedores-goal-percent">{s.atingimento.toFixed(0)}%</strong>
+                                  <span className="vendedores-goal-value">{fmtK(s.meta)}</span>
+                                </div>
+                              )}
+                            </td>
+
                             <td style={{ textAlign: 'right' }}>
                               <span className={`vendedores-var ${variacao >= 0 ? 'up' : 'down'}`} style={{ justifyContent: 'flex-end' }}>
                                 {variacao >= 0 ? <IconTrendingUp size={12} /> : <IconTrendingDown size={12} />}
@@ -726,7 +772,7 @@ export default function Vendedores() {
 
                           {detalheId === s.id && (
                             <tr key={`${s.id}_detalhe`}>
-                              <td colSpan={mostrarTudo ? 11 : 7} className="vendedores-detail-cell">
+                              <td colSpan={12} className="vendedores-detail-cell">
                                 <div style={{
                                   display: 'grid',
                                   gridTemplateColumns: 'minmax(0,1.35fr) minmax(300px,.65fr)',
@@ -737,11 +783,15 @@ export default function Vendedores() {
                                       <div>
                                         <span className="vendedores-eyebrow">Últimos 6 meses</span>
                                         <h3>Evolução de {s.name}</h3>
+                                        <small className="vendedores-chart-legend">
+                                          <span><i className="pedidos" /> Pedidos</span>
+                                          {segmento === 'todos' && <span><i className="meta" /> Meta mensal</span>}
+                                        </small>
                                       </div>
                                     </div>
 
                                     <ResponsiveContainer width="100%" height={220}>
-                                      <AreaChart data={s.evolucao} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+                                      <ComposedChart data={s.evolucao} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
                                         <defs>
                                           <linearGradient id={`sellerEvolution-${String(s.id).replace(/[^a-zA-Z0-9]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#E87722" stopOpacity={0.24} />
@@ -751,7 +801,7 @@ export default function Vendedores() {
                                         <CartesianGrid strokeDasharray="4 6" vertical={false} />
                                         <XAxis dataKey="mes" tickLine={false} axisLine={false} />
                                         <YAxis tickLine={false} axisLine={false} tickFormatter={value => `${Math.round(value / 1000)}k`} />
-                                        <Tooltip formatter={value => [fmtK(value), 'Valor dos pedidos']} />
+                                        <Tooltip formatter={(value, name) => [fmtK(value), name === 'Meta' ? 'Meta cadastrada' : 'Valor dos pedidos']} />
                                         <Area
                                           type="monotone"
                                           dataKey="Pedidos"
@@ -760,11 +810,24 @@ export default function Vendedores() {
                                           fill={`url(#sellerEvolution-${String(s.id).replace(/[^a-zA-Z0-9]/g, '')})`}
                                           dot={{ r: 3 }}
                                         />
-                                      </AreaChart>
+                                        {segmento === 'todos' && (
+                                          <Line type="monotone" dataKey="Meta" stroke="#246E6A" strokeWidth={2.5} strokeDasharray="6 4" connectNulls={false} dot={{ r: 3, fill: '#246E6A', stroke: '#fff', strokeWidth: 1.5 }} activeDot={{ r: 5 }} />
+                                        )}
+                                      </ComposedChart>
                                     </ResponsiveContainer>
                                   </div>
 
                                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'start' }}>
+                                    <div className="vendedores-detail-box vendedores-detail-goal">
+                                      <span>Meta do período</span>
+                                      <strong>{segmento === 'todos' && s.meta !== null ? fmtK(s.meta) : '—'}</strong>
+                                      <small>{segmento !== 'todos' ? 'Meta não segmentada' : s.meta !== null ? `${s.atingimento?.toFixed(1) ?? 0}% atingido · ${fmtK(Math.max(0, s.meta - s.fat))} restante` : 'Sem meta cadastrada'}</small>
+                                    </div>
+                                    <div className="vendedores-detail-box">
+                                      <span>Valor dos pedidos</span>
+                                      <strong>{fmtK(s.fat)}</strong>
+                                      <small>Pedidos líquidos do período</small>
+                                    </div>
                                     <div className="vendedores-detail-box">
                                       <span>Pedidos</span>
                                       <strong>{fmtInt(s.pedidos)}</strong>
@@ -807,6 +870,22 @@ export default function Vendedores() {
                 </table>
               </div>
             </section>
+
+            {metaTab === 'cadastro' && (
+              <section ref={metasRef} id="equipe-metas" className="vendedores-card" style={{ marginBottom: 18, scrollMarginTop: 20 }}>
+                <div className="vendedores-card-head" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div>
+                    <span className="vendedores-eyebrow">Configuração de objetivos</span>
+                    <h3>Cadastrar ou revisar metas</h3>
+                    <p style={{ margin: '5px 0 0', fontSize: 12, color: '#71685F' }}>As metas aprovadas no Budget são preservadas; metas manuais podem ser editadas.</p>
+                  </div>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMetaTab('acompanhamento')}>Fechar cadastro</button>
+                </div>
+                <div style={{ padding: '0 16px 18px', minWidth: 0 }}>
+                  <Metas embedded activeTab="cadastro" initialYear={anoReferencia} initialMonth={mesReferencia} onGoalSaved={carregarMetas} />
+                </div>
+              </section>
+            )}
 
             <details className="cc-more">
               <summary><span className="cc-summary-icon">↗</span><span className="cc-summary-text">Ver indicadores adicionais da equipe<small>Conversão de cotações, carteira vinculada e clientes que precisam de acompanhamento</small></span><span className="cc-arrow">⌄</span></summary>
