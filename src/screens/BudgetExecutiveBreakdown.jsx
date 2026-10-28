@@ -60,7 +60,8 @@ export default function BudgetExecutiveBreakdown({ cycle, assignments, budgetIte
     [comparable,sellerId])
   const rows=useMemo(()=>prepareBudgetComparison({
     budgetItems,billedItems,products,categories,classifications,sellerIds,periodFactor:factor,
-  }),[budgetItems,billedItems,products,categories,classifications,sellerIds,factor])
+    includeAllBilledSellers:sellerId==='all',
+  }),[budgetItems,billedItems,products,categories,classifications,sellerIds,factor,sellerId])
   const markets=useMemo(()=>groupBudgetComparison(rows,'market'),[rows])
   const branches=useMemo(()=>groupBudgetComparison(rows.filter(row=>row.market==='Bovinos'),'branch')
     .filter(row=>row.name!=='Bovinos'),[rows])
@@ -79,14 +80,14 @@ export default function BudgetExecutiveBreakdown({ cycle, assignments, budgetIte
         <p>Veja como o planejamento muda o faturamento por produto, mercado e tipo de suplemento.</p></div>
       <label className="bex-filter"><IconFilter size={16}/>
         <select aria-label="Vendedor analisado" value={sellerId} onChange={e=>{setSellerId(e.target.value);setAllProducts(false)}}>
-          <option value="all">Equipe com previsão</option>
+          <option value="all">Consolidado da empresa</option>
           {assignments.map(a=><option key={a.seller_id} value={a.seller_id}>{sellerById.get(a.seller_id)||'Vendedor'}</option>)}
         </select>
       </label>
     </header>
     <div className="bex-method">
-      <span>Faturamento anterior: <strong>NF de venda líquida de devoluções</strong>, {labels}</span>
-      <span>Budget: <strong>{cycle.months.length} {cycle.months.length===1?'mês':'meses'}</strong>. O histórico é proporcionalizado para o mesmo período.</span>
+      <span>Faturamento anterior: <strong>NF de venda líquida de devoluções</strong>, {labels}{sellerId==='all'?' · todos os vendedores da empresa':' · vendedor selecionado'}</span>
+      <span>Budget: <strong>{cycle.months.length} {cycle.months.length===1?'mês':'meses'}</strong>. O histórico é proporcionalizado para o mesmo período; o consolidado independe de quem preencheu.</span>
     </div>
     {!hasInput ? <div className="bex-no-data">
       <IconChartBar size={25}/>

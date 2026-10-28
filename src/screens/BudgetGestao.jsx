@@ -113,13 +113,14 @@ export default function BudgetGestao() {
     }
     return grouped
   },[billedProducts])
-  // Referencia historica integral: todos os vendedores participantes,
-  // independentemente de quem ja preencheu ou enviou seu planejamento.
+  // Visão executiva: base de todas as notas fiscais da empresa no trimestre
+  // anterior, sem filtrar pelo vendedor que participa/preenche o ciclo.
+  // O vínculo do vendedor só interessa ao comparativo INDIVIDUAL abaixo.
   const periodFactor = (selectedCycle?.months?.length || 0) / 3
-  const referenceAmount = people.reduce((a, p) =>
-    a + Number(baselineBySeller.get(p.seller_id)?.baseline_amount || 0) * periodFactor, 0)
-  const referenceKg = people.reduce((a, p) =>
-    a + Number(baselineBySeller.get(p.seller_id)?.baseline_kg || 0) * periodFactor, 0)
+  const referenceAmount = billedProducts.reduce((a, line) =>
+    a + Number(line.billed_amount || 0), 0) * periodFactor
+  const referenceKg = billedProducts.reduce((a, line) =>
+    a + Number(line.billed_kg || 0), 0) * periodFactor
   const revenueVariation = percent(plannedValue, referenceAmount)
   const volumeVariation = percent(plannedKg, referenceKg)
   const sentCount = people.filter(p => p.status === 'submitted' || p.status === 'approved').length
@@ -348,14 +349,14 @@ export default function BudgetGestao() {
             <div className="bgx-meta-line"><span><IconClock size={14}/> Abertura: {new Date(selectedCycle.opens_at).toLocaleString('pt-BR')}</span><span>Prazo: {new Date(selectedCycle.closes_at).toLocaleString('pt-BR')}</span></div>
             {selectedCycle.status === 'draft' && <p className="bgx-lock-note"><IconShieldCheck size={17}/> Os vendedores ainda não têm acesso. Revise os participantes e clique em “Liberar preenchimento” quando estiver pronto.</p>}
             <div className="bgx-detail-kpis">
-              <div><span>Volume projetado {isPartial ? '(parcial)' : ''}</span><strong>{qty(plannedKg / 1000)} t</strong><small>NF anterior · toda a equipe: {qty(referenceKg / 1000)} t</small></div>
+              <div><span>Volume projetado {isPartial ? '(parcial)' : ''}</span><strong>{qty(plannedKg / 1000)} t</strong><small>NF anterior · empresa toda: {qty(referenceKg / 1000)} t</small></div>
               <div><span>Faturamento previsto {isPartial ? '(parcial)' : ''}</span><strong>{fmt(plannedValue)}</strong><small>NF anterior · toda a equipe: {fmt(referenceAmount)}</small></div>
-              <div className={'bgx-delta-kpi '+percentClass(revenueVariation)}><span>{isPartial ? 'Variação parcial de faturamento' : 'Variação de faturamento'}</span><strong>{percentText(revenueVariation)}</strong><small>vs. NF de todos os participantes</small></div>
+              <div className={'bgx-delta-kpi '+percentClass(revenueVariation)}><span>{isPartial ? 'Variação parcial de faturamento' : 'Variação de faturamento'}</span><strong>{percentText(revenueVariation)}</strong><small>vs. NF total da empresa</small></div>
               <div className={'bgx-delta-kpi '+percentClass(volumeVariation)}><span>{isPartial ? 'Variação parcial de volume' : 'Variação de volume'}</span><strong>{percentText(volumeVariation)}</strong><small>vs. NF de todos os participantes</small></div>
               <div><span>Enviados</span><strong>{sentCount} <em>/ {people.length}</em></strong><small>Participantes que enviaram</small></div>
               <div><span>Clientes previstos</span><strong>{new Set(cycleItems.filter(i => Number(i.quantity_kg) > 0).map(i => i.budget_prospect_id ? 'budget:'+i.budget_prospect_id : i.farm_id)).size}</strong><small>Incluindo clientes só do budget</small></div>
             </div>
-            <p className="bgx-baseline-note">Referência: notas fiscais dos três últimos meses-calendário encerrados, líquidas de devoluções, para <strong>todos os {people.length} vendedores do ciclo</strong>, incluindo quem ainda não preencheu. O histórico é proporcionalizado para {selectedCycle.months.length} {selectedCycle.months.length === 1 ? 'mês' : 'meses'}. {isPartial ? `Atenção: somente ${sentCount} de ${people.length} enviaram. A variação compara o budget parcial com o histórico completo da equipe; não representa uma queda definitiva de vendas.` : 'As previsões já foram enviadas, mas os valores podem depender de aprovação.'}</p>
+            <p className="bgx-baseline-note">Referência: <strong>todas as notas fiscais da empresa</strong> dos três últimos meses-calendário encerrados, líquidas de devoluções, independentemente do vendedor, inclusive os não participantes do ciclo ou ainda sem vínculo comercial. O histórico é proporcionalizado para {selectedCycle.months.length} {selectedCycle.months.length === 1 ? 'mês' : 'meses'}. {isPartial ? `Atenção: somente ${sentCount} de ${people.length} enviaram. A variação compara o budget parcial com o histórico completo da empresa; não representa uma queda definitiva de vendas.` : 'As previsões já foram enviadas, mas os valores podem depender de aprovação.'}</p>
             <div className="bgx-subhead"><h3>Acompanhamento da equipe</h3><small>{people.length} participantes</small></div>
             <div className="bgx-team-table">
               <div className="bgx-team-col-head"><span>Vendedor</span><span>Volume previsto</span><span>Faturamento previsto</span><span>Variação R$</span><span>Avaliação</span></div>

@@ -32,7 +32,7 @@ function categoryFor(product, classification, categories) {
 }
 
 export function prepareBudgetComparison({ budgetItems = [], billedItems = [], products = [], categories = [],
-  classifications = [], sellerIds = [], periodFactor = 1 }) {
+  classifications = [], sellerIds = [], periodFactor = 1, includeAllBilledSellers = false }) {
   const selected = new Set(sellerIds)
   const productsById = new Map(products.map(p => [p.id, p]))
   const categoriesById = new Map(categories.map(p => [p.id, p.name]))
@@ -57,7 +57,10 @@ export function prepareBudgetComparison({ budgetItems = [], billedItems = [], pr
     return row
   }
   for (const line of billedItems) {
-    if (!selected.has(line.seller_id)) continue
+    // Consolidado da empresa: todas as NFs, inclusive de quem não está no Budget
+    // e de vendedores ainda sem perfil associado ao código Ultra.
+    // Filtro individual continua usando somente o histórico daquele vendedor.
+    if (!includeAllBilledSellers && !selected.has(line.seller_id)) continue
     const row = getRow(line.product_id, line.product_name)
     row.priorAmount += numeric(line.billed_amount) * periodFactor
     row.priorKg += numeric(line.billed_kg) * periodFactor
