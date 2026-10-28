@@ -21,7 +21,7 @@
 .cc-small-button:hover{color:var(--orange);border-color:var(--orange)}
 .cc-small-button[aria-pressed="true"]{background:var(--orange-bg);border-color:rgba(232,119,34,.35)}
 .cc-table-head-actions{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
-.cc-page.cc-compact-table .vendedores-table-wrap th:nth-child(5),.cc-page.cc-compact-table .vendedores-table-wrap td:nth-child(5):not([colspan]),.cc-page.cc-compact-table .vendedores-table-wrap th:nth-child(6),.cc-page.cc-compact-table .vendedores-table-wrap td:nth-child(6):not([colspan]),.cc-page.cc-compact-table .vendedores-table-wrap th:nth-child(7),.cc-page.cc-compact-table .vendedores-table-wrap td:nth-child(7):not([colspan]),.cc-page.cc-compact-table .vendedores-table-wrap th:nth-child(8),.cc-page.cc-compact-table .vendedores-table-wrap td:nth-child(8):not([colspan]){display:none}
+.cc-page.cc-compact-table .vendedores-table-wrap th:nth-child(6),.cc-page.cc-compact-table .vendedores-table-wrap td:nth-child(6):not([colspan]),.cc-page.cc-compact-table .vendedores-table-wrap th:nth-child(7),.cc-page.cc-compact-table .vendedores-table-wrap td:nth-child(7):not([colspan]),.cc-page.cc-compact-table .vendedores-table-wrap th:nth-child(8),.cc-page.cc-compact-table .vendedores-table-wrap td:nth-child(8):not([colspan]),.cc-page.cc-compact-table .vendedores-table-wrap th:nth-child(9),.cc-page.cc-compact-table .vendedores-table-wrap td:nth-child(9):not([colspan]),.cc-page.cc-compact-table .vendedores-table-wrap th:nth-child(11),.cc-page.cc-compact-table .vendedores-table-wrap td:nth-child(11):not([colspan]){display:none}
 .cc-page .cc-region-kpis,.cc-page .cc-product-kpis,.cc-page .cc-carteira-kpis{grid-template-columns:repeat(auto-fit,minmax(175px,1fr))}
 .cc-filter-active{border:1px solid rgba(232,119,34,.22);background:var(--orange-bg);padding:8px 13px;border-radius:9px;font-size:11px;color:var(--text);font-weight:700;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:9px 0}
 .cc-filter-active button{border:0;background:transparent;text-decoration:underline;color:var(--orange);font:inherit;cursor:pointer}
@@ -80,4 +80,68 @@
    grid-column:1/-1;
    justify-self:start;
  }
+}
+
+
+/* Uma única linha comercial por vendedor: resultado, meta e atingimento. */
+.vendedores-table-wrap .vendedores-goal-cell { min-width: 234px; padding-right: 16px; }
+.vendedores-goal-row {
+  display: grid;
+  grid-template-columns: minmax(70px,1fr) 43px minmax(73px,auto);
+  align-items: center;
+  gap: 9px;
+  min-width: 215px;
+}
+.vendedores-goal-track {
+  position: relative;
+  height: 7px;
+  overflow: hidden;
+  display: block;
+  border-radius: 20px;
+  background: #f0e6da;
+}
+.vendedores-goal-track > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(90deg,#F6A04D,#E87722);
+  transition: width .2s ease;
+}
+.vendedores-goal-track.achieved > i { background: #27846A; }
+.vendedores-goal-percent {
+  color: #322c27;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+  text-align: right;
+}
+.vendedores-goal-value {
+  color: #716458;
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: 11px;
+  text-align: right;
+}
+.vendedores-goal-muted { color: #92867a; font-size: 11px; line-height: 1.4; }
+.vendedores-detail-goal {
+  background: #f9f4ed;
+  border: 1px solid #eadccb;
+}
+.vendedores-chart-legend {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 7px;
+  font-size: 11px;
+  color: #716458;
+}
+.vendedores-chart-legend > span { display: inline-flex; gap: 5px; align-items: center; }
+.vendedores-chart-legend i { display: inline-block; height: 3px; width: 17px; border-radius: 3px; background: #E87722; }
+.vendedores-chart-legend i.meta { background: #246E6A; }
+@media(max-width:740px) {
+  .vendedores-table-wrap .vendedores-goal-cell { min-width: 190px; }
+  .vendedores-goal-row { min-width: 184px; gap: 6px; grid-template-columns: minmax(46px,1fr) 36px 70px; }
+  .vendedores-goal-value { font-size: 10px; }
 }
