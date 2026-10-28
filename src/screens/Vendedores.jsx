@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import { isVendedorValido, useVendedores } from '../lib/sellers'
@@ -176,7 +176,6 @@ export default function Vendedores() {
   const [checklists, setChecklists] = useState([])
   const [loading, setLoading] = useState(true)
   const [detalheId, setDetalheId] = useState(null)
-  const [mostrarTudo, setMostrarTudo] = useState(false)
   const [metaTab, setMetaTab] = useState(() => new URLSearchParams(window.location.search).get('metas') === 'cadastro' ? 'cadastro' : 'acompanhamento')
   const metasRef = useRef(null)
   const { vendedores, vendedoresById } = useVendedores()
@@ -577,7 +576,7 @@ export default function Vendedores() {
         </button>
       </Topbar>
 
-      <div className={`page vendedores-page cc-page ${mostrarTudo ? "" : "cc-compact-table"}`} style={{ overflowY: 'auto' }}>
+      <div className="page vendedores-page cc-page" style={{ overflowY: 'auto' }}>
         <div className="cc-intro"><span className="cc-kicker">Desempenho do time</span><h2>Como está cada vendedor?</h2><p>Compare os pedidos do período e clique no nome de um vendedor para ver os detalhes. Os indicadores de visitas, cotações e carteira podem ser exibidos quando você precisar.</p></div>
         <section className="vendedores-toolbar" style={{ marginBottom: 14 }}>
           <div className="vendedores-toolbar-left">
@@ -661,123 +660,98 @@ export default function Vendedores() {
                     Resultado comercial primeiro. Campo e carteira aparecem como contexto para entender cada desempenho.
                   </p>
                 </div>
-                <div className="cc-table-head-actions"><small>Selecione um vendedor para explorar</small><button type="button" className="cc-small-button" aria-pressed={mostrarTudo} onClick={()=>setMostrarTudo(p=>!p)}>{mostrarTudo?'Visão resumida':'Mostrar todos os indicadores'}</button></div>
+                <div className="cc-table-head-actions"><small>Selecione um vendedor para abrir os detalhes</small></div>
               </div>
 
               <div className="table-wrap vendedores-table-wrap">
-                <table>
+                <table className="vendedores-summary-table">
                   <thead>
                     <tr>
-                      <th>Vendedor</th>
-                      <th style={{ textAlign: 'right' }}>Valor dos pedidos</th>
-                      <th>Meta e atingimento</th>
-                      <th style={{ textAlign: 'right' }}>Variação</th>
-                      <th style={{ textAlign: 'center' }}>Pedidos</th>
-                      <th style={{ textAlign: 'right' }}>Ticket médio</th>
-                      <th style={{ textAlign: 'center' }}>Visitas</th>
-                      <th style={{ textAlign: 'center' }}>Cotações</th>
-                      <th style={{ textAlign: 'center' }}>Conversão</th>
-                      <th style={{ textAlign: 'center' }}>Carteira</th>
-                      <th style={{ textAlign: 'center' }}>Clientes a acompanhar</th>
-                      <th />
+                      <th scope="col">Vendedor</th>
+                      <th scope="col" className="vendedores-align-right">Valor dos pedidos</th>
+                      <th scope="col">Meta e atingimento</th>
+                      <th scope="col" className="vendedores-align-right">Variação</th>
+                      <th scope="col" className="vendedores-align-center">Pedidos</th>
+                      <th scope="col" className="vendedores-align-center">Carteira</th>
+                      <th scope="col"><span className="sr-only">Detalhes</span></th>
                     </tr>
                   </thead>
-
                   <tbody>
                     {dados.vendedores.length === 0 ? (
                       <tr>
-                        <td colSpan={12} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>
-                          Nenhum vendedor com dados no período
-                        </td>
+                        <td colSpan={7} className="vendedores-empty-state">Nenhum vendedor com dados no período</td>
                       </tr>
                     ) : dados.vendedores.map(s => {
                       const variacao = pct(s.fat, s.fatAnt)
+                      const aberto = detalheId === s.id
+                      const alternarDetalhe = () => setDetalheId(aberto ? null : s.id)
                       return (
-                        <>
+                        <Fragment key={s.id}>
                           <tr
-                            key={s.id}
-                            className={detalheId === s.id ? 'vendedores-row-active' : ''}
-                            onClick={() => setDetalheId(detalheId === s.id ? null : s.id)}
-                            style={{ cursor: 'pointer' }}
+                            className={'vendedores-summary-row' + (aberto ? ' vendedores-row-active' : '')}
+                            onClick={alternarDetalhe}
+                            onKeyDown={event => {
+                              if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                                event.preventDefault()
+                                alternarDetalhe()
+                              }
+                            }}
+                            tabIndex={0}
+                            aria-expanded={aberto}
                           >
-                            <td>
+                            <td className="vendedores-cell-name">
                               <div className="vendedores-person">
-                                <div className="vendedores-avatar"><IconUser size={16} /></div>
-                                <div style={{ minWidth: 0 }}>
-                                  <div style={{
-                                    display: 'block',
-                                    visibility: 'visible',
-                                    opacity: 1,
-                                    fontSize: 13,
-                                    lineHeight: 1.25,
-                                    fontWeight: 700,
-                                    color: '#2b2724',
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis'
-                                  }}>
-                                    {String(s.name || '').trim() || 'Vendedor não identificado'}
-                                  </div>
-                                  <div style={{ display: 'block', marginTop: 3, fontSize: 11, lineHeight: 1.25, color: '#8f857d' }}>
-                                    {s.fazendas ? `${fmtInt(s.fazendas)} clientes na carteira` : 'Sem carteira vinculada'}
-                                  </div>
+                                <div className="vendedores-avatar"><IconUser size={17} /></div>
+                                <div className="vendedores-person-info">
+                                  <strong className="vendedores-person-name" title={s.name}>{String(s.name || '').trim() || 'Vendedor não identificado'}</strong>
+                                  <small>{s.fazendas ? `${fmtInt(s.fazendas)} clientes na carteira` : 'Sem carteira vinculada'}</small>
                                 </div>
                               </div>
                             </td>
-
-                            <td style={{ textAlign: 'right' }}>
-                              <strong className="vendedores-money" style={{ fontSize: 14 }}>{fmtK(s.fat)}</strong>
+                            <td className="vendedores-cell-revenue vendedores-align-right">
+                              <strong className="vendedores-money">{fmtK(s.fat)}</strong>
                             </td>
-
-                            <td className="vendedores-goal-cell">
+                            <td className="vendedores-cell-goal">
                               {segmento !== 'todos' ? (
-                                <small className="vendedores-goal-muted">Meta total · selecione todos os segmentos</small>
+                                <span className="vendedores-goal-muted">Meta disponível no consolidado</span>
                               ) : s.atingimento === null ? (
                                 <span className="vendedores-goal-muted">Sem meta cadastrada</span>
                               ) : (
-                                <div className="vendedores-goal-row">
-                                  <span className={`vendedores-goal-track ${s.atingimento >= 100 ? 'achieved' : ''}`}>
-                                    <i style={{ width: `${Math.min(100, Math.max(0, s.atingimento))}%` }} />
-                                  </span>
-                                  <strong className="vendedores-goal-percent">{s.atingimento.toFixed(0)}%</strong>
-                                  <span className="vendedores-goal-value">{fmtK(s.meta)}</span>
+                                <div className="vendedores-goal-content">
+                                  <div className="vendedores-goal-progress">
+                                    <span className={'vendedores-goal-track' + (s.atingimento >= 100 ? ' achieved' : '')}
+                                      role="progressbar" aria-label={'Meta atingida por ' + s.name}
+                                      aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.max(0, Math.round(s.atingimento)))}
+                                      aria-valuetext={s.atingimento.toFixed(1) + '% da meta atingida'}>
+                                      <i style={{ width: Math.min(100, Math.max(0, s.atingimento)) + '%' }} />
+                                    </span>
+                                    <strong className="vendedores-goal-percent">{s.atingimento.toFixed(0)}%</strong>
+                                  </div>
+                                  <span className="vendedores-goal-meta">Meta: <strong>{fmtK(s.meta)}</strong></span>
                                 </div>
                               )}
                             </td>
-
-                            <td style={{ textAlign: 'right' }}>
-                              <span className={`vendedores-var ${variacao >= 0 ? 'up' : 'down'}`} style={{ justifyContent: 'flex-end' }}>
-                                {variacao >= 0 ? <IconTrendingUp size={12} /> : <IconTrendingDown size={12} />}
+                            <td className="vendedores-cell-variation vendedores-align-right">
+                              <span className={'vendedores-var ' + (variacao >= 0 ? 'up' : 'down')}>
+                                {variacao >= 0 ? <IconTrendingUp size={14} /> : <IconTrendingDown size={14} />}
                                 {variacao >= 0 ? '+' : ''}{variacao.toFixed(1)}%
                               </span>
                             </td>
-
-                            <td style={{ textAlign: 'center' }}><strong>{fmtInt(s.pedidos)}</strong></td>
-                            <td style={{ textAlign: 'right' }}>{fmtK(s.ticket)}</td>
-                            <td style={{ textAlign: 'center' }}>{fmtInt(s.visitas)}</td>
-                            <td style={{ textAlign: 'center' }}>{fmtInt(s.cotacoes)}</td>
-                            <td style={{ textAlign: 'center' }}>
-                              {s.cotacoes > 0 ? <strong>{s.txConversao}%</strong> : <span style={{ color: 'var(--text-faint)' }}>—</span>}
+                            <td className="vendedores-cell-orders vendedores-align-center"><strong>{fmtInt(s.pedidos)}</strong></td>
+                            <td className="vendedores-cell-wallet vendedores-align-center">{fmtInt(s.fazendas)}</td>
+                            <td className="vendedores-cell-expand">
+                              <button type="button" className="vendedores-expand-button"
+                                onClick={event => { event.stopPropagation(); alternarDetalhe() }}
+                                aria-expanded={aberto} aria-label={(aberto ? 'Fechar' : 'Abrir') + ' detalhes de ' + s.name}>
+                                {aberto ? <IconChevronUp size={17} /> : <IconChevronDown size={17} />}
+                              </button>
                             </td>
-                            <td style={{ textAlign: 'center' }}>{fmtInt(s.fazendas)}</td>
-                            <td style={{ textAlign: 'center' }}>
-                              {s.clientesRisco > 0 ? (
-                                <span className="vendedores-pill warning">{fmtInt(s.clientesRisco)}</span>
-                              ) : (
-                                <span style={{ color: 'var(--text-faint)' }}>—</span>
-                              )}
-                            </td>
-                            <td>{detalheId === s.id ? <IconChevronUp size={15} /> : <IconChevronDown size={15} />}</td>
                           </tr>
 
                           {detalheId === s.id && (
-                            <tr key={`${s.id}_detalhe`}>
-                              <td colSpan={12} className="vendedores-detail-cell">
-                                <div style={{
-                                  display: 'grid',
-                                  gridTemplateColumns: 'minmax(0,1.35fr) minmax(300px,.65fr)',
-                                  gap: 14
-                                }}>
+                            <tr className="vendedores-detail-row">
+                              <td colSpan={7} className="vendedores-detail-cell">
+                                <div className="vendedores-detail-layout">
                                   <div className="vendedores-detail-chart">
                                     <div className="vendedores-card-head">
                                       <div>
@@ -817,7 +791,7 @@ export default function Vendedores() {
                                     </ResponsiveContainer>
                                   </div>
 
-                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'start' }}>
+                                  <div className="vendedores-detail-stats">
                                     <div className="vendedores-detail-box vendedores-detail-goal">
                                       <span>Meta do período</span>
                                       <strong>{segmento === 'todos' && s.meta !== null ? fmtK(s.meta) : '—'}</strong>
@@ -863,7 +837,7 @@ export default function Vendedores() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </Fragment>
                       )
                     })}
                   </tbody>
