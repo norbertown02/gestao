@@ -1,3 +1,4 @@
+import { VISIT_PURPOSES, VISIT_REASONS, visitPurposeLabel, visitReasonLabel } from '../data/visitReasons'
 import { useEffect, useMemo, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
@@ -190,6 +191,9 @@ export default function Visitas() {
   const [periodo, setPeriodo] = useState('mes')
   const [segmento, setSegmento] = useState('todos')
   const [resultado, setResultado] = useState('todos')
+  const [motivo, setMotivo] = useState('todos')
+  const [objetivo, setObjetivo] = useState('todos')
+  const [vendedorFiltro, setVendedorFiltro] = useState('todos')
   const [farms, setFarms] = useState([])
   const [profiles, setProfiles] = useState([])
   const [visits, setVisits] = useState([])
@@ -282,12 +286,25 @@ export default function Visitas() {
       ant = ant.filter(v => String(v.farmSegment || '').toLowerCase() === segmento)
     }
 
+    if (resultado !== 'todos') vs = vs.filter(v => v.outcomeNorm === resultado)
+    if (motivo !== 'todos') vs = vs.filter(v => (v.outcome_reasons || []).includes(motivo))
+    if (objetivo !== 'todos') vs = vs.filter(v => v.visit_purpose === objetivo)
+    if (vendedorFiltro !== 'todos') vs = vs.filter(v => v.seller_id === vendedorFiltro)
     const baseParaKpi = vs
 
     const lista = vs
       .filter(v => resultado === 'todos' ? true : v.outcomeNorm === resultado)
       .sort((a, b) => String(b.visit_date).localeCompare(String(a.visit_date)))
 
+    const motivoContagem = {}
+    const objetivoContagem = {}
+    vs.forEach(v => {
+      ;(v.outcome_reasons || []).forEach(id => { motivoContagem[id] = (motivoContagem[id] || 0) + 1 })
+      if (v.visit_purpose) objetivoContagem[v.visit_purpose] = (objetivoContagem[v.visit_purpose] || 0) + 1
+    })
+    const motivosFrequentes = Object.entries(motivoContagem).sort((a,b)=>b[1]-a[1]).slice(0,10)
+    const objetivosFrequentes = Object.entries(objetivoContagem).sort((a,b)=>b[1]-a[1])
+    const visitasComMotivo = vs.filter(v=>(v.outcome_reasons || []).length > 0).length
     const total = baseParaKpi.length
     const totalAnt = ant.length
     const positivas = baseParaKpi.filter(v => v.outcomeNorm === 'positiva').length
@@ -424,6 +441,9 @@ export default function Visitas() {
 
     return {
       total,
+      motivosFrequentes,
+      objetivosFrequentes,
+      visitasComMotivo,
       totalAnt,
       positivas,
       positivasAnt,
@@ -451,13 +471,16 @@ export default function Visitas() {
 
   function exportCSV() {
     const rows = [
-      ['Data', 'Fazenda', 'Segmento', 'Vendedor', 'Resultado', 'Anotações', 'Próxima visita'],
+      ['Data', 'Fazenda', 'Segmento', 'Vendedor', 'Resultado', 'Objetivo', 'Motivos', 'Produto relacionado', 'Anotações', 'Próxima visita'],
       ...dados.lista.map(v => [
         v.visit_date,
         v.farmName,
         v.farmSegment,
         v.sellerName,
         OUTCOME[v.outcomeNorm]?.label || v.outcomeNorm,
+        visitPurposeLabel(v.visit_purpose),
+        (v.outcome_reasons || []).map(visitReasonLabel).join(' | '),
+        v.related_product_id || '',
         v.notes || '',
         v.next_visit_date || '',
       ]),
@@ -509,6 +532,9 @@ export default function Visitas() {
             </select>
           </div>
 
+          <select aria-label="Filtrar objetivo da visita" value={objetivo} onChange={e=>setObjetivo(e.target.value)}><option value="todos">Todos os objetivos</option>{VISIT_PURPOSES.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select>
+          <select aria-label="Filtrar motivo da visita" value={motivo} onChange={e=>setMotivo(e.target.value)}><option value="todos">Todos os motivos</option>{Object.entries(VISIT_REASONS).flatMap(([group,rs])=>rs.map(([id,label])=><option key={id} value={id}>{group}: {label}</option>))}</select>
+          <select aria-label="Filtrar vendedor" value={vendedorFiltro} onChange={e=>setVendedorFiltro(e.target.value)}><option value="todos">Todos os vendedores</option>{profiles.map(p=><option key={p.id} value={p.id}>{p.name || p.email}</option>)}</select>
           <div className="visitas-toolbar-count">
             {fmtInt(dados.total)} visitas no período
           </div>
@@ -805,6 +831,17 @@ export default function Visitas() {
               </div>
             </section>
 
+            <section className="visitas-grid-2" style={{marginBottom:20}}>
+              <div className="visitas-card">
+                <div className="visitas-card-head"><div><span className="visitas-eyebrow">Motivos das visitas</span><h3>O que está acontecendo no campo</h3></div></div>
+                <p style={{padding:'0 18px',color:'var(--text-dim)',fontSize:12}}>{dados.visitasComMotivo} de {dados.total} visitas com motivo registrado. Uma visita pode ter múltiplos motivos.</p>
+                {dados.motivosFrequentes.length ? <div className="visitas-list">{dados.motivosFrequentes.map(([id,n],i)=><div className="visitas-list-row" key={id}><div><strong>{visitReasonLabel(id)}</strong><span>{fmtInt(n)} ocorrência(s) · {dados.visitasComMotivo ? Math.round(n / dados.visitasComMotivo * 100) : 0}% das visitas com motivo</span></div></div>)}</div> : <Empty>Aguardando visitas com motivos classificados</Empty>}
+              </div>
+              <div className="visitas-card">
+                <div className="visitas-card-head"><div><span className="visitas-eyebrow">Objetivos</span><h3>Por que visitamos</h3></div></div>
+                {dados.objetivosFrequentes.length ? <div className="visitas-list">{dados.objetivosFrequentes.map(([id,n])=><div className="visitas-list-row" key={id}><div><strong>{visitPurposeLabel(id)}</strong><span>{fmtInt(n)} visitas</span></div></div>)}</div> : <Empty>Aguardando objetivos das visitas</Empty>}
+              </div>
+            </section>
             <section className="visitas-card">
               <div className="visitas-card-head">
                 <div>
@@ -824,6 +861,8 @@ export default function Visitas() {
                       <th>Segmento</th>
                       <th>Vendedor</th>
                       <th>Resultado</th>
+                      <th>Objetivo</th>
+                      <th>Motivos</th>
                       <th>Anotações</th>
                       <th>Próxima visita</th>
                     </tr>
@@ -832,7 +871,7 @@ export default function Visitas() {
                   <tbody>
                     {dados.lista.length === 0 ? (
                       <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>
+                        <td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>
                           Nenhuma visita encontrada
                         </td>
                       </tr>
@@ -855,6 +894,8 @@ export default function Visitas() {
                                 {outcome.label}
                               </span>
                             </td>
+                            <td>{visitPurposeLabel(v.visit_purpose)}</td>
+                            <td style={{minWidth:240}}>{(v.outcome_reasons || []).map(visitReasonLabel).join('; ') || '—'}</td>
                             <td className="visitas-notes">{v.notes || '—'}</td>
                             <td>{dataBR(v.next_visit_date)}</td>
                           </tr>
