@@ -30,9 +30,9 @@ const resolveKey = (rawKey, ultraToProfileId) => {
 const CURRENT_YEAR = new Date().getFullYear()
 const CURRENT_MONTH = new Date().getMonth() + 1
 
-export default function Metas({ embedded = false, activeTab, onTabChange }) {
-  const [year, setYear] = useState(CURRENT_YEAR)
-  const [month, setMonth] = useState(CURRENT_MONTH)
+export default function Metas({ embedded = false, activeTab, onTabChange, initialYear = CURRENT_YEAR, initialMonth = CURRENT_MONTH, onGoalSaved }) {
+  const [year, setYear] = useState(initialYear)
+  const [month, setMonth] = useState(initialMonth)
   const [selectedSeller, setSelectedSeller] = useState('todos')
   const [internalTab, setInternalTab] = useState('acompanhamento')
   const tab = activeTab ?? internalTab
@@ -45,6 +45,11 @@ export default function Metas({ embedded = false, activeTab, onTabChange }) {
   const [saving, setSaving] = useState({})
   const [saveNotice, setSaveNotice] = useState('')
   const { vendedores } = useVendedores()
+
+  useEffect(() => {
+    setYear(initialYear)
+    setMonth(initialMonth)
+  }, [initialYear, initialMonth])
 
   useEffect(() => {
     async function load() {
@@ -141,6 +146,7 @@ export default function Metas({ embedded = false, activeTab, onTabChange }) {
     if (result.data) {
       setGoals(current => existing ? current.map(goal => goal.id === existing.id ? result.data : goal) : [...current, result.data])
       setSaveNotice('Meta manual atualizada com sucesso.')
+      onGoalSaved?.()
     }
     setSaving(current => ({ ...current, [sellerId]: false }))
   }
@@ -164,10 +170,10 @@ export default function Metas({ embedded = false, activeTab, onTabChange }) {
               {data.sellerOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
             </select>
           </div>
-          <div className="goals-tabs"><button className={tab === 'acompanhamento' ? 'active' : ''} onClick={() => setTab('acompanhamento')}>Acompanhamento</button><button className={tab === 'cadastro' ? 'active' : ''} onClick={() => setTab('cadastro')}>Definir metas</button></div>
+          {!embedded && <div className="goals-tabs"><button className={tab === 'acompanhamento' ? 'active' : ''} onClick={() => setTab('acompanhamento')}>Acompanhamento</button><button className={tab === 'cadastro' ? 'active' : ''} onClick={() => setTab('cadastro')}>Definir metas</button></div>}
         </section>
 
-        <p className="cc-toolbar-help">Acompanhamento mostra resultados. Definir metas é a área de cadastro e não altera pedidos já realizados.</p>
+        {!embedded && <p className="cc-toolbar-help">Acompanhamento mostra resultados. Definir metas é a área de cadastro e não altera pedidos já realizados.</p>}
         {loading ? <div className="empty">Carregando metas...</div> : tab === 'acompanhamento' ? <>
           <section className="goals-command">
             <div className="goals-command-main">
