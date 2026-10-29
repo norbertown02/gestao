@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
+import CancellationInsights from '../components/CancellationInsights'
 import {
   IconAlertTriangle,
   IconBuildingStore,
@@ -243,6 +244,13 @@ function QuotationProducts({ quote }) {
           </table>
         </div>
       ) : <p>Os produtos desta cotação não estão disponíveis no registro.</p>}
+      {quote.statusNorm === 'cancelada' && Array.isArray(quote.cancellation_reasons) && quote.cancellation_reasons.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '8px 0' }}>
+          {quote.cancellation_reasons.map(motivo => (
+            <span key={motivo} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '5px 7px', fontSize: 11 }}>{motivo}</span>
+          ))}
+        </div>
+      )}
       <div className="pipeline-quote-detail-total"><span>Total da cotação</span><strong>R$ {fmt(quote.totalNumber)}</strong></div>
     </div>
   )
@@ -519,7 +527,7 @@ export default function Cotacoes() {
 
   function exportCSV() {
     const rows = [
-      ['Cliente', 'Vendedor', 'Criada em', 'Status', 'Validade', 'Dias aberta', 'Valor'],
+      ['Cliente', 'Vendedor', 'Criada em', 'Status', 'Validade', 'Dias aberta', 'Valor', 'Motivos do cancelamento'],
       ...dados.lista.map(q => [
         q.farmName,
         q.sellerName,
@@ -528,6 +536,7 @@ export default function Cotacoes() {
         q.valid_until || '—',
         q.diasAberta,
         q.totalNumber,
+        Array.isArray(q.cancellation_reasons) ? q.cancellation_reasons.join(' | ') : '',
       ]),
     ]
 
@@ -676,6 +685,14 @@ export default function Cotacoes() {
                 )}
               </section>
             )}
+
+            <CancellationInsights
+              inicio={toISO(periodoRange(periodo)[0])}
+              fim={toISO(periodoRange(periodo)[1])}
+              filtroSegmento={filtroSegmento}
+              farms={farms}
+              sellers={sellers}
+            />
 
             <section className="pipeline-main-grid">
               <div className="pipeline-card pipeline-chart-card">
