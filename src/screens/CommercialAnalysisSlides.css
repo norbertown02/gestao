@@ -113,3 +113,13 @@
 .deck-qtrend section.future .deck-qtrend-growth span,.deck-qtrend section:first-child .deck-qtrend-growth span{color:#8d837a}
 .deck-market-grid p em.negative{color:#ed9388}
 .deck-market-grid p em.positive{color:#7fd6aa}
+
+/* Comparação por etapa equivalente do ciclo: evidenciar a base real. */
+.deck-qtrend-comparison{display:block;margin-top:5px;font-size:9px;color:#8d7869;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.deck-qtrend section.focus .deck-qtrend-comparison{color:#a85013;font-weight:700}
+.deck-commercial-analytics .deck-market-grid section{min-height:245px}
+.deck-commercial-analytics .deck-market-grid p.deck-market-qty-compare{margin-top:7px;font-size:11px}
+.deck-market-split small b{font-size:11px;margin-left:5px;font-weight:900}
+.deck-market-split small b.positive{color:#79d6a9}
+.deck-market-split small b.negative{color:#f28f80}
+.deck-market-split-growth b{font-size:14px}
