@@ -54,7 +54,7 @@ const signedDocumentTotal = doc => {
 
 function newSummary() {
   return {
-    revenue: 0, kg: 0, documents: 0, itemsWithoutKg: 0,
+    revenue: 0, kg: 0, kgRevenue: 0, documents: 0, itemsWithoutKg: 0,
     unclassifiedRevenue: 0, pendingReviewRevenue: 0, withoutItemsRevenue: 0,
     markets: [], submarkets: [], categories: [], products: [], months: [],
   }
@@ -68,10 +68,11 @@ function summarize(documents, lookup, from, to) {
   const products = new Map()
   const months = new Map()
 
-  const push = (map, name, value, kg, productName) => {
-    const entry = map.get(name) || { name, revenue: 0, kg: 0 }
+  const push = (map, name, value, kg, productName, revenueWithKg = 0) => {
+    const entry = map.get(name) || { name, revenue: 0, kg: 0, kgRevenue: 0 }
     entry.revenue += value
     entry.kg += kg
+    entry.kgRevenue += revenueWithKg
     if (productName) entry.productName = productName
     map.set(name, entry)
   }
@@ -114,12 +115,13 @@ function summarize(documents, lookup, from, to) {
       if (category === 'Outros / não classificado' || market === 'Outros / não classificado') summary.unclassifiedRevenue += allocated
       if (classification && !normalize(classification.review_status).includes('aprovad')) summary.pendingReviewRevenue += allocated
       summary.kg += kg
+      if (unit === 'kg') summary.kgRevenue += allocated
       monthEntry.kg += kg
-      push(markets, market, allocated, kg)
-      push(submarkets, submarket, allocated, kg)
-      push(categories, category, allocated, kg)
+      push(markets, market, allocated, kg, undefined, unit === 'kg' ? allocated : 0)
+      push(submarkets, submarket, allocated, kg, undefined, unit === 'kg' ? allocated : 0)
+      push(categories, category, allocated, kg, undefined, unit === 'kg' ? allocated : 0)
       const code = normalizeCode(item?.product_code) || String(item?.product_name || 'sem-codigo')
-      push(products, code, allocated, kg, item?.product_name || classification?.ultra_product_name || 'Produto sem identificação')
+      push(products, code, allocated, kg, item?.product_name || classification?.ultra_product_name || 'Produto sem identificação', unit === 'kg' ? allocated : 0)
     })
     months.set(month, monthEntry)
   }
