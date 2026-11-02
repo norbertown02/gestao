@@ -168,6 +168,49 @@ function quarterBounds(year, quarter) {
   }
 }
 
+/**
+ * Compara períodos comerciais sempre na mesma etapa do ciclo:
+ * - Q4 com apenas outubro disponível => compara outubro com julho.
+ * - Ao começar novembro com pedidos => compara out + nov (até o dia)
+ *   com jul + ago (até o mesmo dia); em meses fechados, meses inteiros.
+ * - Períodos encerrados seguem o comparativo de períodos completos.
+ * A data de atualização é determinada por pedidos VÁLIDOS, nunca notas.
+ */
+function comparablePreviousEnd({ orders, currentStart, currentEnd, nominalEnd, previousStart, previousEnd }) {
+  const end = currentEnd < nominalEnd ? currentEnd : nominalEnd
+  if (end >= nominalEnd) return previousEnd
+
+  const from = isoLocal(currentStart)
+  const through = isoLocal(end)
+  const lastValid = orders
+    .filter(order => hasNetOrderValue(order))
+    .map(order => String(order?.sale_date || '').slice(0, 10))
+    .filter(date => date >= from && date <= through)
+    .sort().at(-1) || null
+
+  // Se a base ainda não tem pedidos no mês recém-iniciado, preserva a
+  // comparação do(s) mês(es) já concluído(s), sem misturar um mês vazio.
+  let effectiveEnd = end
+  if (lastValid) {
+    const lastMonth = lastValid.slice(0, 7)
+    const currentMonth = isoLocal(end).slice(0, 7)
+    if (lastMonth < currentMonth) {
+      const lastClosedMonth = new Date(end.getFullYear(), end.getMonth(), 0)
+      if (lastClosedMonth >= currentStart) effectiveEnd = lastClosedMonth
+    }
+  }
+
+  const elapsedMonths = (effectiveEnd.getFullYear() - currentStart.getFullYear()) * 12
+    + effectiveEnd.getMonth() - currentStart.getMonth()
+  const compareMonthStart = new Date(previousStart.getFullYear(), previousStart.getMonth() + elapsedMonths, 1)
+  const compareMonthLastDay = new Date(compareMonthStart.getFullYear(), compareMonthStart.getMonth() + 1, 0).getDate()
+  const effectiveMonthLastDay = new Date(effectiveEnd.getFullYear(), effectiveEnd.getMonth() + 1, 0).getDate()
+  const targetDay = effectiveEnd.getDate() === effectiveMonthLastDay
+    ? compareMonthLastDay : Math.min(effectiveEnd.getDate(), compareMonthLastDay)
+  const candidate = new Date(compareMonthStart.getFullYear(), compareMonthStart.getMonth(), targetDay)
+  return candidate < previousEnd ? candidate : previousEnd
+}
+
 export function buildPresentationCommercialAnalytics({
   orders = [], classifications = [], currentRange, previousRange,
   year, focusQuarter, today = new Date(),
@@ -175,8 +218,17 @@ export function buildPresentationCommercialAnalytics({
   const lookup = new Map(classifications.map(row => [
     normalizeCode(`${row.codproduto}/${row.codproduto_clas || 1}`), row,
   ]))
+  const alignedPreviousEnd = comparablePreviousEnd({
+    orders, currentStart: currentRange.start, currentEnd: currentRange.end,
+    nominalEnd: currentRange.nominalEnd || currentRange.end,
+    previousStart: previousRange.start, previousEnd: previousRange.end,
+  })
   const current = summarize(orders, lookup, isoLocal(currentRange.start), isoLocal(currentRange.end))
-  const previous = summarize(orders, lookup, isoLocal(previousRange.start), isoLocal(previousRange.end))
+  const previous = summarize(orders, lookup, isoLocal(previousRange.start), isoLocal(alignedPreviousEnd))
+  const previousIsAligned = isoLocal(alignedPreviousEnd) !== isoLocal(previousRange.end)
+  const comparisonLabel = previousIsAligned
+    ? `${String(previousRange.start.getMonth() + 1).padStart(2, '0')}/${previousRange.start.getFullYear()} a ${String(alignedPreviousEnd.getMonth() + 1).padStart(2, '0')}/${alignedPreviousEnd.getFullYear()}`
+    : null
 
   const quarters = [1, 2, 3, 4].map(quarter => {
     const bounds = quarterBounds(year, quarter)
@@ -184,15 +236,28 @@ export function buildPresentationCommercialAnalytics({
     const partial = !future && bounds.end > today
     const summary = future ? summaryEmpty() : summarize(orders, lookup,
       isoLocal(bounds.start), isoLocal(partial ? today : bounds.end))
-    return { ...summary, quarter, future, partial }
+    if (quarter === 1 || future) return { ...summary, quarter, future, partial, comparablePrevious: null }
+
+    const prior = quarterBounds(year, quarter - 1)
+    const priorEnd = partial ? comparablePreviousEnd({
+      orders, currentStart: bounds.start, currentEnd: today,
+      nominalEnd: bounds.end, previousStart: prior.start, previousEnd: prior.end,
+    }) : prior.end
+    const comparablePrevious = summarize(orders, lookup, isoLocal(prior.start), isoLocal(priorEnd))
+    const comparisonPeriod = isoLocal(priorEnd) === isoLocal(prior.end)
+      ? `${quarter - 1}º trimestre completo`
+      : `${String(prior.start.getMonth() + 1).padStart(2, '0')}/${year} a ${String(priorEnd.getMonth() + 1).padStart(2, '0')}/${year}`
+    return { ...summary, quarter, future, partial, comparablePrevious, comparisonPeriod }
   })
   const focus = quarters[Math.max(0, Math.min(3, focusQuarter - 1))]
-  const focusPrevious = focusQuarter > 1 ? quarters[focusQuarter - 2] : null
+  const focusPrevious = focus.comparablePrevious
+  const focusComparisonPeriod = focus.comparisonPeriod || null
   const latestOrderDate = orders.map(row => String(row?.sale_date || '').slice(0, 10))
     .filter(date => date && date <= isoLocal(today)).sort().at(-1) || null
 
   return {
-    year, current, previous, quarters, focus, focusPrevious,
+    year, current, previous, quarters, focus, focusPrevious, focusComparisonPeriod,
+    alignedPreviousEnd: isoLocal(alignedPreviousEnd), previousIsAligned, comparisonLabel,
     latestOrderDate,
     categoryLabels: ['Núcleos', 'Minerais', 'Proteinados', 'Aditivos', 'Aminoácidos', 'Premix', 'Matérias-primas', 'Outros / não classificado'],
     marketLabels: ['Bovinos', 'Suínos', 'Outros / não classificado'],
