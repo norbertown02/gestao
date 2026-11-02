@@ -86,3 +86,24 @@
 .deck-commercial-analytics.deck-dark .deck-metric-strip{margin-top:16px;margin-bottom:5px}
 .deck-analytic-empty{padding:28px 14px;color:#82766e;font-size:14px}
 .deck-dark .deck-analytic-empty{color:#baafa6}
+
+/* Crescimento legível dentro de cada trimestre e subtipo de pedido. */
+.deck-commercial-analytics .deck-qtrend{height:290px}
+.deck-commercial-analytics .deck-qtrend section{padding-top:16px;padding-bottom:13px}
+.deck-qtrend-growth{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px;font-size:11px}
+.deck-qtrend-growth span{display:block;white-space:nowrap;font-weight:850;color:#6b625a}
+.deck-qtrend section.focus .deck-qtrend-growth span{color:#c4611c}
+.deck-qtrend-growth span:nth-child(2){color:#8f8075}
+.deck-commercial-analytics .deck-qtrend section>strong{font-size:27px;margin-top:12px}
+.deck-commercial-analytics .deck-qtrend-bar{height:80px}
+.deck-commercial-analytics .deck-market-grid section{min-height:223px;padding-top:22px;padding-bottom:17px}
+.deck-commercial-analytics .deck-market-grid section>strong{font-size:46px;margin-top:10px;margin-bottom:12px}
+.deck-commercial-analytics .deck-market-grid section p{margin-top:15px}
+.deck-commercial-analytics .deck-market-split{margin-top:18px}
+.deck-commercial-analytics .deck-market-split>div{padding-top:13px;padding-bottom:11px;min-width:0}
+.deck-commercial-analytics .deck-market-split strong{font-size:20px}
+.deck-market-split-growth{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin-top:10px}
+.deck-market-split-growth b{font-size:17px;letter-spacing:-.02em;color:#f4a56e}
+.deck-market-split-growth b.positive{color:#79d6a9}
+.deck-market-split-growth b.negative{color:#f28f80}
+.deck-market-split-growth em{font-size:9px;font-style:normal;color:#b9afa7}
