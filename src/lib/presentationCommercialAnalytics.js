@@ -52,8 +52,6 @@ const signedDocumentTotal = doc => {
   return 0
 }
 
-const sum = (rows, key) => rows.reduce((total, row) => total + numeric(row[key]), 0)
-
 function newSummary() {
   return {
     revenue: 0, kg: 0, documents: 0, itemsWithoutKg: 0,
@@ -130,7 +128,7 @@ function summarize(documents, lookup, from, to) {
   summary.markets = ordered(markets)
   summary.submarkets = ordered(submarkets)
   summary.categories = ordered(categories)
-  summary.products = ordered(products).map(row => ({ ...row, name: row.productName || row.name }))
+  summary.products = ordered(products).map(row => ({ ...row, code: row.name, name: row.productName || row.name }))
   summary.months = [...months.values()].sort((a, b) => a.month - b.month)
   return summary
 }
@@ -177,7 +175,7 @@ export function buildPresentationCommercialAnalytics({
     .sort().at(-1) || null
 
   return {
-    current, previous, quarters, focus, focusPrevious,
+    year, current, previous, quarters, focus, focusPrevious,
     latestInvoiceDate,
     categoryLabels: ['Núcleos', 'Minerais', 'Proteinados', 'Aditivos', 'Aminoácidos', 'Premix', 'Matérias-primas', 'Outros / não classificado'],
     marketLabels: ['Bovinos', 'Suínos', 'Outros / não classificado'],
