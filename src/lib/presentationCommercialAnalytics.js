@@ -211,6 +211,15 @@ function comparablePreviousEnd({ orders, currentStart, currentEnd, nominalEnd, p
   return candidate < previousEnd ? candidate : previousEnd
 }
 
+function comparablePeriodLabel(start, end) {
+  const monthName = date => date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+  const sameYear = start.getFullYear() === end.getFullYear()
+  const sameMonth = sameYear && start.getMonth() === end.getMonth()
+  if (sameMonth) return `${monthName(start)}/${start.getFullYear()}`
+  if (sameYear) return `${monthName(start)}–${monthName(end)}/${end.getFullYear()}`
+  return `${monthName(start)}/${start.getFullYear()}–${monthName(end)}/${end.getFullYear()}`
+}
+
 export function buildPresentationCommercialAnalytics({
   orders = [], classifications = [], currentRange, previousRange,
   year, focusQuarter, today = new Date(),
@@ -227,7 +236,7 @@ export function buildPresentationCommercialAnalytics({
   const previous = summarize(orders, lookup, isoLocal(previousRange.start), isoLocal(alignedPreviousEnd))
   const previousIsAligned = isoLocal(alignedPreviousEnd) !== isoLocal(previousRange.end)
   const comparisonLabel = previousIsAligned
-    ? `${String(previousRange.start.getMonth() + 1).padStart(2, '0')}/${previousRange.start.getFullYear()} a ${String(alignedPreviousEnd.getMonth() + 1).padStart(2, '0')}/${alignedPreviousEnd.getFullYear()}`
+    ? comparablePeriodLabel(previousRange.start, alignedPreviousEnd)
     : null
 
   const quarters = [1, 2, 3, 4].map(quarter => {
@@ -246,7 +255,7 @@ export function buildPresentationCommercialAnalytics({
     const comparablePrevious = summarize(orders, lookup, isoLocal(prior.start), isoLocal(priorEnd))
     const comparisonPeriod = isoLocal(priorEnd) === isoLocal(prior.end)
       ? `${quarter - 1}º trimestre completo`
-      : `${String(prior.start.getMonth() + 1).padStart(2, '0')}/${year} a ${String(priorEnd.getMonth() + 1).padStart(2, '0')}/${year}`
+      : comparablePeriodLabel(prior.start, priorEnd)
     return { ...summary, quarter, future, partial, comparablePrevious, comparisonPeriod }
   })
   const focus = quarters[Math.max(0, Math.min(3, focusQuarter - 1))]
