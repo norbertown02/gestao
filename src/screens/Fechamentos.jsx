@@ -157,6 +157,13 @@ function IntegratedExecutiveSlide({ page, total, commercial, financial, period, 
 function CommercialSlides({ data, period, previousLabel, generatedAt, comparisonNoun, editor }) {
   const total = 17
   const { current: cur, previous: prev, trajectory, trajectoryDaily } = data
+  // Para trimestres em andamento, o comparativo de PEDIDOS usa somente o
+  // trecho equivalente do trimestre anterior (ex.: outubro vs julho).
+  const previousOrdersComparable = data.analytics.previous
+  const previousOrdersValue = previousOrdersComparable.value
+  const previousOrdersLabel = data.analytics.comparisonLabel || comparisonNoun
+  const comparableTicket = previousOrdersComparable.orderCount
+    ? previousOrdersValue / previousOrdersComparable.orderCount : 0
   const maxSeller = Math.max(...cur.sellers.map(item => item.orders), 1)
   const maxProduct = Math.max(...cur.products.map(item => item.value), 1)
   const maxClient = Math.max(...cur.clients.map(item => item.value), 1)
@@ -173,18 +180,18 @@ function CommercialSlides({ data, period, previousLabel, generatedAt, comparison
     <Cover key="cover" type="comercial" period={period} previousLabel={previousLabel} generatedAt={generatedAt} total={total} editor={editor} />,
     <Slide key="summary" page={2} total={total} tone="dark" className="deck-thesis">
       <span className="deck-kicker">RESUMO EXECUTIVO</span>
-      <EditableText as="h2" editKey="comercial.summary.title" value={cur.ordersValue >= prev.ordersValue ? `Pedidos cresceram ${pct(Math.abs(variation(cur.ordersValue, prev.ordersValue)))} frente ao ${comparisonNoun}, para ${shortMoney(cur.ordersValue)}.` : `Pedidos recuaram ${pct(Math.abs(variation(cur.ordersValue, prev.ordersValue)))} frente ao ${comparisonNoun}, para ${shortMoney(cur.ordersValue)}.`} editor={editor} />
-      <div className="deck-thesis-metrics"><BigNumber label="Pedidos líquidos" value={shortMoney(cur.ordersValue)} note={<Delta current={cur.ordersValue} previous={prev.ordersValue} suffix={`vs. ${comparisonNoun}`} />} /><BigNumber label="QTD de pedidos" value={`${(data.analytics.current.kg / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} t`} note={<Delta current={data.analytics.current.kg} previous={data.analytics.previous.kg} suffix={`vs. ${comparisonNoun}`} />} accent /><BigNumber label="Carteira aberta" value={shortMoney(cur.openPortfolio)} note={<small>pedidos pendentes em carteira</small>} /></div>
+      <EditableText as="h2" editKey="comercial.summary.title" value={cur.ordersValue >= previousOrdersValue ? `Pedidos cresceram ${pct(Math.abs(variation(cur.ordersValue, previousOrdersValue)))} frente a ${previousOrdersLabel}, para ${shortMoney(cur.ordersValue)}.` : `Pedidos recuaram ${pct(Math.abs(variation(cur.ordersValue, previousOrdersValue)))} frente a ${previousOrdersLabel}, para ${shortMoney(cur.ordersValue)}.`} editor={editor} />
+      <div className="deck-thesis-metrics"><BigNumber label="Pedidos líquidos" value={shortMoney(cur.ordersValue)} note={<Delta current={cur.ordersValue} previous={previousOrdersValue} suffix={`vs. ${previousOrdersLabel}`} />} /><BigNumber label="QTD de pedidos" value={`${(data.analytics.current.kg / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} t`} note={<Delta current={data.analytics.current.kg} previous={data.analytics.previous.kg} suffix={`vs. ${previousOrdersLabel}`} />} accent /><BigNumber label="Carteira aberta" value={shortMoney(cur.openPortfolio)} note={<small>pedidos pendentes em carteira</small>} /></div>
       <MetricStrip dark items={[
-        { label: 'Ticket médio', value: shortMoney(cur.averageTicket), note: `${comparisonNoun}: ${shortMoney(prev.averageTicket)}` },
+        { label: 'Ticket médio', value: shortMoney(cur.averageTicket), note: `${previousOrdersLabel}: ${shortMoney(comparableTicket)}` },
         { label: 'Clientes com pedidos', value: cur.orderClientCount, note: `${comparisonNoun}: ${prev.orderClientCount}` },
         { label: 'Maior cliente', value: pct(cur.topClientShare), note: 'participação nos pedidos' },
         { label: 'Atingimento da meta', value: cur.goal ? pct(cur.attainment) : '—', note: prev.goal ? `${comparisonNoun}: ${pct(prev.attainment)}` : 'sem meta comparável' },
       ]} />
     </Slide>,
     <Slide key="rhythm" page={3} total={total}>
-      <SlideTitle eyebrow="RITMO DO PERÍODO" aside={`vs. ${comparisonNoun}`} editKey="comercial.rhythm.title" editor={editor}>{cur.ordersValue >= prev.ordersValue ? 'O ritmo de pedidos está acima do período anterior.' : 'O ritmo de pedidos está abaixo do período anterior.'}</SlideTitle>
-      <MetricStrip items={[{ label: 'Pedidos do período', value: shortMoney(cur.ordersValue) }, { label: `Pedidos — ${comparisonNoun}`, value: shortMoney(prev.ordersValue) }, { label: 'Variação', value: `${variation(cur.ordersValue, prev.ordersValue) >= 0 ? '+' : ''}${pct(variation(cur.ordersValue, prev.ordersValue))}` }]} />
+      <SlideTitle eyebrow="RITMO DO PERÍODO" aside={`vs. ${previousOrdersLabel}`} editKey="comercial.rhythm.title" editor={editor}>{cur.ordersValue >= previousOrdersValue ? 'O ritmo de pedidos está acima do período equivalente anterior.' : 'O ritmo de pedidos está abaixo do período equivalente anterior.'}</SlideTitle>
+      <MetricStrip items={[{ label: 'Pedidos do período', value: shortMoney(cur.ordersValue) }, { label: `Pedidos — ${previousOrdersLabel}`, value: shortMoney(previousOrdersValue) }, { label: 'Variação', value: `${variation(cur.ordersValue, previousOrdersValue) >= 0 ? '+' : ''}${pct(variation(cur.ordersValue, previousOrdersValue))}` }]} />
       <div className="deck-chart-stage"><ResponsiveContainer width="100%" height="100%"><AreaChart data={trajectory} margin={{ top: 18, right: 18, left: 8, bottom: 0 }}><defs><linearGradient id="deckBilling" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#f47b20" stopOpacity=".28" /><stop offset="1" stopColor="#f47b20" stopOpacity="0" /></linearGradient></defs><CartesianGrid vertical={false} stroke="#e9e1da" strokeDasharray="3 7" /><XAxis dataKey="label" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} /><Tooltip formatter={v => money(v)} /><Area type="monotone" dataKey="Período atual" stroke="#f47b20" strokeWidth={4} fill="url(#deckBilling)" /><Line type="monotone" dataKey="Período anterior" stroke="#292623" strokeWidth={2.5} strokeDasharray="5 5" dot={false} /></AreaChart></ResponsiveContainer></div>
       <div className="deck-chart-legend"><i className="orange" /> {trajectoryDaily ? 'Pedidos acumulados no mês' : 'Pedidos por mês'} <i className="ink" /> {comparisonNoun[0].toUpperCase() + comparisonNoun.slice(1)}</div>
     </Slide>,
@@ -240,7 +247,7 @@ function CommercialSlides({ data, period, previousLabel, generatedAt, comparison
       <div className="deck-region-layout map"><BrazilSalesMap regions={cur.regions} /><div className="deck-region-list">{cur.regions.slice(0, 6).map((region, index) => <div key={region.name}><i style={{ background: COLORS[index % COLORS.length] }} /><strong>{region.name}</strong><span>{shortMoney(region.value)}</span><small>{cur.ordersValue ? pct(region.value / cur.ordersValue * 100) : '0%'}</small></div>)}</div></div>
     </Slide>,
     <Slide key="close" page={16} total={total} tone="dark" className="deck-close">
-      <span>RECOMENDAÇÕES COMERCIAIS</span><EditableText as="h2" editKey="comercial.close.title" value={cur.ordersValue < prev.ordersValue ? `Recuperar o ritmo: pedidos ${pct(Math.abs(variation(cur.ordersValue, prev.ordersValue)))} abaixo do ${comparisonNoun}.` : cur.openPortfolio > 0 ? `Converter a carteira de ${shortMoney(cur.openPortfolio)} e sustentar a geração de pedidos.` : 'Recompor a carteira de pedidos do próximo período.'} editor={editor} /><EditableText as="p" editKey="comercial.close.body" value={`1. Atacar o saldo de ${shortMoney(Math.max(cur.goal - cur.ordersValue, 0))} da meta de pedidos. 2. Proteger os pedidos dos principais clientes e ampliar a diversificação. 3. Replicar o mix e a execução dos vendedores líderes. 4. Completar a segmentação da carteira para orientar a prospecção.`} editor={editor} /><div><i /> direcionamento para o próximo ciclo</div>
+      <span>RECOMENDAÇÕES COMERCIAIS</span><EditableText as="h2" editKey="comercial.close.title" value={cur.ordersValue < previousOrdersValue ? `Recuperar o ritmo: pedidos ${pct(Math.abs(variation(cur.ordersValue, previousOrdersValue)))} abaixo de ${previousOrdersLabel}.` : cur.openPortfolio > 0 ? `Converter a carteira de ${shortMoney(cur.openPortfolio)} e sustentar a geração de pedidos.` : 'Recompor a carteira de pedidos do próximo período.'} editor={editor} /><EditableText as="p" editKey="comercial.close.body" value={`1. Atacar o saldo de ${shortMoney(Math.max(cur.goal - cur.ordersValue, 0))} da meta de pedidos. 2. Proteger os pedidos dos principais clientes e ampliar a diversificação. 3. Replicar o mix e a execução dos vendedores líderes. 4. Completar a segmentação da carteira para orientar a prospecção.`} editor={editor} /><div><i /> direcionamento para o próximo ciclo</div>
     </Slide>,
     <Slide key="commercial-decisions" page={17} total={total} tone="dark" className="deck-integrated">
       <span className="deck-kicker">DIREÇÃO COMERCIAL · {period}</span>
