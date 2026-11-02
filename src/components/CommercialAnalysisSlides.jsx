@@ -87,7 +87,7 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
         </div>) : <div className="deck-analytic-empty">Sem faturamento classificado neste período.</div>}
       </div>
       <div className="deck-cat-total"><span>Total faturado</span><strong>{shortMoney(revenue.revenue)}</strong><strong>{tons(revenue.kg)}</strong><span>100%</span><strong>{percentageDelta(revenue.revenue, previous.revenue)}</strong></div>
-      <p className="deck-analytics-note">Núcleos, minerais, proteinados, aditivos, aminoácidos, premix e matérias-primas são categorias separadas. Valores conciliados às notas fiscais.</p>
+      <p className="deck-analytics-note">Núcleos, minerais, proteinados, aditivos, aminoácidos, premix e matérias-primas são categorias separadas. {revenue.pendingReviewRevenue ? shortMoney(revenue.pendingReviewRevenue) + ' com classificação pendente de validação. ' : ''}Totais conciliados às notas fiscais.</p>
     </Slide>,
     <Slide key="volume" page={7} total={total} className="deck-commercial-analytics">
       <SlideTitle eyebrow="QUANTIDADE DO TRIMESTRE" aside={focus.quarter + 'º trimestre de ' + year + (isPartial ? ' · parcial' : '')} editKey="comercial.volume.title" editor={editor}>Volume comercial, ritmo mensal e valor realizado por quilo.</SlideTitle>
@@ -102,11 +102,11 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
       </div>
       <MetricStrip items={[
         { label: 'Faturamento do trimestre', value: shortMoney(focus.revenue) },
-        { label: 'Receita por kg', value: unitPrice(focus.revenue, focus.kg) },
+        { label: 'Receita por kg', value: unitPrice(focus.kgRevenue, focus.kg) },
         { label: 'Documentos fiscais', value: focus.documents },
         { label: 'Volume do tri anterior', value: focusPrevious ? tons(focusPrevious.kg) : '—' },
       ]} />
-      <p className="deck-analytics-note">KG líquido de devoluções. {focus.itemsWithoutKg ? focus.itemsWithoutKg + ' item(ns) em unidade diferente de KG não foram convertidos.' : 'Todos os itens de quantidade deste trimestre estão em KG.'} Receita/kg considera o faturamento fiscal total dividido pelo volume convertido.</p>
+      <p className="deck-analytics-note">KG líquido de devoluções. {focus.itemsWithoutKg ? focus.itemsWithoutKg + ' item(ns) em unidade diferente de KG não foram convertidos.' : 'Todos os itens de quantidade deste trimestre estão em KG.'} Receita/kg considera somente os valores dos itens em KG.</p>
     </Slide>,
     <Slide key="invoiced-products" page={8} total={total} tone="dark" className="deck-commercial-analytics">
       <SlideTitle eyebrow="PRODUTOS FATURADOS" aside="Receita fiscal · não pedidos" editKey="comercial.invoiced_products.title" editor={editor}>Produtos líderes por receita, quantidade e preço médio.</SlideTitle>
@@ -114,12 +114,12 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
       <div className="deck-invoiced-list">
         {revenue.products.length ? revenue.products.slice(0, 7).map((row, index) => {
           const baseline = previousProducts.get(row.code)
-          return <div key={row.code}><span><b>{String(index + 1).padStart(2, '0')}</b><strong>{row.name}</strong></span><strong>{shortMoney(row.revenue)}</strong><span>{tons(row.kg)}</span><span>{unitPrice(row.revenue, row.kg)}</span><b className={row.revenue >= (baseline?.revenue || 0) ? 'positive' : 'negative'}>{percentageDelta(row.revenue, baseline?.revenue || 0)}</b></div>
+          return <div key={row.code}><span><b>{String(index + 1).padStart(2, '0')}</b><strong>{row.name}</strong></span><strong>{shortMoney(row.revenue)}</strong><span>{tons(row.kg)}</span><span>{unitPrice(row.kgRevenue, row.kg)}</span><b className={row.revenue >= (baseline?.revenue || 0) ? 'positive' : 'negative'}>{percentageDelta(row.revenue, baseline?.revenue || 0)}</b></div>
         }) : <div className="deck-analytic-empty">Sem produtos faturados no período.</div>}
       </div>
       <MetricStrip dark items={[
         { label: 'Volume total faturado', value: tons(revenue.kg) },
-        { label: 'Receita por kg', value: unitPrice(revenue.revenue, revenue.kg) },
+        { label: 'Receita por kg', value: unitPrice(revenue.kgRevenue, revenue.kg) },
         { label: 'Itens sem conversão para kg', value: revenue.itemsWithoutKg },
       ]} />
       <p className="deck-analytics-note">Produtos pelo código Ultra. Faturamento líquido do documento rateado proporcionalmente ao valor de cada item.</p>
