@@ -19,6 +19,8 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
   const previous = analytics.previous
   const focus = analytics.focus
   const focusPrevious = analytics.focusPrevious
+  const focusBaselineLabel = analytics.focusComparisonPeriod || 'trimestre anterior'
+  const periodBaselineLabel = analytics.comparisonLabel || comparisonNoun
   const maximumQuarterOrders = Math.max(...analytics.quarters.map(row => row.value), 1)
   const maximumQuarterKg = Math.max(...analytics.quarters.map(row => row.kg), 1)
   const maximumMonthKg = Math.max(...focus.months.map(row => row.kg), 1)
@@ -42,9 +44,10 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
           <header><span>{row.quarter}º TRI / {year}</span>{row.partial && <em>PARCIAL</em>}{row.future && <em>A INICIAR</em>}</header>
           <strong>{shortMoney(row.value)}</strong>
           <div className="deck-qtrend-growth">
-            <span className={row.quarter > 1 && !row.future && row.value < analytics.quarters[row.quarter - 2].value ? 'negative' : 'positive'}>R$ {row.future ? '—' : row.quarter === 1 ? 'Base' : percentageDelta(row.value, analytics.quarters[row.quarter - 2].value)}</span>
-            <span className={row.quarter > 1 && !row.future && row.kg < analytics.quarters[row.quarter - 2].kg ? 'negative' : 'positive'}>QTD {row.future ? '—' : row.quarter === 1 ? 'Base' : percentageDelta(row.kg, analytics.quarters[row.quarter - 2].kg)}</span>
+            <span className={row.comparablePrevious && row.value < row.comparablePrevious.value ? 'negative' : 'positive'}>R$ {row.future ? '—' : !row.comparablePrevious ? 'Base' : percentageDelta(row.value, row.comparablePrevious.value)}</span>
+            <span className={row.comparablePrevious && row.kg < row.comparablePrevious.kg ? 'negative' : 'positive'}>QTD {row.future ? '—' : !row.comparablePrevious ? 'Base' : percentageDelta(row.kg, row.comparablePrevious.kg)}</span>
           </div>
+          {row.partial && <small className="deck-qtrend-comparison">vs. {row.comparisonPeriod} · mesma etapa</small>}
           <div className="deck-qtrend-bar"><i style={{ height: (Math.max(0, row.value) / maximumQuarterOrders * 100) + '%' }} /></div>
           <div className="deck-qtrend-weight"><b>{tons(row.kg)}</b><small>QTD de pedidos</small><i style={{ width: (Math.max(0, row.kg) / maximumQuarterKg * 100) + '%' }} /></div>
         </section>)}
@@ -52,10 +55,10 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
       <MetricStrip items={[
         { label: focus.quarter + 'º tri · pedidos', value: shortMoney(focus.value) },
         { label: focus.quarter + 'º tri · QTD', value: tons(focus.kg) },
-        { label: 'Pedidos · trimestre anterior', value: focusPrevious ? shortMoney(focusPrevious.value) : '—' },
-        { label: 'QTD · trimestre anterior', value: focusPrevious ? tons(focusPrevious.kg) : '—' },
+        { label: 'Pedidos · base ' + focusBaselineLabel, value: focusPrevious ? shortMoney(focusPrevious.value) : '—' },
+        { label: 'QTD · base ' + focusBaselineLabel, value: focusPrevious ? tons(focusPrevious.kg) : '—' },
       ]} />
-      <p className="deck-analytics-note">{isPartial ? 'Trimestre em andamento: a variação confronta acumulado parcial com trimestre anterior completo. ' : ''}Base exclusiva de pedidos válidos (cancelados e estornados excluídos); itens sem quantidade em KG comprovada não entram na tonelagem.</p>
+      <p className="deck-analytics-note">{isPartial ? 'Comparativo parcial do mesmo ritmo: somente os meses/dias já alcançados no trimestre anterior (ex.: outubro × julho). ' : ''}Base exclusiva de pedidos válidos (cancelados e estornados excluídos); itens sem quantidade em KG comprovada não entram na tonelagem.</p>
     </Slide>,
     <Slide key="markets" page={5} total={total} tone="dark" className="deck-commercial-analytics">
       <SlideTitle eyebrow="COMPOSIÇÃO DOS PEDIDOS" aside="Classificação por produto pedido" editKey="comercial.markets.title" editor={editor}>Bovinos e Suínos: participação e evolução dos pedidos.</SlideTitle>
@@ -67,7 +70,8 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
             <span>{name.toUpperCase()}</span><strong>{shortMoney(current.value)}</strong>
             <div className="deck-market-share"><i style={{ width: Math.min(100, Math.max(0, totalShare(current.value, orders.value))) + '%' }} /></div>
             <div className="deck-market-bottom"><b>{pct(totalShare(current.value, orders.value))} dos pedidos</b><b>{tons(current.kg)}</b></div>
-            <p>Anterior: {shortMoney(baseline.value)} <em className={current.value >= baseline.value ? 'positive' : 'negative'}>{percentageDelta(current.value, baseline.value)}</em></p>
+            <p>Pedidos vs. {periodBaselineLabel}: {shortMoney(baseline.value)} <em className={current.value >= baseline.value ? 'positive' : 'negative'}>{percentageDelta(current.value, baseline.value)}</em></p>
+            <p className="deck-market-qty-compare">QTD anterior: {tons(baseline.kg)} <em className={current.kg >= baseline.kg ? 'positive' : 'negative'}>{percentageDelta(current.kg, baseline.kg)}</em></p>
           </section>
         })}
       </div>
@@ -78,18 +82,18 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
           return <div key={name}>
             <span>{name}</span>
             <strong>{shortMoney(row.value)}</strong>
-            <small>{tons(row.kg)} · QTD</small>
+            <small>{tons(row.kg)} · QTD <b className={row.kg >= baseline.kg ? 'positive' : 'negative'}>{percentageDelta(row.kg, baseline.kg)}</b></small>
             <div className="deck-market-split-growth">
-              <b className={row.value >= baseline.value ? 'positive' : 'negative'}>{percentageDelta(row.value, baseline.value)}</b>
+              <b className={row.value >= baseline.value ? 'positive' : 'negative'}>Pedidos {percentageDelta(row.value, baseline.value)}</b>
               <em>vs. {shortMoney(baseline.value)}</em>
             </div>
           </div>
         })}
       </div>
-      <p className="deck-analytics-note">Valores e QTD de pedidos, classificados pelos produtos Ultra. Crescimento de Corte, Leite, Suínos e Outros relativo ao período anterior selecionado.</p>
+      <p className="deck-analytics-note">Valores e QTD de pedidos, classificados pelos produtos Ultra. Crescimento de Corte, Leite, Suínos e Outros em R$ e QTD, relativo a {periodBaselineLabel}; somente pedidos.</p>
     </Slide>,
     <Slide key="categories" page={6} total={total} className="deck-commercial-analytics">
-      <SlideTitle eyebrow="MIX DOS PEDIDOS" aside={'Comparativo com ' + comparisonNoun} editKey="comercial.categories.title" editor={editor}>Quais categorias sustentam pedidos, quantidade e crescimento.</SlideTitle>
+      <SlideTitle eyebrow="MIX DOS PEDIDOS" aside={'Comparativo com ' + periodBaselineLabel} editKey="comercial.categories.title" editor={editor}>Quais categorias sustentam pedidos, quantidade e crescimento.</SlideTitle>
       <div className="deck-cat-head"><span>Categoria</span><span>Pedidos (R$)</span><span>QTD</span><span>Mix</span><span>Var. pedidos</span></div>
       <div className="deck-cat-list">
         {categories.length ? categories.map(row => <div key={row.name}>
@@ -105,7 +109,7 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
     <Slide key="volume" page={7} total={total} className="deck-commercial-analytics">
       <SlideTitle eyebrow="QTD DE PEDIDOS NO TRIMESTRE" aside={focus.quarter + 'º trimestre de ' + year + (isPartial ? ' · parcial' : '')} editKey="comercial.volume.title" editor={editor}>Quantidade pedida, ritmo mensal e preço médio por quilo.</SlideTitle>
       <div className="deck-volume-layout">
-        <div className="deck-volume-hero"><span>QTD PEDIDA</span><strong>{tons(focus.kg)}</strong><p>{weight(focus.kg)} em pedidos no trimestre</p><div><span>vs. trimestre anterior</span><b>{focusPrevious ? percentageDelta(focus.kg, focusPrevious.kg) : '—'}</b></div></div>
+        <div className="deck-volume-hero"><span>QTD PEDIDA</span><strong>{tons(focus.kg)}</strong><p>{weight(focus.kg)} em pedidos no trimestre</p><div><span>vs. {focusBaselineLabel}</span><b>{focusPrevious ? percentageDelta(focus.kg, focusPrevious.kg) : '—'}</b></div></div>
         <div className="deck-volume-months"><h3>EVOLUÇÃO MENSAL</h3>
           {analytics.months.map(month => {
             const data = focus.months.find(row => row.month === month) || { kg: 0, value: 0 }
@@ -117,9 +121,9 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
         { label: 'Pedidos do trimestre', value: shortMoney(focus.value) },
         { label: 'Preço médio / kg', value: unitPrice(focus.kgValue, focus.kg) },
         { label: 'Pedidos válidos', value: focus.orderCount },
-        { label: 'QTD trimestre anterior', value: focusPrevious ? tons(focusPrevious.kg) : '—' },
+        { label: 'QTD · ' + focusBaselineLabel, value: focusPrevious ? tons(focusPrevious.kg) : '—' },
       ]} />
-      <p className="deck-analytics-note">Quantidade em KG dos pedidos válidos. {focus.noItemsCount ? focus.noItemsCount + ' pedido(s) sem itens detalhados; QTD não presumida. ' : ''}{focus.itemsWithoutKg ? focus.itemsWithoutKg + ' item(ns) com unidade sem conversão em KG. ' : ''}Preço médio considera somente produtos com KG informado.</p>
+      <p className="deck-analytics-note">Quantidade em KG dos pedidos válidos; crescimento comparado à mesma etapa do trimestre anterior. {focus.noItemsCount ? focus.noItemsCount + ' pedido(s) sem itens detalhados; QTD não presumida. ' : ''}{focus.itemsWithoutKg ? focus.itemsWithoutKg + ' item(ns) com unidade sem conversão em KG. ' : ''}Preço médio considera somente produtos com KG informado.</p>
     </Slide>,
     <Slide key="invoiced-products" page={8} total={total} tone="dark" className="deck-commercial-analytics">
       <SlideTitle eyebrow="PRODUTOS PEDIDOS" aside="Pedidos do Ultra · base comercial" editKey="comercial.invoiced_products.title" editor={editor}>Produtos líderes por pedidos, QTD e preço médio.</SlideTitle>
