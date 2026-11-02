@@ -967,7 +967,7 @@ export default function Fechamentos() {
   const financialMissing = type === 'financeiro' && !data.loading && data.financial && !data.financial.hasData
 
   return <div className="closing-shell">
-    <Topbar title="Fechamento mensal" subtitle="Apresentações comerciais e financeiras geradas com dados do Gestão" />
+    <Topbar title="Apresentações gerenciais" subtitle="Fechamentos comerciais por pedidos e análises financeiras em apresentações separadas" />
     <main className="closing-page">
       <section className="closing-command">
         <div className="closing-type-switch"><button className={type === 'comercial' ? 'active' : ''} onClick={() => { setType('comercial'); setActiveSlide(0) }}>Comercial</button><button className={type === 'financeiro' ? 'active' : ''} onClick={() => { setType('financeiro'); setActiveSlide(0) }}>Financeira</button></div>
