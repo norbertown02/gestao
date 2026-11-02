@@ -12,6 +12,9 @@
 .bgx-button-primary:hover{background:#ce661b}
 .bgx-button-secondary{background:#262421;color:#fff}
 .bgx-button-ghost{background:#fff;border-color:#e4dfd9;color:#3d3a35}
+.bgx-button-danger{background:#fff;border-color:#e8caca;color:#9a3939}
+.bgx-button-danger:hover{background:#fff4f3;border-color:#ca9999}
+.bgx-detail-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .bgx-icon-button{width:34px;height:34px;background:#f5f3f0;border:1px solid #e7e3dc;border-radius:9px;display:grid;place-items:center;color:#403d38;flex-shrink:0}
 .bgx-notice{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fcf8f3;border:1px solid #f0d4b8;border-radius:11px;padding:13px 15px;font-size:12px;color:#6d431e}
 .bgx-notice.success{background:#f4f9f5;border-color:#d6e9d9;color:#2c653f}
@@ -38,6 +41,7 @@
 .bgx-state.open{background:#e5f4e8;color:#2a7740}
 .bgx-state.scheduled{background:#eef3f9;color:#396897}
 .bgx-state.closed{background:#f0efef;color:#76716e}
+.bgx-state.cancelled{background:#f2f0f0;color:#847b7b}
 .bgx-state.draft{background:#fff2e6;color:#ab5a18}
 .bgx-cycle-foot{padding-top:12px;margin-top:3px;border-top:1px solid #efeeeb;display:flex;align-items:center;justify-content:space-between;gap:7px;color:#74706a;font-size:10px}
 .bgx-cycle-foot span{display:flex;gap:5px;align-items:center}
@@ -153,6 +157,7 @@
  .bgx-cycles-grid{grid-template-columns:1fr}
  .bgx-detail-header{flex-direction:column}
  .bgx-detail-header .bgx-button{width:100%}
+ .bgx-detail-actions{width:100%;flex-direction:column}
  .bgx-meta-line{flex-direction:column;gap:7px}
  .bgx-detail-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
  .bgx-detail-kpis>div{padding:12px}
