@@ -42,8 +42,8 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
           <header><span>{row.quarter}º TRI / {year}</span>{row.partial && <em>PARCIAL</em>}{row.future && <em>A INICIAR</em>}</header>
           <strong>{shortMoney(row.value)}</strong>
           <div className="deck-qtrend-growth">
-            <span>R$ {row.future ? '—' : row.quarter === 1 ? 'Base' : percentageDelta(row.value, analytics.quarters[row.quarter - 2].value)}</span>
-            <span>QTD {row.future ? '—' : row.quarter === 1 ? 'Base' : percentageDelta(row.kg, analytics.quarters[row.quarter - 2].kg)}</span>
+            <span className={row.quarter > 1 && !row.future && row.value < analytics.quarters[row.quarter - 2].value ? 'negative' : 'positive'}>R$ {row.future ? '—' : row.quarter === 1 ? 'Base' : percentageDelta(row.value, analytics.quarters[row.quarter - 2].value)}</span>
+            <span className={row.quarter > 1 && !row.future && row.kg < analytics.quarters[row.quarter - 2].kg ? 'negative' : 'positive'}>QTD {row.future ? '—' : row.quarter === 1 ? 'Base' : percentageDelta(row.kg, analytics.quarters[row.quarter - 2].kg)}</span>
           </div>
           <div className="deck-qtrend-bar"><i style={{ height: (Math.max(0, row.value) / maximumQuarterOrders * 100) + '%' }} /></div>
           <div className="deck-qtrend-weight"><b>{tons(row.kg)}</b><small>QTD de pedidos</small><i style={{ width: (Math.max(0, row.kg) / maximumQuarterKg * 100) + '%' }} /></div>
@@ -67,7 +67,7 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
             <span>{name.toUpperCase()}</span><strong>{shortMoney(current.value)}</strong>
             <div className="deck-market-share"><i style={{ width: Math.min(100, Math.max(0, totalShare(current.value, orders.value))) + '%' }} /></div>
             <div className="deck-market-bottom"><b>{pct(totalShare(current.value, orders.value))} dos pedidos</b><b>{tons(current.kg)}</b></div>
-            <p>Anterior: {shortMoney(baseline.value)} <em>{percentageDelta(current.value, baseline.value)}</em></p>
+            <p>Anterior: {shortMoney(baseline.value)} <em className={current.value >= baseline.value ? 'positive' : 'negative'}>{percentageDelta(current.value, baseline.value)}</em></p>
           </section>
         })}
       </div>
