@@ -1,0 +1,125 @@
+/* Apresentação comercial: novos painéis analíticos, escala fixa 1200×675. */
+.deck-commercial-analytics{padding-top:56px;padding-bottom:44px}
+.deck-commercial-analytics .deck-title{margin-bottom:22px}
+.deck-commercial-analytics .deck-title h2{font-size:34px;line-height:1.08;max-width:830px}
+.deck-commercial-analytics .deck-metric-strip{margin-top:16px;margin-bottom:8px}
+.deck-commercial-analytics .deck-metric-strip>div{padding-top:13px;padding-bottom:13px}
+.deck-analytics-note{color:#877d75;font-size:10px;line-height:1.5;margin:11px 0 0;max-width:1040px}
+.deck-dark.deck-commercial-analytics .deck-analytics-note{color:#aea39b}
+.deck-qtrend{height:286px;display:grid;grid-template-columns:repeat(4,1fr);gap:15px;align-items:stretch}
+.deck-qtrend section{min-width:0;border:1px solid #e5dcd4;background:#fffcf9;border-radius:14px;padding:20px 20px 15px;display:flex;flex-direction:column;position:relative}
+.deck-qtrend section.focus{border:2px solid #f47b20;box-shadow:0 12px 26px rgba(244,123,32,.10)}
+.deck-qtrend section.future{opacity:.57}
+.deck-qtrend header{display:flex;justify-content:space-between;align-items:center;gap:6px;color:#796f67;font-size:11px;font-weight:900;letter-spacing:.065em}
+.deck-qtrend header em{font-style:normal;font-weight:900;font-size:8px;letter-spacing:.09em;color:#d36d20}
+.deck-qtrend section>strong{display:block;font-size:29px;line-height:1;letter-spacing:-.05em;margin:14px 0 5px}
+.deck-qtrend-bar{height:112px;flex:1;display:flex;align-items:flex-end;justify-content:center;margin-top:7px;border-bottom:1px solid #e5dcd4}
+.deck-qtrend-bar i{width:48%;max-width:74px;min-height:0;background:#aaa29b;border-radius:7px 7px 0 0;display:block}
+.deck-qtrend section.focus .deck-qtrend-bar i{background:#f47b20}
+.deck-qtrend-weight{position:relative;margin-top:11px;padding-bottom:11px}
+.deck-qtrend-weight b{display:block;font-size:20px;letter-spacing:-.02em}
+.deck-qtrend-weight small{display:block;color:#91857b;font-size:9px;margin:2px 0 8px}
+.deck-qtrend-weight:after{position:absolute;content:'';height:4px;width:100%;left:0;bottom:0;background:#eee6df;border-radius:5px}
+.deck-qtrend-weight i{position:absolute;z-index:1;height:4px;left:0;bottom:0;background:#6b625a;border-radius:5px}
+.deck-qtrend section.focus .deck-qtrend-weight i{background:#f47b20}
+.deck-market-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:10px}
+.deck-market-grid section{min-height:254px;border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:27px 30px;background:rgba(255,255,255,.06)}
+.deck-market-grid section.orange{background:linear-gradient(135deg,rgba(244,123,32,.19),rgba(255,255,255,.02));border-color:rgba(244,123,32,.42)}
+.deck-market-grid section>span{font-size:11px;font-weight:900;color:#c3bbb4;letter-spacing:.17em}
+.deck-market-grid section>strong{display:block;font-size:52px;line-height:1.06;letter-spacing:-.06em;margin:13px 0 17px;color:#fff}
+.deck-market-grid section.orange>strong{color:#ffa254}
+.deck-market-share{height:8px;overflow:hidden;border-radius:6px;background:rgba(255,255,255,.12)}
+.deck-market-share i{display:block;height:100%;background:#f47b20;border-radius:6px}
+.deck-market-grid section.neutral .deck-market-share i{background:#d4b994}
+.deck-market-bottom{display:flex;justify-content:space-between;margin-top:10px;gap:15px}
+.deck-market-bottom b{font-size:14px;color:#f0e7df}
+.deck-market-grid p{margin:25px 0 0;font-size:13px;color:#c3b8af}
+.deck-market-grid p em{font-style:normal;font-weight:900;color:#ffa254;margin-left:12px}
+.deck-market-split{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid rgba(255,255,255,.17);border-bottom:1px solid rgba(255,255,255,.17);margin-top:22px}
+.deck-market-split>div{padding:15px 18px 14px;border-left:1px solid rgba(255,255,255,.17)}
+.deck-market-split>div:first-child{border-left:0;padding-left:0}
+.deck-market-split span{display:block;font-size:10px;font-weight:850;color:#a79e96}
+.deck-market-split strong{display:block;font-size:22px;margin-top:7px;letter-spacing:-.03em}
+.deck-market-split small{display:block;font-size:10px;color:#c3b8af;margin-top:3px}
+.deck-cat-head,.deck-cat-list>div:not(.deck-analytic-empty),.deck-cat-total{display:grid;grid-template-columns:minmax(0,2.1fr) 1fr .78fr .7fr .82fr;align-items:center;gap:16px}
+.deck-cat-head{height:25px;padding:0 17px;color:#8c8179;font-size:9px;font-weight:900;letter-spacing:.07em}
+.deck-cat-head span:not(:first-child){text-align:right}
+.deck-cat-list{border-top:1px solid #dfd5cd}
+.deck-cat-list>div:not(.deck-analytic-empty){min-height:44px;padding:4px 17px;border-bottom:1px solid #e3dad2}
+.deck-cat-list>div>strong{text-align:right;white-space:nowrap;font-size:16px;letter-spacing:-.015em}
+.deck-cat-list>div>span,.deck-cat-list>div>b{text-align:right;font-size:12px}
+.deck-cat-list .positive{color:#3f916b}.deck-cat-list .negative{color:#c25751}
+.deck-cat-name{min-width:0}
+.deck-cat-name strong{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.deck-cat-name i{display:block;margin-top:6px;height:4px;background:#ede5de;border-radius:5px;overflow:hidden}
+.deck-cat-name em{display:block;height:100%;background:#f47b20;border-radius:5px}
+.deck-cat-total{background:#f0e8e0;border-radius:9px;padding:13px 17px;margin-top:10px}
+.deck-cat-total span:first-child{font-size:12px;font-weight:900}
+.deck-cat-total strong,.deck-cat-total span:not(:first-child){text-align:right;font-size:14px;font-weight:900}
+.deck-volume-layout{display:grid;grid-template-columns:1fr 1fr;gap:36px;height:287px;margin-top:11px}
+.deck-volume-hero{border-radius:15px;padding:30px 35px;background:linear-gradient(128deg,#2f2b27,#4c382b);color:white}
+.deck-volume-hero>span{font-size:11px;letter-spacing:.16em;color:#eda66d;font-weight:900}
+.deck-volume-hero>strong{display:block;font-size:77px;line-height:1.0;margin-top:20px;letter-spacing:-.075em;color:#fff}
+.deck-volume-hero>p{font-size:13px;color:#c8beb5;margin:8px 0 25px}
+.deck-volume-hero>div{display:flex;align-items:baseline;justify-content:space-between;padding-top:15px;border-top:1px solid rgba(255,255,255,.19);gap:10px}
+.deck-volume-hero>div span{font-size:12px;color:#c8beb5}
+.deck-volume-hero>div b{font-size:23px;color:#f7a05f}
+.deck-volume-months{padding:8px 0}
+.deck-volume-months h3{font-size:11px;font-weight:900;letter-spacing:.15em;color:#857a72;margin:0 0 21px}
+.deck-volume-months>div{margin-bottom:20px}
+.deck-volume-months>div header{display:grid;grid-template-columns:55px 1fr 115px;align-items:center;gap:12px;margin-bottom:8px}
+.deck-volume-months>div header span{font-weight:900;font-size:13px}
+.deck-volume-months>div header strong{font-size:19px}
+.deck-volume-months>div header small{text-align:right;font-size:12px;color:#857a72}
+.deck-volume-months>div>i{height:9px;display:block;background:#e9e0d8;border-radius:7px;overflow:hidden}
+.deck-volume-months>div>i>em{height:100%;display:block;background:#f47b20;border-radius:7px}
+.deck-invoiced-head,.deck-invoiced-list>div:not(.deck-analytic-empty){display:grid;grid-template-columns:minmax(0,2fr) .89fr .7fr .76fr .74fr;align-items:center;gap:15px}
+.deck-invoiced-head{border-bottom:1px solid rgba(255,255,255,.23);height:30px;padding:0 14px;font-size:10px;color:#b0a59d;font-weight:900;letter-spacing:.09em}
+.deck-invoiced-head span:not(:first-child){text-align:right}
+.deck-invoiced-list>div:not(.deck-analytic-empty){min-height:49px;border-bottom:1px solid rgba(255,255,255,.12);padding:8px 14px}
+.deck-invoiced-list>div>span:first-child{display:flex;align-items:center;gap:12px;min-width:0}
+.deck-invoiced-list>div>span:first-child b{font-size:12px;color:#f47b20;flex:0 0 22px}
+.deck-invoiced-list>div>span:first-child strong{font-size:13px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.deck-invoiced-list>div>strong{text-align:right;font-size:16px}
+.deck-invoiced-list>div>span:not(:first-child),.deck-invoiced-list>div>b{text-align:right;font-size:12px}
+.deck-invoiced-list>div>b.positive{color:#7fc9a1}.deck-invoiced-list>div>b.negative{color:#ef9388}
+.deck-commercial-analytics.deck-dark .deck-metric-strip{margin-top:16px;margin-bottom:5px}
+.deck-analytic-empty{padding:28px 14px;color:#82766e;font-size:14px}
+.deck-dark .deck-analytic-empty{color:#baafa6}
+
+/* Crescimento legível dentro de cada trimestre e subtipo de pedido. */
+.deck-commercial-analytics .deck-qtrend{height:290px}
+.deck-commercial-analytics .deck-qtrend section{padding-top:16px;padding-bottom:13px}
+.deck-qtrend-growth{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px;font-size:11px}
+.deck-qtrend-growth span{display:block;white-space:nowrap;font-weight:850;color:#6b625a}
+.deck-qtrend section.focus .deck-qtrend-growth span{color:#c4611c}
+.deck-qtrend-growth span:nth-child(2){color:#8f8075}
+.deck-commercial-analytics .deck-qtrend section>strong{font-size:27px;margin-top:12px}
+.deck-commercial-analytics .deck-qtrend-bar{height:80px}
+.deck-commercial-analytics .deck-market-grid section{min-height:223px;padding-top:22px;padding-bottom:17px}
+.deck-commercial-analytics .deck-market-grid section>strong{font-size:46px;margin-top:10px;margin-bottom:12px}
+.deck-commercial-analytics .deck-market-grid section p{margin-top:15px}
+.deck-commercial-analytics .deck-market-split{margin-top:18px}
+.deck-commercial-analytics .deck-market-split>div{padding-top:13px;padding-bottom:11px;min-width:0}
+.deck-commercial-analytics .deck-market-split strong{font-size:20px}
+.deck-market-split-growth{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin-top:10px}
+.deck-market-split-growth b{font-size:17px;letter-spacing:-.02em;color:#f4a56e}
+.deck-market-split-growth b.positive{color:#79d6a9}
+.deck-market-split-growth b.negative{color:#f28f80}
+.deck-market-split-growth em{font-size:9px;font-style:normal;color:#b9afa7}
+
+.deck-qtrend-growth span.negative,.deck-qtrend section.focus .deck-qtrend-growth span.negative{color:#c6605a}
+.deck-qtrend-growth span.positive,.deck-qtrend section.focus .deck-qtrend-growth span.positive{color:#3f916b}
+.deck-qtrend section.future .deck-qtrend-growth span,.deck-qtrend section:first-child .deck-qtrend-growth span{color:#8d837a}
+.deck-market-grid p em.negative{color:#ed9388}
+.deck-market-grid p em.positive{color:#7fd6aa}
+
+/* Comparação por etapa equivalente do ciclo: evidenciar a base real. */
+.deck-qtrend-comparison{display:block;margin-top:5px;font-size:9px;color:#8d7869;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.deck-qtrend section.focus .deck-qtrend-comparison{color:#a85013;font-weight:700}
+.deck-commercial-analytics .deck-market-grid section{min-height:245px}
+.deck-commercial-analytics .deck-market-grid p.deck-market-qty-compare{margin-top:7px;font-size:11px}
+.deck-market-split small b{font-size:11px;margin-left:5px;font-weight:900}
+.deck-market-split small b.positive{color:#79d6a9}
+.deck-market-split small b.negative{color:#f28f80}
+.deck-market-split-growth b{font-size:14px}
