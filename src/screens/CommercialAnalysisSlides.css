@@ -107,3 +107,9 @@
 .deck-market-split-growth b.positive{color:#79d6a9}
 .deck-market-split-growth b.negative{color:#f28f80}
 .deck-market-split-growth em{font-size:9px;font-style:normal;color:#b9afa7}
+
+.deck-qtrend-growth span.negative,.deck-qtrend section.focus .deck-qtrend-growth span.negative{color:#c6605a}
+.deck-qtrend-growth span.positive,.deck-qtrend section.focus .deck-qtrend-growth span.positive{color:#3f916b}
+.deck-qtrend section.future .deck-qtrend-growth span,.deck-qtrend section:first-child .deck-qtrend-growth span{color:#8d837a}
+.deck-market-grid p em.negative{color:#ed9388}
+.deck-market-grid p em.positive{color:#7fd6aa}
