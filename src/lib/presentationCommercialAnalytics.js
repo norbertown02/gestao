@@ -215,9 +215,11 @@ function comparablePeriodLabel(start, end) {
   const monthName = date => date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
   const sameYear = start.getFullYear() === end.getFullYear()
   const sameMonth = sameYear && start.getMonth() === end.getMonth()
-  if (sameMonth) return `${monthName(start)}/${start.getFullYear()}`
-  if (sameYear) return `${monthName(start)}–${monthName(end)}/${end.getFullYear()}`
-  return `${monthName(start)}/${start.getFullYear()}–${monthName(end)}/${end.getFullYear()}`
+  const partialMonth = end.getDate() < new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate()
+  const daySuffix = partialMonth ? ` (até dia ${end.getDate()})` : ''
+  if (sameMonth) return `${monthName(start)}/${start.getFullYear()}${daySuffix}`
+  if (sameYear) return `${monthName(start)}–${monthName(end)}/${end.getFullYear()}${daySuffix}`
+  return `${monthName(start)}/${start.getFullYear()}–${monthName(end)}/${end.getFullYear()}${daySuffix}`
 }
 
 export function buildPresentationCommercialAnalytics({
