@@ -37,6 +37,7 @@ const statusName = (a) => ({
 function cycleStatus(c) {
   if (c.status === 'draft') return { title: 'Não liberado', key: 'draft' }
   if (c.status === 'closed') return { title: 'Encerrado', key: 'closed' }
+  if (c.status === 'cancelled') return { title: 'Cancelado', key: 'cancelled' }
   if (new Date(c.opens_at) > new Date()) return { title: 'Abertura agendada', key: 'scheduled' }
   if (new Date(c.closes_at) < new Date()) return { title: 'Prazo encerrado', key: 'closed' }
   return { title: 'Liberado', key: 'open' }
@@ -135,7 +136,9 @@ export default function BudgetGestao() {
   const isPartial = outstandingCount > 0
   const sellerById = useMemo(() => new Map(sellers.map(s => [s.id, s.name])), [sellers])
   const availableSellers = sellers.filter(p => (p.name || '').toLowerCase().includes(sellerQuery.trim().toLowerCase()))
-  const allPeopleCount = assignments.filter(a => cycles.some(c => c.id === a.cycle_id)).length
+  const reportableCycleIds = new Set(cycles.filter(c => c.status !== 'cancelled').map(c => c.id))
+  const allPeopleCount = assignments.filter(a => reportableCycleIds.has(a.cycle_id)).length
+  const reportableValue = items.filter(i => reportableCycleIds.has(i.cycle_id)).reduce((sum, i) => sum + Number(i.quantity_kg) * Number(i.unit_price), 0)
 
   const openComposer = () => { setMode('create'); setStep(0); setNotice(null) }
   const resetComposer = () => {
@@ -202,7 +205,37 @@ export default function BudgetGestao() {
     await reload()
     setSaving(false)
   }
+  const cancelCycle = async () => {
+    if (!selectedCycle || selectedCycle.status !== 'open' || saving) return
+    const approvedCount = people.filter(p => p.status === 'approved').length
+    const question = [
+      'Cancelar a previsão "' + selectedCycle.title + '"?',
+      '',
+      'Os vendedores perderão o acesso a esse ciclo no Campo.',
+      'As previsões já registradas continuarão no histórico do Gestão.',
+      approvedCount ? 'ATENÇÃO: ' + approvedCount + ' aprovação(ões) já geraram metas, que não serão revertidas.' : 'Nenhuma meta aprovada será alterada.',
+      '',
+      'O cancelamento é definitivo. Deseja continuar?',
+    ].join('\n')
+    if (!window.confirm(question)) return
+    setSaving(true)
+    const { data, error } = await supabase.from('budget_cycles')
+      .update({ status: 'cancelled' })
+      .eq('id', selectedCycle.id).eq('status', 'open').select('id')
+    if (error || !data?.length) {
+      setNotice({ kind: 'error', text: error?.message || 'Não foi possível cancelar: o ciclo pode ter mudado de situação. Atualize a página.' })
+    } else {
+      setNotice({ kind: 'success', text: 'Previsão cancelada. Ela não aparece mais para os vendedores e o histórico foi preservado.' })
+    }
+    await reload()
+    setSaving(false)
+  }
+
   const setReview = async (assignment, status) => {
+    if (!selectedCycle || selectedCycle.status === 'cancelled') {
+      setNotice({ kind: 'error', text: 'Previsões canceladas não podem ser aprovadas ou revisadas.' })
+      return
+    }
     if (status === 'revision_requested' && !feedback.trim()) {
       setNotice({ kind: 'error', text: 'Escreva uma orientação para solicitar a revisão.' }); return
     }
@@ -326,8 +359,8 @@ export default function BudgetGestao() {
         ) : <>
           <div className="bgx-overview-kpis">
             <div><span>Ciclos criados</span><strong>{cycles.length}</strong><small>Planejamentos registrados</small></div>
-            <div><span>Participações</span><strong>{allPeopleCount}</strong><small>Vendedores incluídos em ciclos</small></div>
-            <div><span>Previsão consolidada</span><strong>{fmt(items.reduce((a, i) => a + Number(i.quantity_kg) * Number(i.unit_price), 0))}</strong><small>Valor total dos ciclos registrados</small></div>
+            <div><span>Participações</span><strong>{allPeopleCount}</strong><small>Participações em ciclos não cancelados</small></div>
+            <div><span>Previsão consolidada</span><strong>{fmt(reportableValue)}</strong><small>Não inclui ciclos cancelados</small></div>
           </div>
           <section className="bgx-card bgx-cycle-section">
             <div className="bgx-section-head">
@@ -351,10 +384,14 @@ export default function BudgetGestao() {
             <div className="bgx-detail-header">
               <div><span className="bgx-overline">CICLO SELECIONADO</span><h2>{selectedCycle.title}</h2><div className="bgx-detail-tags"><span className={'bgx-state ' + cycleStatus(selectedCycle).key}>{cycleStatus(selectedCycle).title}</span><span>{selectedCycle.months.map(monthName).join(' · ')}</span></div></div>
               {selectedCycle.status === 'draft' && <button className="bgx-button bgx-button-primary" disabled={saving || new Date(selectedCycle.closes_at) <= new Date()} onClick={() => setCycleState('open')}><IconSend size={16}/> Liberar preenchimento</button>}
-              {selectedCycle.status === 'open' && <button className="bgx-button bgx-button-secondary" disabled={saving} onClick={() => setCycleState('closed')}><IconClock size={16}/> Encerrar ciclo</button>}
+              {selectedCycle.status === 'open' && <div className="bgx-detail-actions">
+                <button className="bgx-button bgx-button-secondary" disabled={saving} onClick={() => setCycleState('closed')}><IconClock size={16}/> Encerrar ciclo</button>
+                <button className="bgx-button bgx-button-danger" disabled={saving} onClick={cancelCycle}><IconX size={16}/> Cancelar previsão</button>
+              </div>} 
             </div>
             <div className="bgx-meta-line"><span><IconClock size={14}/> Abertura: {new Date(selectedCycle.opens_at).toLocaleString('pt-BR')}</span><span>Prazo: {new Date(selectedCycle.closes_at).toLocaleString('pt-BR')}</span></div>
             {selectedCycle.status === 'draft' && <p className="bgx-lock-note"><IconShieldCheck size={17}/> Os vendedores ainda não têm acesso. Revise os participantes e clique em “Liberar preenchimento” quando estiver pronto.</p>}
+            {selectedCycle.status === 'cancelled' && <p className="bgx-lock-note"><IconShieldCheck size={17}/> Previsão cancelada{selectedCycle.cancelled_at ? ' em ' + new Date(selectedCycle.cancelled_at).toLocaleString('pt-BR') : ''}. Registro mantido somente para consulta, fora dos totais ativos. Nenhuma nova edição ou aprovação é permitida. Metas previamente aprovadas não são revertidas automaticamente.</p>}
             <div className="bgx-detail-kpis">
               <div><span>Volume projetado {isPartial ? '(parcial)' : ''}</span><strong>{qty(plannedKg / 1000)} t</strong><small>NF anterior · empresa toda: {qty(referenceKg / 1000)} t</small></div>
               <div><span>Faturamento previsto {isPartial ? '(parcial)' : ''}</span><strong>{fmt(plannedValue)}</strong><small>NF anterior · toda a equipe: {fmt(referenceAmount)}</small></div>
@@ -387,7 +424,7 @@ export default function BudgetGestao() {
                     {hasForecast && <small>NF anterior: {fmt(reference)}</small>}
                   </div>
                   <div className="bgx-team-buttons-area">
-                    {a.status === 'submitted' ? <div className="bgx-team-buttons">
+                    {selectedCycle.status !== 'cancelled' && a.status === 'submitted' ? <div className="bgx-team-buttons">
                       {feedbackId === a.seller_id ? <div className="bgx-feedback">
                         <textarea placeholder="Orientações para o vendedor corrigir..." value={feedback} onChange={e => setFeedback(e.target.value)}/>
                         <button disabled={saving || !feedback.trim()} onClick={() => setReview(a, 'revision_requested')}>Enviar revisão</button>
