@@ -1,9 +1,11 @@
-// Análises da apresentação: receita e volume reais das notas fiscais do Ultra.
-// O valor de cada nota é a fonte da verdade; itens recebem rateio proporcional
-// para que segmento, categoria e produto conciliem com o faturamento líquido.
+// Métricas EXCLUSIVAMENTE de pedidos para apresentação comercial.
+// Não utiliza notas fiscais. Itens dos pedidos são conciliados ao valor líquido
+// do próprio pedido; cancelamentos e pedidos inteiramente estornados não contam.
+import { hasNetOrderValue, netOrderValue, orderBaseValue } from './commercialMetrics'
+
 const numeric = value => {
-  const result = Number(value)
-  return Number.isFinite(result) ? result : 0
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 const normalize = value => String(value || '')
@@ -14,179 +16,192 @@ const normalizeCode = value => {
   const parts = String(value || '').trim().split('/')
   const product = Number(parts[0])
   const variation = Number(parts[1] || 1)
-  return Number.isFinite(product) && Number.isFinite(variation) ? `${product}/${variation}` : ''
+  return product > 0 && variation > 0 ? `${product}/${variation}` : ''
+}
+
+const itemCode = item => (
+  normalizeCode(item?.productKey) ||
+  normalizeCode(item?.ultra_codproduto && `${item.ultra_codproduto}/${item.ultra_codproduto_clas || 1}`) ||
+  normalizeCode(item?.productId)
+)
+
+const itemTotal = item => {
+  const explicit = numeric(item?.product_total ?? item?.subtotal ?? item?.total ?? item?.value)
+  if (explicit) return Math.abs(explicit)
+  return Math.abs(numeric(item?.quantity ?? item?.qty) * numeric(item?.unitPrice ?? item?.unit_price))
 }
 
 const normalizeMarket = raw => {
-  const value = normalize(raw)
-  if (value.includes('bovin')) return 'Bovinos'
-  if (value.includes('suin')) return 'Suínos'
+  const label = normalize(raw)
+  if (label.includes('bovin')) return 'Bovinos'
+  if (label.includes('suin')) return 'Suínos'
   return 'Outros / não classificado'
 }
-
 const normalizeCategory = raw => {
-  const value = normalize(raw)
-  if (value.includes('aminoacido')) return 'Aminoácidos'
-  if (value.includes('materia-prima') || value.includes('materia prima')) return 'Matérias-primas'
-  if (value.includes('premix')) return 'Premix'
-  if (value.includes('nucleo')) return 'Núcleos'
-  if (value.includes('mineral')) return 'Minerais'
-  if (value.includes('proteinado')) return 'Proteinados'
-  if (value.includes('aditivo')) return 'Aditivos'
+  const label = normalize(raw)
+  if (label.includes('aminoacido')) return 'Aminoácidos'
+  if (label.includes('materia-prima') || label.includes('materia prima')) return 'Matérias-primas'
+  if (label.includes('premix')) return 'Premix'
+  if (label.includes('nucleo')) return 'Núcleos'
+  if (label.includes('mineral')) return 'Minerais'
+  if (label.includes('proteinado')) return 'Proteinados'
+  if (label.includes('aditivo')) return 'Aditivos'
   return 'Outros / não classificado'
 }
-
 const normalizeSubmarket = (market, segment) => {
   if (market === 'Suínos') return 'Suínos'
   if (market !== 'Bovinos') return 'Outros / não classificado'
   const label = normalize(segment)
   if (label.includes('leite')) return 'Leite'
   if (label.includes('corte')) return 'Corte'
-  return 'Bovinos · outros'
+  return 'Outros / não classificado'
 }
 
-const signedDocumentTotal = doc => {
-  const value = Math.abs(numeric(doc?.document_total))
-  if (doc?.movement_type === 'venda') return value
-  if (doc?.movement_type === 'devolucao') return -value
-  return 0
-}
+const isoLocal = date => [
+  date.getFullYear(),
+  String(date.getMonth() + 1).padStart(2, '0'),
+  String(date.getDate()).padStart(2, '0'),
+].join('-')
 
-function newSummary() {
-  return {
-    revenue: 0, kg: 0, kgRevenue: 0, documents: 0, itemsWithoutKg: 0,
-    unclassifiedRevenue: 0, pendingReviewRevenue: 0, withoutItemsRevenue: 0,
-    markets: [], submarkets: [], categories: [], products: [], months: [],
-  }
-}
+const summaryEmpty = () => ({
+  value: 0, kg: 0, kgValue: 0, orderCount: 0, noItemsCount: 0,
+  itemsWithoutKg: 0, unclassifiedValue: 0, pendingReviewValue: 0,
+  markets: [], submarkets: [], categories: [], products: [], months: [],
+})
 
-function summarize(documents, lookup, from, to) {
-  const summary = newSummary()
+function summarize(orders, lookup, from, to) {
+  const result = summaryEmpty()
   const markets = new Map()
   const submarkets = new Map()
   const categories = new Map()
   const products = new Map()
   const months = new Map()
 
-  const push = (map, name, value, kg, productName, revenueWithKg = 0) => {
-    const entry = map.get(name) || { name, revenue: 0, kg: 0, kgRevenue: 0 }
-    entry.revenue += value
-    entry.kg += kg
-    entry.kgRevenue += revenueWithKg
-    if (productName) entry.productName = productName
-    map.set(name, entry)
+  const add = (map, key, value, kg = 0, kgValue = 0, name) => {
+    const row = map.get(key) || { name: name || key, value: 0, kg: 0, kgValue: 0 }
+    row.value += value
+    row.kg += kg
+    row.kgValue += kgValue
+    if (name) row.name = name
+    map.set(key, row)
   }
 
-  for (const doc of documents) {
-    const date = String(doc?.issue_date || '').slice(0, 10)
-    if (date < from || date > to) continue
-    const value = signedDocumentTotal(doc)
-    if (!value) continue
-    summary.documents += 1
-    summary.revenue += value
+  for (const order of orders) {
+    const date = String(order?.sale_date || '').slice(0, 10)
+    if (!date || date < from || date > to || !hasNetOrderValue(order)) continue
+    const orderValue = netOrderValue(order)
+    result.value += orderValue
+    result.orderCount += 1
     const month = Number(date.slice(5, 7))
-    const monthEntry = months.get(month) || { month, revenue: 0, kg: 0 }
-    monthEntry.revenue += value
+    const monthRow = months.get(month) || { month, value: 0, kg: 0 }
+    monthRow.value += orderValue
 
-    const items = Array.isArray(doc.fiscal_document_items) ? doc.fiscal_document_items : []
-    const portions = items.map(item => Math.abs(numeric(item?.product_total)))
-    const totalPortions = portions.reduce((total, portion) => total + portion, 0)
-    if (!totalPortions) {
-      summary.withoutItemsRevenue += value
-      summary.unclassifiedRevenue += value
-      push(markets, 'Outros / não classificado', value, 0)
-      push(submarkets, 'Outros / não classificado', value, 0)
-      push(categories, 'Outros / não classificado', value, 0)
-      push(products, 'sem-itens', value, 0, 'Documento sem itens')
-      months.set(month, monthEntry)
+    const items = Array.isArray(order.items) ? order.items : []
+    const totals = items.map(itemTotal)
+    const itemSum = totals.reduce((total, part) => total + part, 0)
+    if (!items.length || !itemSum) {
+      result.noItemsCount += 1
+      result.unclassifiedValue += orderValue
+      add(markets, 'Outros / não classificado', orderValue)
+      add(submarkets, 'Outros / não classificado', orderValue)
+      add(categories, 'Outros / não classificado', orderValue)
+      add(products, 'sem-itens', orderValue, 0, 0, 'Pedidos sem detalhamento')
+      months.set(month, monthRow)
       continue
     }
 
+    // Valores do pedido podem ter desconto/frete e devoluções. Rateio garante
+    // soma exata dos valores sem usar o faturamento fiscal como fonte.
+    const ratioNetToBase = orderBaseValue(order) > 0
+      ? Math.max(0, Math.min(1, orderValue / orderBaseValue(order))) : 0
+
     items.forEach((item, index) => {
-      if (!portions[index]) return
-      const allocated = value * portions[index] / totalPortions
-      const classification = lookup.get(normalizeCode(item?.product_code))
+      if (!totals[index]) return
+      const allocated = orderValue * totals[index] / itemSum
+      const code = itemCode(item)
+      const classification = lookup.get(code)
       const market = normalizeMarket(classification?.market)
       const category = normalizeCategory(classification?.category)
       const submarket = normalizeSubmarket(market, classification?.segment)
       const unit = normalize(item?.unit)
-      const kg = unit === 'kg' ? Math.sign(value) * Math.abs(numeric(item?.quantity)) : 0
-      if (unit !== 'kg') summary.itemsWithoutKg += 1
-      if (category === 'Outros / não classificado' || market === 'Outros / não classificado') summary.unclassifiedRevenue += allocated
-      if (classification && !normalize(classification.review_status).includes('aprovad')) summary.pendingReviewRevenue += allocated
-      summary.kg += kg
-      if (unit === 'kg') summary.kgRevenue += allocated
-      monthEntry.kg += kg
-      push(markets, market, allocated, kg, undefined, unit === 'kg' ? allocated : 0)
-      push(submarkets, submarket, allocated, kg, undefined, unit === 'kg' ? allocated : 0)
-      push(categories, category, allocated, kg, undefined, unit === 'kg' ? allocated : 0)
-      const code = normalizeCode(item?.product_code) || String(item?.product_name || 'sem-codigo')
-      push(products, code, allocated, kg, item?.product_name || classification?.ultra_product_name || 'Produto sem identificação', unit === 'kg' ? allocated : 0)
+      // quantityKg tem precedência se existir e for confiável; quantidade em
+      // 'saco' ou 'SC' só é convertida com bagKg conhecido e positivo.
+      const quantityKg = numeric(item?.quantityKg) > 0
+        ? numeric(item.quantityKg)
+        : unit === 'kg' ? Math.abs(numeric(item?.quantity ?? item?.qty))
+        : (unit === 'sc' || unit === 'saco') && numeric(item?.bagKg) > 0
+          ? Math.abs(numeric(item.quantity ?? item?.qty)) * numeric(item.bagKg)
+          : 0
+      const kg = quantityKg * ratioNetToBase
+      const kgValue = quantityKg > 0 ? allocated : 0
+
+      if (quantityKg === 0) result.itemsWithoutKg += 1
+      if (market === 'Outros / não classificado' || category === 'Outros / não classificado') result.unclassifiedValue += allocated
+      if (classification && !normalize(classification.review_status).includes('aprovad')) result.pendingReviewValue += allocated
+      result.kg += kg
+      result.kgValue += kgValue
+      monthRow.kg += kg
+
+      add(markets, market, allocated, kg, kgValue)
+      add(submarkets, submarket, allocated, kg, kgValue)
+      add(categories, category, allocated, kg, kgValue)
+      add(products, code || String(item.productName || item.product_name || 'sem-codigo'), allocated, kg, kgValue,
+        item.productName || item.product_name || classification?.ultra_product_name || 'Produto sem identificação')
     })
-    months.set(month, monthEntry)
+    months.set(month, monthRow)
   }
 
-  const ordered = map => [...map.values()].sort((a, b) => b.revenue - a.revenue)
-  summary.markets = ordered(markets)
-  summary.submarkets = ordered(submarkets)
-  summary.categories = ordered(categories)
-  summary.products = ordered(products).map(row => ({ ...row, code: row.name, name: row.productName || row.name }))
-  summary.months = [...months.values()].sort((a, b) => a.month - b.month)
-  return summary
+  const sorted = map => [...map.values()].sort((a, b) => b.value - a.value)
+  result.markets = sorted(markets)
+  result.submarkets = sorted(submarkets)
+  result.categories = sorted(categories)
+  result.products = [...products].map(([code, row]) => ({ ...row, code })).sort((a, b) => b.value - a.value)
+  result.months = [...months.values()].sort((a, b) => a.month - b.month)
+  return result
 }
 
 function quarterBounds(year, quarter) {
-  const month = (quarter - 1) * 3
-  const start = new Date(year, month, 1)
-  const end = new Date(year, month + 3, 0)
-  return { from: `${year}-${String(month + 1).padStart(2, '0')}-01`, to: `${year}-${String(month + 3).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`, start, end }
+  const startMonth = (quarter - 1) * 3
+  return {
+    start: new Date(year, startMonth, 1),
+    end: new Date(year, startMonth + 3, 0),
+  }
 }
 
 export function buildPresentationCommercialAnalytics({
-  documents = [], classifications = [], currentRange, previousRange,
+  orders = [], classifications = [], currentRange, previousRange,
   year, focusQuarter, today = new Date(),
 }) {
   const lookup = new Map(classifications.map(row => [
     normalizeCode(`${row.codproduto}/${row.codproduto_clas || 1}`), row,
   ]))
-  const dateISO = date => {
-    const y = date.getFullYear()
-    const m = String(date.getMonth() + 1).padStart(2, '0')
-    const d = String(date.getDate()).padStart(2, '0')
-    return `${y}-${m}-${d}`
-  }
-  const period = range => summarize(documents, lookup, dateISO(range.start), dateISO(range.end))
-  const current = period(currentRange)
-  const previous = period(previousRange)
+  const current = summarize(orders, lookup, isoLocal(currentRange.start), isoLocal(currentRange.end))
+  const previous = summarize(orders, lookup, isoLocal(previousRange.start), isoLocal(previousRange.end))
 
   const quarters = [1, 2, 3, 4].map(quarter => {
     const bounds = quarterBounds(year, quarter)
     const future = bounds.start > today
     const partial = !future && bounds.end > today
-    const endISO = partial ? dateISO(today) : bounds.to
-    return {
-      quarter, label: `${quarter}º TRI`, future, partial, start: bounds.from,
-      end: endISO, ...summarize(documents, lookup, bounds.from, endISO),
-    }
+    const summary = future ? summaryEmpty() : summarize(orders, lookup,
+      isoLocal(bounds.start), isoLocal(partial ? today : bounds.end))
+    return { ...summary, quarter, future, partial }
   })
   const focus = quarters[Math.max(0, Math.min(3, focusQuarter - 1))]
   const focusPrevious = focusQuarter > 1 ? quarters[focusQuarter - 2] : null
-  const latestInvoiceDate = documents
-    .map(doc => String(doc.issue_date || '').slice(0, 10))
-    .filter(date => date && date <= dateISO(today))
-    .sort().at(-1) || null
+  const latestOrderDate = orders.map(row => String(row?.sale_date || '').slice(0, 10))
+    .filter(date => date && date <= isoLocal(today)).sort().at(-1) || null
 
   return {
     year, current, previous, quarters, focus, focusPrevious,
-    latestInvoiceDate,
+    latestOrderDate,
     categoryLabels: ['Núcleos', 'Minerais', 'Proteinados', 'Aditivos', 'Aminoácidos', 'Premix', 'Matérias-primas', 'Outros / não classificado'],
     marketLabels: ['Bovinos', 'Suínos', 'Outros / não classificado'],
     months: [3 * (focusQuarter - 1) + 1, 3 * (focusQuarter - 1) + 2, 3 * (focusQuarter - 1) + 3],
   }
 }
 
-export function revenueRow(rows, name) {
-  return rows.find(row => row.name === name) || { name, revenue: 0, kg: 0 }
+export function valueRow(rows, name) {
+  return rows.find(row => row.name === name) || { name, value: 0, kg: 0, kgValue: 0 }
 }
 
 export function percentageDelta(current, previous) {
