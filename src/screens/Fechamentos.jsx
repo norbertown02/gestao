@@ -585,7 +585,10 @@ function aggregateCommercialPeriod(bounds, range, ctx) {
   }
 }
 
-function buildCommercialTrajectory(type, currentBounds, currentRange, previousBounds, orders) {
+function buildCommercialTrajectory(type, currentBounds, currentRange, previousBounds, orders, alignedPreviousEnd) {
+  // A curva reflete apenas as etapas comparáveis e não mostra futuros meses
+  // como zero (outubro do 4º tri é comparado somente a julho do 3º).
+  const comparisonCutoff = alignedPreviousEnd || '9999-12-31'
   if (type === 'mensal') {
     const daysInMonth = currentRange.nominalEnd.getDate()
     const prevDaysInMonth = new Date(previousBounds.year, previousBounds.startMonth, 0).getDate()
@@ -596,12 +599,14 @@ function buildCommercialTrajectory(type, currentBounds, currentRange, previousBo
       const curDate = `${currentBounds.year}-${String(currentBounds.startMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`
       curAcc += orders.filter(row => row.sale_date === curDate && hasNetOrderValue(row)).reduce((sum, row) => sum + netOrderValue(row), 0)
       let prevValue = null
-      if (day <= prevDaysInMonth) {
+      const currentDayPassed = currentRange.end >= new Date(currentBounds.year, currentBounds.startMonth - 1, day)
+      const priorDayComparable = `${previousBounds.year}-${String(previousBounds.startMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}` <= comparisonCutoff
+      if (day <= prevDaysInMonth && currentDayPassed && priorDayComparable) {
         const prevDate = `${previousBounds.year}-${String(previousBounds.startMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`
         prevAcc += orders.filter(row => row.sale_date === prevDate && hasNetOrderValue(row)).reduce((sum, row) => sum + netOrderValue(row), 0)
         prevValue = prevAcc
       }
-      series.push({ label: String(day), 'Período atual': curAcc, 'Período anterior': prevValue })
+      series.push({ label: String(day), 'Período atual': currentDayPassed ? curAcc : null, 'Período anterior': prevValue })
     }
     return { series, daily: true }
   }
@@ -611,10 +616,15 @@ function buildCommercialTrajectory(type, currentBounds, currentRange, previousBo
     const prevMonth = previousBounds.startMonth + i
     const curKey = `${currentBounds.year}-${String(curMonth).padStart(2, '0')}`
     const prevKey = `${previousBounds.year}-${String(prevMonth).padStart(2, '0')}`
+    const comparableMonth = prevKey <= comparisonCutoff.slice(0, 7)
     return {
       label: MONTHS[curMonth - 1],
-      'Período atual': orders.filter(row => row.sale_date?.startsWith(curKey) && hasNetOrderValue(row)).reduce((sum, row) => sum + netOrderValue(row), 0),
-      'Período anterior': orders.filter(row => row.sale_date?.startsWith(prevKey) && hasNetOrderValue(row)).reduce((sum, row) => sum + netOrderValue(row), 0),
+      'Período atual': comparableMonth
+        ? orders.filter(row => row.sale_date?.startsWith(curKey) && row.sale_date <= iso(currentRange.end) && hasNetOrderValue(row))
+          .reduce((sum, row) => sum + netOrderValue(row), 0) : null,
+      'Período anterior': comparableMonth
+        ? orders.filter(row => row.sale_date?.startsWith(prevKey) && row.sale_date <= comparisonCutoff && hasNetOrderValue(row))
+          .reduce((sum, row) => sum + netOrderValue(row), 0) : null,
     }
   })
   return { series, daily: false }
@@ -803,12 +813,12 @@ function useClosingData(type, year, index) {
         }
         const commercialCurrent = aggregateCommercialPeriod(currentBounds, currentRange, ctx)
         const commercialPrevious = aggregateCommercialPeriod(previousBounds, previousRange, ctx)
-        const trajectory = buildCommercialTrajectory(type, currentBounds, currentRange, previousBounds, orders)
         const focusQuarter = type === 'trimestral' ? index : year === new Date().getFullYear() ? Math.ceil((new Date().getMonth() + 1) / 3) : Math.ceil(currentBounds.endMonth / 3)
         const analytics = buildPresentationCommercialAnalytics({
           orders, classifications: classificationsRes.data || [],
           currentRange, previousRange, year, focusQuarter,
         })
+        const trajectory = buildCommercialTrajectory(type, currentBounds, currentRange, previousBounds, orders, analytics.alignedPreviousEnd)
         const commercial = {
           current: commercialCurrent, previous: commercialPrevious, analytics,
           trajectory: trajectory.series, trajectoryDaily: trajectory.daily,
