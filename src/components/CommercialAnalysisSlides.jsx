@@ -11,7 +11,7 @@ const shortMoney = value => {
 const pct = value => numeric(value).toFixed(1).replace('.', ',') + '%'
 const weight = value => Math.round(numeric(value)).toLocaleString('pt-BR') + ' kg'
 const tons = value => (numeric(value) / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' t'
-const unitPrice = (revenue, kg) => kg > 0 ? money(revenue / kg) : '—'
+const unitPrice = (orderValue, kg) => kg > 0 ? money(orderValue / kg) : '—'
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, editor, total, Slide, SlideTitle, MetricStrip }) {
@@ -100,7 +100,7 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
         </div>) : <div className="deck-analytic-empty">Sem pedidos classificados neste período.</div>}
       </div>
       <div className="deck-cat-total"><span>Total em pedidos</span><strong>{shortMoney(orders.value)}</strong><strong>{tons(orders.kg)}</strong><span>100%</span><strong>{percentageDelta(orders.value, previous.value)}</strong></div>
-      <p className="deck-analytics-note">Núcleos, minerais, proteinados, aditivos, aminoácidos, premix e matérias-primas são categorias separadas. {orders.pendingReviewRevenue ? shortMoney(orders.pendingReviewRevenue) + ' com classificação pendente de validação. ' : ''}Totais conciliados aos pedidos válidos.</p>
+      <p className="deck-analytics-note">Núcleos, minerais, proteinados, aditivos, aminoácidos, premix e matérias-primas são categorias separadas. {orders.pendingReviewValue ? shortMoney(orders.pendingReviewValue) + ' com classificação pendente de validação. ' : ''}Totais conciliados aos pedidos válidos.</p>
     </Slide>,
     <Slide key="volume" page={7} total={total} className="deck-commercial-analytics">
       <SlideTitle eyebrow="QTD DE PEDIDOS NO TRIMESTRE" aside={focus.quarter + 'º trimestre de ' + year + (isPartial ? ' · parcial' : '')} editKey="comercial.volume.title" editor={editor}>Quantidade pedida, ritmo mensal e preço médio por quilo.</SlideTitle>
@@ -108,7 +108,7 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
         <div className="deck-volume-hero"><span>QTD PEDIDA</span><strong>{tons(focus.kg)}</strong><p>{weight(focus.kg)} em pedidos no trimestre</p><div><span>vs. trimestre anterior</span><b>{focusPrevious ? percentageDelta(focus.kg, focusPrevious.kg) : '—'}</b></div></div>
         <div className="deck-volume-months"><h3>EVOLUÇÃO MENSAL</h3>
           {analytics.months.map(month => {
-            const data = focus.months.find(row => row.month === month) || { kg: 0, revenue: 0 }
+            const data = focus.months.find(row => row.month === month) || { kg: 0, value: 0 }
             return <div key={month}><header><span>{MONTHS[month - 1]}</span><strong>{tons(data.kg)}</strong><small>{shortMoney(data.value)}</small></header><i><em style={{ width: Math.max(0, data.kg) / maximumMonthKg * 100 + '%' }} /></i></div>
           })}
         </div>
@@ -122,7 +122,7 @@ export function CommercialAnalysisSlides({ analytics, year, comparisonNoun, edit
       <p className="deck-analytics-note">Quantidade em KG dos pedidos válidos. {focus.noItemsCount ? focus.noItemsCount + ' pedido(s) sem itens detalhados; QTD não presumida. ' : ''}{focus.itemsWithoutKg ? focus.itemsWithoutKg + ' item(ns) com unidade sem conversão em KG. ' : ''}Preço médio considera somente produtos com KG informado.</p>
     </Slide>,
     <Slide key="invoiced-products" page={8} total={total} tone="dark" className="deck-commercial-analytics">
-      <SlideTitle eyebrow="PRODUTOS PEDIDOS" aside="Itens de pedidos · não notas fiscais" editKey="comercial.invoiced_products.title" editor={editor}>Produtos líderes por pedidos, QTD e preço médio.</SlideTitle>
+      <SlideTitle eyebrow="PRODUTOS PEDIDOS" aside="Pedidos do Ultra · base comercial" editKey="comercial.invoiced_products.title" editor={editor}>Produtos líderes por pedidos, QTD e preço médio.</SlideTitle>
       <div className="deck-invoiced-head"><span>Produto</span><span>Pedidos</span><span>QTD</span><span>R$/kg</span><span>vs. anterior</span></div>
       <div className="deck-invoiced-list">
         {orders.products.length ? orders.products.slice(0, 7).map((row, index) => {
