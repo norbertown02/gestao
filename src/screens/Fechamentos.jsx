@@ -154,7 +154,7 @@ function IntegratedExecutiveSlide({ page, total, commercial, financial, period, 
   return <Slide key="integrated" page={page} total={total} tone="dark" className="deck-integrated"><span className="deck-kicker">VISÃO EXECUTIVA INTEGRADA · {period}</span><EditableText as="h2" editKey="integrated.title" value={uncovered > 0 ? `A prioridade é cobrir ${shortMoney(uncovered)} da meta sem perder margem e liquidez.` : 'A carteira cobre a meta; a prioridade é converter pedidos com margem e caixa.'} editor={editor}/><div className="deck-integrated-line"><div><span>Pedidos</span><strong>{shortMoney(commercial.ordersValue)}</strong><small>{commercial.goal ? `${pct(commercial.attainment)} da meta` : 'meta não cadastrada'}</small></div><i>→</i><div><span>Carteira aberta</span><strong>{shortMoney(commercial.openPortfolio)}</strong><small>potencial a faturar</small></div><i>→</i><div><span>Margem de contribuição</span><strong>{pct(financial.contributionMargin)}</strong><small>{shortMoney(financial.contribution)} para a estrutura</small></div><i>→</i><div><span>Resultado</span><strong>{shortMoney(financial.result)}</strong><small>{pct(financial.netMargin)} da receita</small></div></div><div className="deck-integrated-decisions"><section><span>COMERCIAL</span><EditableText as="p" editKey="integrated.commercial" value={`${uncovered > 0 ? `Gerar ${shortMoney(uncovered)} além da carteira atual.` : 'Converter a carteira que já cobre a meta.'} Proteger clientes-chave e atuar nas menores coberturas.`} editor={editor}/></section><section><span>MARGEM</span><EditableText as="p" editKey="integrated.margin" value={`Preservar a margem de contribuição em ${pct(financial.contributionMargin)} ou acima, acompanhando mix e negociações fora do padrão.`} editor={editor}/></section><section><span>LIQUIDEZ</span><EditableText as="p" editKey="integrated.cash" value={pos ? `Administrar ${shortMoney(pos.totalReceivable)} a receber contra ${shortMoney(pos.totalPayable)} a pagar, com liquidez de ${pos.currentRatio.toFixed(2).replace('.', ',')}x.` : 'Completar a posição financeira para orientar as decisões de liquidez.'} editor={editor}/></section></div></Slide>
 }
 
-function CommercialSlides({ data, financial, period, previousLabel, generatedAt, comparisonNoun, editor }) {
+function CommercialSlides({ data, period, previousLabel, generatedAt, comparisonNoun, editor }) {
   const total = 17
   const { current: cur, previous: prev, trajectory, trajectoryDaily } = data
   const maxSeller = Math.max(...cur.sellers.map(item => item.orders), 1)
@@ -174,11 +174,11 @@ function CommercialSlides({ data, financial, period, previousLabel, generatedAt,
     <Slide key="summary" page={2} total={total} tone="dark" className="deck-thesis">
       <span className="deck-kicker">RESUMO EXECUTIVO</span>
       <EditableText as="h2" editKey="comercial.summary.title" value={cur.ordersValue >= prev.ordersValue ? `Pedidos cresceram ${pct(Math.abs(variation(cur.ordersValue, prev.ordersValue)))} frente ao ${comparisonNoun}, para ${shortMoney(cur.ordersValue)}.` : `Pedidos recuaram ${pct(Math.abs(variation(cur.ordersValue, prev.ordersValue)))} frente ao ${comparisonNoun}, para ${shortMoney(cur.ordersValue)}.`} editor={editor} />
-      <div className="deck-thesis-metrics"><BigNumber label="Pedidos líquidos" value={shortMoney(cur.ordersValue)} note={<Delta current={cur.ordersValue} previous={prev.ordersValue} suffix={`vs. ${comparisonNoun}`} />} /><BigNumber label="Faturamento líquido" value={shortMoney(cur.billing)} note={<Delta current={cur.billing} previous={prev.billing} suffix={`vs. ${comparisonNoun}`} />} accent /><BigNumber label="Carteira aberta" value={shortMoney(cur.openPortfolio)} note={<small>potencial aguardando faturamento</small>} /></div>
+      <div className="deck-thesis-metrics"><BigNumber label="Pedidos líquidos" value={shortMoney(cur.ordersValue)} note={<Delta current={cur.ordersValue} previous={prev.ordersValue} suffix={`vs. ${comparisonNoun}`} />} /><BigNumber label="QTD de pedidos" value={`${(data.analytics.current.kg / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} t`} note={<Delta current={data.analytics.current.kg} previous={data.analytics.previous.kg} suffix={`vs. ${comparisonNoun}`} />} accent /><BigNumber label="Carteira aberta" value={shortMoney(cur.openPortfolio)} note={<small>pedidos pendentes em carteira</small>} /></div>
       <MetricStrip dark items={[
         { label: 'Ticket médio', value: shortMoney(cur.averageTicket), note: `${comparisonNoun}: ${shortMoney(prev.averageTicket)}` },
-        { label: 'Clientes faturados', value: cur.billedClients, note: `${comparisonNoun}: ${prev.billedClients}` },
-        { label: 'Maior cliente', value: pct(cur.topClientShare), note: 'participação no faturamento' },
+        { label: 'Clientes com pedidos', value: cur.orderClientCount, note: `${comparisonNoun}: ${prev.orderClientCount}` },
+        { label: 'Maior cliente', value: pct(cur.topClientShare), note: 'participação nos pedidos' },
         { label: 'Atingimento da meta', value: cur.goal ? pct(cur.attainment) : '—', note: prev.goal ? `${comparisonNoun}: ${pct(prev.attainment)}` : 'sem meta comparável' },
       ]} />
     </Slide>,
@@ -215,8 +215,8 @@ function CommercialSlides({ data, financial, period, previousLabel, generatedAt,
     </Slide>,
     <Slide key="client-health" page={13} total={total} className="deck-client-health">
       <SlideTitle eyebrow="SAÚDE E RETENÇÃO DA CARTEIRA" aside="recência + valor histórico" editKey="comercial.client_health.title" editor={editor}>{cur.forgottenClients.length ? `${shortMoney(forgottenHistoricalValue)} já foram comprados por clientes sem pedido no período.` : 'A carteira não possui clientes históricos sem pedido no período.'}</SlideTitle>
-      <MetricStrip items={[{ label: 'Clientes novos', value: enteredClients, note: 'primeira compra no histórico' }, { label: 'Reativados', value: reactivatedClients, note: `voltaram após o ${comparisonNoun}` }, { label: 'Recorrentes', value: retainedClients, note: 'compraram nos dois períodos' }, { label: 'Saíram no período', value: inactiveClients, note: `compraram no ${comparisonNoun}` }]} />
-      <div className="deck-forgotten-summary"><div><span>PRIORIDADES DE RETOMADA</span><strong>{cur.forgottenClients.length} clientes sem pedido</strong></div><p>Top 10 por histórico comprado, com recência para orientar a retomada comercial.</p></div>
+      <MetricStrip items={[{ label: 'Clientes novos', value: enteredClients, note: 'primeiro pedido desde jan/2026' }, { label: 'Reativados', value: reactivatedClients, note: `voltaram após o ${comparisonNoun}` }, { label: 'Recorrentes', value: retainedClients, note: 'pedidos nos dois períodos' }, { label: 'Saíram no período', value: inactiveClients, note: `pediram no ${comparisonNoun}` }]} />
+      <div className="deck-forgotten-summary"><div><span>PRIORIDADES DE RETOMADA</span><strong>{cur.forgottenClients.length} clientes sem pedido</strong></div><p>Top 10 pelo valor histórico de pedidos, com recência para orientar a retomada.</p></div>
       <div className="deck-retention-grid">
         {[cur.forgottenClients.slice(0,5), cur.forgottenClients.slice(5,10)].map((group, groupIndex) => <div className="deck-retention-column" key={groupIndex}>
           <div className="deck-retention-head"><span>Cliente</span><span>Histórico</span><span>Sem comprar</span></div>
@@ -228,7 +228,7 @@ function CommercialSlides({ data, financial, period, previousLabel, generatedAt,
           </div>})}
         </div>)}
       </div>
-      <div className="deck-forgotten-note">Total comprado considera o faturamento líquido acumulado disponível desde janeiro de 2026.</div>
+      <div className="deck-forgotten-note">Valor histórico considera pedidos líquidos da base disponível desde janeiro de 2026.</div>
     </Slide>,
     <Slide key="products" page={14} total={total} tone="dark">
       <SlideTitle eyebrow="MIX DE PRODUTOS" aside="pedidos do período" editKey="comercial.products.title" editor={editor}>Produtos que formaram os pedidos do período.</SlideTitle>
@@ -240,9 +240,23 @@ function CommercialSlides({ data, financial, period, previousLabel, generatedAt,
       <div className="deck-region-layout map"><BrazilSalesMap regions={cur.regions} /><div className="deck-region-list">{cur.regions.slice(0, 6).map((region, index) => <div key={region.name}><i style={{ background: COLORS[index % COLORS.length] }} /><strong>{region.name}</strong><span>{shortMoney(region.value)}</span><small>{cur.ordersValue ? pct(region.value / cur.ordersValue * 100) : '0%'}</small></div>)}</div></div>
     </Slide>,
     <Slide key="close" page={16} total={total} tone="dark" className="deck-close">
-      <span>RECOMENDAÇÕES COMERCIAIS</span><EditableText as="h2" editKey="comercial.close.title" value={cur.ordersValue < prev.ordersValue ? `Recuperar o ritmo: pedidos ${pct(Math.abs(variation(cur.ordersValue, prev.ordersValue)))} abaixo do ${comparisonNoun}.` : cur.openPortfolio > 0 ? `Converter a carteira de ${shortMoney(cur.openPortfolio)} e sustentar a geração de pedidos.` : 'Recompor a carteira de pedidos do próximo período.'} editor={editor} /><EditableText as="p" editKey="comercial.close.body" value={`1. Atacar o saldo de ${shortMoney(Math.max(cur.goal - cur.ordersValue, 0))} da meta de pedidos. 2. Proteger a receita dos principais clientes e ampliar a diversificação. 3. Replicar o mix e a execução dos vendedores líderes. 4. Completar a segmentação da carteira para orientar a prospecção.`} editor={editor} /><div><i /> direcionamento para o próximo ciclo</div>
+      <span>RECOMENDAÇÕES COMERCIAIS</span><EditableText as="h2" editKey="comercial.close.title" value={cur.ordersValue < prev.ordersValue ? `Recuperar o ritmo: pedidos ${pct(Math.abs(variation(cur.ordersValue, prev.ordersValue)))} abaixo do ${comparisonNoun}.` : cur.openPortfolio > 0 ? `Converter a carteira de ${shortMoney(cur.openPortfolio)} e sustentar a geração de pedidos.` : 'Recompor a carteira de pedidos do próximo período.'} editor={editor} /><EditableText as="p" editKey="comercial.close.body" value={`1. Atacar o saldo de ${shortMoney(Math.max(cur.goal - cur.ordersValue, 0))} da meta de pedidos. 2. Proteger os pedidos dos principais clientes e ampliar a diversificação. 3. Replicar o mix e a execução dos vendedores líderes. 4. Completar a segmentação da carteira para orientar a prospecção.`} editor={editor} /><div><i /> direcionamento para o próximo ciclo</div>
     </Slide>,
-    <IntegratedExecutiveSlide key="integrated" page={17} total={total} commercial={cur} financial={financial.current} period={period} editor={editor}/>,
+    <Slide key="commercial-decisions" page={17} total={total} tone="dark" className="deck-integrated">
+      <span className="deck-kicker">DIREÇÃO COMERCIAL · {period}</span>
+      <EditableText as="h2" editKey="comercial.decisions.title" value="Decisões baseadas em pedidos: crescer, diversificar e recuperar a carteira." editor={editor}/>
+      <div className="deck-integrated-line">
+        <div><span>Pedidos do período</span><strong>{shortMoney(cur.ordersValue)}</strong><small>{cur.goal ? pct(cur.attainment) + ' da meta' : 'sem meta'}</small></div><i>→</i>
+        <div><span>QTD em pedidos</span><strong>{(data.analytics.current.kg / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} t</strong><small>itens identificados em KG</small></div><i>→</i>
+        <div><span>Carteira em aberto</span><strong>{shortMoney(cur.openPortfolio)}</strong><small>pedidos pendentes</small></div><i>→</i>
+        <div><span>Clientes com pedidos</span><strong>{cur.orderClientCount}</strong><small>base do período</small></div>
+      </div>
+      <div className="deck-integrated-decisions">
+        <section><span>RECUPERAÇÃO</span><p>Priorizar {cur.forgottenClients.length} clientes sem pedido no período e avaliar o retorno por vendedor.</p></section>
+        <section><span>MIX DE PEDIDOS</span><p>Expandir o mix de categorias, olhando valor e QTD em Bovinos e Suínos.</p></section>
+        <section><span>EVOLUÇÃO</span><p>Confrontar trimestre a trimestre o valor e a QTD dos pedidos antes de ajustar as metas.</p></section>
+      </div>
+    </Slide>,
   ]
 }
 
@@ -510,33 +524,31 @@ function aggregateCommercialPeriod(bounds, range, ctx) {
   })
   sellerMap.forEach(seller => { seller.openPortfolio = openBySeller.get(seller.key) || 0 })
   sellerMap.forEach(seller => { seller.projectedOrders = seller.orders * projectionFactor })
-  const clientIds = [...new Set(periodDocs.filter(row => fiscalDocumentValue(row) > 0).map(row => row.partner_id).filter(Boolean))]
-  const firstBillingByClient = new Map()
-  ctx.docs.filter(row => row.partner_id && fiscalDocumentValue(row) > 0).forEach(row => {
-    if (!firstBillingByClient.has(row.partner_id) || row.issue_date < firstBillingByClient.get(row.partner_id)) firstBillingByClient.set(row.partner_id, row.issue_date)
-  })
-  const newClientIds = clientIds.filter(id => firstBillingByClient.get(id) >= startIso && firstBillingByClient.get(id) <= endIso)
-  const lifetimeBillingByClient = new Map()
-  const lifetimeBillingByName = new Map()
-  ctx.docs.filter(row => row.issue_date && row.issue_date <= endIso).forEach(row => {
-    const value = fiscalDocumentValue(row)
-    const farmId = ctx.farmByPartner.get(number(row.partner_id))?.id
-    const nameKey = normalizeClientName(row.partner_name)
-    if (farmId) lifetimeBillingByClient.set(farmId, (lifetimeBillingByClient.get(farmId) || 0) + value)
-    if (nameKey) lifetimeBillingByName.set(nameKey, (lifetimeBillingByName.get(nameKey) || 0) + value)
-  })
-  const currentOrderClients = new Set(periodOrders.map(row => row.farm_id || row.customer_name).filter(Boolean))
+  const orderClientKey = row => row.farm_id || normalizeClientName(row.customer_name || row.partner_name)
+  const clientIds = [...new Set(periodOrders.map(orderClientKey).filter(Boolean))]
+  const firstOrderByClient = new Map()
+  const historicalOrdersByClient = new Map()
+  const currentOrderClients = new Set(clientIds)
   const lastOrderByClient = new Map()
   ctx.orders.filter(row => row.sale_date && row.sale_date <= endIso && hasNetOrderValue(row)).forEach(row => {
-    const key = row.farm_id || row.customer_name
+    const key = orderClientKey(row)
     if (!key) return
-    const previous = lastOrderByClient.get(key)
-    if (!previous || row.sale_date > previous.lastOrder) lastOrderByClient.set(key, { key, name: row.customer_name || 'Cliente não identificado', lastOrder: row.sale_date })
+    const earliest = firstOrderByClient.get(key)
+    if (!earliest || row.sale_date < earliest) firstOrderByClient.set(key, row.sale_date)
+    historicalOrdersByClient.set(key, (historicalOrdersByClient.get(key) || 0) + netOrderValue(row))
+    const last = lastOrderByClient.get(key)
+    if (!last || row.sale_date > last.lastOrder) {
+      lastOrderByClient.set(key, { key, name: row.customer_name || 'Cliente não identificado', lastOrder: row.sale_date })
+    }
+  })
+  const newClientIds = clientIds.filter(id => {
+    const first = firstOrderByClient.get(id)
+    return first && first >= startIso && first <= endIso
   })
   const forgottenClients = [...lastOrderByClient.values()].filter(row => !currentOrderClients.has(row.key)).map(row => ({
     ...row,
     age: Math.max(0, Math.floor((range.end-new Date(`${row.lastOrder}T12:00:00`))/86400000)),
-    historicalValue: Math.max(lifetimeBillingByClient.get(row.key) || lifetimeBillingByName.get(normalizeClientName(row.name)) || 0, 0),
+    historicalValue: Math.max(historicalOrdersByClient.get(row.key) || 0, 0),
   })).sort((a,b)=>b.historicalValue-a.historicalValue || b.age-a.age)
 
   return {
@@ -732,11 +744,12 @@ function useClosingData(type, year, index) {
       const previousRange = boundsToRange(previousBounds)
       const fetchStartIso = iso(previousRange.start)
       const fetchEndIso = iso(currentRange.end)
+      const orderFetchEndIso = iso(new Date(Math.max(currentRange.end.getTime(), year === new Date().getFullYear() ? Date.now() : new Date(year, 11, 31).getTime())))
       const fiscalFetchEndIso = iso(new Date(Math.max(currentRange.end.getTime(), year === new Date().getFullYear() ? Date.now() : new Date(year, 11, 31).getTime())))
       const years = [...new Set([currentBounds.year, previousBounds.year])]
       try {
         const [ordersRes, docsRes, goalsRes, portfolioRes, farmsRes, profilesRes, dreRes, dreAccountsRes, balanceRes, managerialRes, maturityRes, classificationsRes] = await Promise.all([
-          supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', '2026-01-01').lte('sale_date', fetchEndIso),
+          supabaseAdmin.from('management_order_overview').select('*').gte('sale_date', '2026-01-01').lte('sale_date', orderFetchEndIso),
           supabaseAdmin.from('fiscal_documents').select('ultra_document_id,issue_date,document_total,movement_type,partner_id,partner_name,seller_id,ultra_salesman_id,salesman_name,fiscal_document_items(product_code,product_name,product_total,quantity,unit)').gte('issue_date', '2026-01-01').lte('issue_date', fiscalFetchEndIso),
           supabaseAdmin.from('goals').select('*').in('ano', years),
           supabaseAdmin.from('management_open_order_portfolio').select('id,ultra_order_number,sale_date,customer_name,seller_id,ultra_salesman_id,ultra_salesman_name,open_value'),
@@ -786,7 +799,7 @@ function useClosingData(type, year, index) {
         const trajectory = buildCommercialTrajectory(type, currentBounds, currentRange, previousBounds, orders)
         const focusQuarter = type === 'trimestral' ? index : year === new Date().getFullYear() ? Math.ceil((new Date().getMonth() + 1) / 3) : Math.ceil(currentBounds.endMonth / 3)
         const analytics = buildPresentationCommercialAnalytics({
-          documents: docs, classifications: classificationsRes.data || [],
+          orders, classifications: classificationsRes.data || [],
           currentRange, previousRange, year, focusQuarter,
         })
         const commercial = {
@@ -855,7 +868,7 @@ export default function Fechamentos() {
   const slides = useMemo(() => {
     if (!data.commercial || !data.financial) return []
     return type === 'comercial'
-      ? CommercialSlides({ data: data.commercial, financial: data.financial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun, editor })
+      ? CommercialSlides({ data: data.commercial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun, editor })
       : CFOFinancialSlides({ data: data.financial, commercial: data.commercial, period, previousLabel: previousLabelText, generatedAt, comparisonNoun, editor })
   }, [data.commercial, data.financial, type, period, previousLabelText, generatedAt, comparisonNoun, editor])
 
