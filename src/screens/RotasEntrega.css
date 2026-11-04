@@ -12,3 +12,5 @@
 .rt-location-edit input{min-height:34px;font-size:11px}
 .rt-location-edit small{font-size:10px;line-height:1.5;display:block;color:#8a7c6f;margin-top:8px}
 @media(max-width:650px){.rt-location-edit{margin-left:0}}
+
+.rt-engine-note{background:#f8f4ee;border:1px solid #ece1d4;padding:12px;border-radius:12px;margin-top:10px;display:flex;flex-direction:column;gap:4px}.rt-engine-note strong{font-size:11px;color:#aa5417}.rt-engine-note span,.rt-engine-note small{font-size:10px;line-height:1.5;color:#5c5249}
