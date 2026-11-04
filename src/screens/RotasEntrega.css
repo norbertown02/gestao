@@ -14,3 +14,13 @@
 @media(max-width:650px){.rt-location-edit{margin-left:0}}
 
 .rt-engine-note{background:#f8f4ee;border:1px solid #ece1d4;padding:12px;border-radius:12px;margin-top:10px;display:flex;flex-direction:column;gap:4px}.rt-engine-note strong{font-size:11px;color:#aa5417}.rt-engine-note span,.rt-engine-note small{font-size:10px;line-height:1.5;color:#5c5249}
+
+.rt-warning{display:block;margin-top:7px;font-size:10px;line-height:1.6;color:#a45a22}
+.rt-fleet{border:1px solid #eee0d2;background:#fbf8f4;border-radius:15px;padding:14px;margin:14px 0}
+.rt-fleet-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.rt-fleet-title strong{font-size:12px}.rt-vehicle{background:#fff;border:1px solid #ede6df;padding:12px;border-radius:12px;margin-bottom:9px}
+.rt-vehicle .rt-toggle{font-size:11px;margin:0 0 8px}.rt-vehicle .rt-field{margin-bottom:7px}
+.rt-vehicle-tabs{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:15px}
+.rt-vehicle-tab{background:#faf8f5;border:1px solid #e5dcd2;padding:12px 15px;border-radius:13px;cursor:pointer;display:flex;flex-direction:column;gap:5px;text-align:left;min-width:180px;color:#201c19}
+.rt-vehicle-tab strong{font-size:12px}.rt-vehicle-tab span{font-size:11px;color:#7e746a}
+.rt-vehicle-tab.selected{border-color:#e87722;background:#fff1e4;box-shadow:inset 3px 0 #e87722}
