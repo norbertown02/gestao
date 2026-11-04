@@ -5,6 +5,7 @@ import Topbar from '../components/Topbar'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import './RotasEntrega.css'
+import { optimizeRoute } from '../lib/routeOptimizer'
 
 const fmt = v => Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })
 const reais = v => Number(v || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' })
@@ -111,6 +112,7 @@ export default function RotasEntrega(){
  const [error,setError]=useState('')
  const [origin,setOrigin]=useState('Toledo, Paraná, Brasil')
  const [goBack,setGoBack]=useState(true)
+ const [objective,setObjective]=useState('duration')
  const [freight,setFreight]=useState('')
  const [date,setDate]=useState(nowDate)
  const [driver,setDriver]=useState('')
@@ -181,7 +183,8 @@ export default function RotasEntrega(){
     const table=await matrixRes.json()
     if(table.code!=='Ok'||table.durations.some(r=>r.some(x=>x===null)))throw new Error('Não foi possível calcular o trajeto rodoviário entre todos os pontos')
     const matrix=table.durations.map((row,i)=>row.map((duration,j)=>({duration,distance:table.distances?.[i]?.[j]})))
-    const path=nearestPath(matrix,goBack)
+    const solution=optimizeRoute(matrix,{returnHome:goBack,objective})
+    const path=solution.path
     const ordered=path.map(i=>i===0?null:stops[i-1]).filter(Boolean)
     const routeIndices=goBack?[...path,0]:path
     const orderedCoords=routeIndices.map(i=>coords[i])
@@ -190,7 +193,7 @@ export default function RotasEntrega(){
     const routeData=await res.json()
     if(routeData.code!=='Ok'||!routeData.routes?.length)throw new Error('Rota não encontrada')
     const result=routeData.routes[0]
-    setPlan({stops:ordered,geometry:result.geometry,km:result.distance/1000,minutes:result.duration/60,coordinates:orderedCoords,returnHome:goBack,origin,addresses:addresses,generatedAt:new Date().toISOString(),totalKg:kg,locationNotes:ordered.map(s=>({...positions[stops.findIndex(x=>x.id===s.id)+1],name:s.client?.name})),addressEdits:{...addressEdits},gpsEdits:{...gpsEdits}})
+    setPlan({stops:ordered,geometry:result.geometry,km:result.distance/1000,minutes:result.duration/60,coordinates:orderedCoords,returnHome:goBack,origin,addresses:addresses,generatedAt:new Date().toISOString(),totalKg:kg,optimization:solution,locationNotes:ordered.map(s=>({...positions[stops.findIndex(x=>x.id===s.id)+1],name:s.client?.name})),addressEdits:{...addressEdits},gpsEdits:{...gpsEdits}})
    }catch(e){setError(e.message||'Não foi possível calcular a rota. Verifique os endereços.')}
    finally{setWorking(false)}
  }
@@ -312,12 +315,13 @@ export default function RotasEntrega(){
      <div className="rt-pane-head"><div><h2>02 <span>Configure a viagem</span></h2><p>Origem, itinerário e custos operacionais.</p></div></div>
      <div className="rt-field"><label>Origem da viagem</label><input value={origin} onChange={e=>{setOrigin(e.target.value);invalidate()}}/></div>
      <div className="rt-field"><label>Data prevista</label><input type="date" value={date} onChange={e=>setDate(e.target.value)}/></div>
+     <div className="rt-field"><label>Objetivo de otimização</label><select value={objective} onChange={e=>{setObjective(e.target.value);invalidate()}}><option value="duration">Menor tempo de deslocamento</option><option value="distance">Menor distância percorrida (km)</option></select></div>
      <label className="rt-toggle"><input type="checkbox" checked={goBack} onChange={e=>{setGoBack(e.target.checked);invalidate()}}/> Incluir retorno ao ponto de origem</label>
      <div className="rt-two"><div className="rt-field"><label>Frete total (R$) · opcional</label><input placeholder="0,00" type="number" step="0.01" min="0" value={freight} onChange={e=>setFreight(e.target.value)}/></div><div className="rt-field"><label>Veículo / placa</label><input placeholder="Ex.: ABC-1D23" value={vehicle} onChange={e=>setVehicle(e.target.value)}/></div></div>
      <div className="rt-field"><label>Motorista</label><input placeholder="Nome do responsável" value={driver} onChange={e=>setDriver(e.target.value)}/></div>
      <div className="rt-field"><label>Observações de carregamento</label><textarea rows="2" placeholder="Orientações, contatos, restrições..." value={notes} onChange={e=>setNotes(e.target.value)}/></div>
      <button className="btn btn-primary rt-calc" onClick={optimize} disabled={working||!kg}><IconRoute size={20}/>{working?'Calculando trajetos...':'Otimizar rota de entrega'}</button>
-     <p className="rt-disclaimer">Distâncias por vias públicas, com cálculo estimado. Revise acessos rurais e restrições do veículo. A otimização considera tempo de percurso, não trânsito em tempo real.</p>
+     <p className="rt-disclaimer">Otimização exata para até 13 entregas; acima disso, busca avançada com múltiplas soluções. Distâncias estimadas por vias públicas, sem trânsito em tempo real, restrições de caminhão ou janelas de entrega. Confira os acessos rurais.</p>
     </section>
    </div>
    <section className="rt-result">
@@ -329,7 +333,7 @@ export default function RotasEntrega(){
       <div className="rt-stop"><span className="rt-stop-index rt-start">CD</span><div><strong>Saída • {plan.origin}</strong><small>Início da rota</small></div></div>
       {plan.stops.map((s,i)=><div className="rt-stop" key={s.id}><span className="rt-stop-index">{i+1}</span><div><strong>{s.client?.name||'Cliente'}</strong><small>{plan.addressEdits?.[s.id]||address(s.client)} · {fmt(s.total)} kg</small>{plan.locationNotes?.[i]?.approximate&&<small style={{color:'#b75b18',fontWeight:800}}>Localização aproximada — confirmar ponto GPS</small>}{s.orders.map(o=><div className="rt-stop-product" key={o.id}>{o.ultra_order_number||o.id}: {o.lines.map(i=>i.product+' ('+fmt(i.load)+' kg)').join(' · ')}</div>)}</div></div>)}
       {plan.returnHome&&<div className="rt-stop"><span className="rt-stop-index rt-start">CD</span><div><strong>Retorno ao CD</strong><small>{plan.origin}</small></div></div>}
-      <div className="rt-time"><IconArrowUpRight size={17}/> {fmt(plan.km)} km · aproximadamente {fmt(plan.minutes/60)} h de condução</div>
+      <div className="rt-time"><IconArrowUpRight size={17}/> {fmt(plan.km)} km · aproximadamente {fmt(plan.minutes/60)} h de condução</div><div className="rt-engine-note"><strong>Motor de otimização</strong><span>{plan.optimization?.method} · objetivo: {plan.optimization?.objective==='distance'?'menor quilometragem':'menor tempo'}</span><small>Melhoria frente à rota inicial: {fmt(plan.optimization?.improvementPct)}%. Uma melhoria de 0% indica que a rota inicial já era ótima ou não foi superada.</small></div>
      </div>
     </div>:<div className="rt-empty"><IconRoute size={44} stroke={1.3}/><strong>Sua próxima rota começa aqui</strong><span>Adicione os pedidos desejados e clique em otimizar.</span></div>}
    </section>
