@@ -5,7 +5,7 @@ import Topbar from '../components/Topbar'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import './RotasEntrega.css'
-import { optimizeRoute } from '../lib/routeOptimizer'
+import { renderRouteMapPdf } from '../lib/routePdfMap'
 import { optimizeFleet } from '../lib/fleetOptimizer'
 
 const fmt = v => Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })
@@ -112,22 +112,18 @@ export default function RotasEntrega(){
  const [working,setWorking]=useState(false)
  const [error,setError]=useState('')
  const [origin,setOrigin]=useState('Toledo, Paraná, Brasil')
- const [goBack,setGoBack]=useState(true)
+ const [goBack,setGoBack]=useState(false)
  const [objective,setObjective]=useState('duration')
  const [roadProfile,setRoadProfile]=useState('conservador')
- const [vehicles,setVehicles]=useState([{id:'v1',name:'Veículo 01',capacity:5000,enabled:true,fixedCost:0}])
+ const [vehicles,setVehicles]=useState([{id:'v1',name:'Veículo 01',capacity:5000,enabled:true,cost:''}])
  const [activeRoute,setActiveRoute]=useState(0)
- const [freight,setFreight]=useState('')
  const [date,setDate]=useState(nowDate)
- const [driver,setDriver]=useState('')
- const [vehicle,setVehicle]=useState('')
  const [notes,setNotes]=useState('')
  const [addressEdits,setAddressEdits]=useState({})
  const [gpsEdits,setGpsEdits]=useState({})
  const [plan,setPlan]=useState(null)
  const mapRef=useRef(null)
  const mapInstance=useRef(null)
- const selectedRef=useRef(null)
  const locations=useMemo(()=>Object.fromEntries(farms.map(f=>[f.id,f])),[farms])
  const refresh=async()=>{
   setLoading(true);setError('')
@@ -162,8 +158,8 @@ export default function RotasEntrega(){
  const chooseOrder=(r,checked)=>{setSelected(prev=>{const next={...prev};r.lines.forEach(i=>{next[i.key]=checked?i.available:0});return next});invalidate()}
  const allSelected=r=>r.lines.every(i=>num(selected[i.key])>eps)
  const missing=stops.filter(s=>!hasAddress(s.client)&&!parseCoords(gpsEdits[s.id]))
- const editVehicle=(id,field,value)=>{setVehicles(prev=>prev.map(v=>v.id===id?{...v,[field]:value}:v));invalidate()}
- const addVehicle=()=>{setVehicles(prev=>[...prev,{id:'v'+Date.now(),name:'Veículo '+String(prev.length+1).padStart(2,'0'),capacity:3000,enabled:true,fixedCost:0}]);invalidate()}
+ const editVehicle=(id,field,value)=>{setVehicles(prev=>prev.map(v=>v.id===id?{...v,[field]:value}:v));if(field!=='cost')invalidate()}
+ const addVehicle=()=>{setVehicles(prev=>[...prev,{id:'v'+Date.now(),name:'Veículo '+String(prev.length+1).padStart(2,'0'),capacity:3000,enabled:true,cost:''}]);invalidate()}
  const activePlan=plan?.routes?.[Math.min(activeRoute,(plan?.routes?.length||1)-1)]||null
  async function optimize(){
    setError('');setPlan(null)
@@ -241,61 +237,81 @@ export default function RotasEntrega(){
  async function pdf(){
   if(!activePlan)return
   const doc=new jsPDF('p','mm','a4')
-  const W=210, orange=[232,119,34],dark=[16,16,16]
-  doc.setFillColor(...dark);doc.rect(0,0,W,47,'F')
-  doc.setFillColor(...orange);doc.rect(0,44,W,3,'F')
-  doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text('NUTRIALLE  /  GESTÃO LOGÍSTICA',14,14)
-  doc.setFontSize(21);doc.text('Rota de entrega',14,28)
-  doc.setFontSize(9);doc.text(activePlan.vehicle.name+' · capacidade '+fmt(activePlan.vehicle.capacity)+' kg',14,33)
-  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text('Programação '+date.split('-').reverse().join('/')+'   •   '+activePlan.stops.length+' paradas',14,41)
-  doc.setTextColor(...dark)
-  const allocatedFreight=freight===''?null:plan.km>0?num(freight)*(activePlan.km/plan.km):0
-  const summary=[['Carga',fmt(activePlan.totalKg)+' kg'],['Distância',fmt(activePlan.km)+' km'],['Tempo estimado',fmt(activePlan.minutes/60)+' h'],['Frete estimado*',allocatedFreight===null?'Não informado':reais(allocatedFreight)]]
-  summary.forEach((x,i)=>{const xx=14+(i%2)*93,yy=57+Math.floor(i/2)*16;doc.setFontSize(8);doc.setTextColor(118);doc.text(x[0],xx,yy);doc.setTextColor(20);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(x[1],xx,yy+6)})
-  const costY=94
-  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('Frete/kg: '+(allocatedFreight!==null&&activePlan.totalKg>0?reais(allocatedFreight/activePlan.totalKg):'—'),14,costY)
-  doc.text('Frete/km: '+(allocatedFreight!==null&&activePlan.km>0?reais(allocatedFreight/activePlan.km):'—'),100,costY)
-  doc.setFontSize(9);doc.text('Saída: '+activePlan.origin,14,102)
-  doc.text('Motorista: '+(driver||'Não informado')+'     Veículo: '+(vehicle||'Não informado'),14,109)
-  let startY=115
-  // Mapa no PDF: captura apenas quando tiles permitem CORS; nunca bloqueia o relatório.
-  if(mapRef.current){
-   try{
-    const {default:html2canvas}=await import('html2canvas')
-    const canvas=await html2canvas(mapRef.current,{useCORS:true,allowTaint:false,backgroundColor:'#f2f0ec',logging:false,scale:1})
-    const img=canvas.toDataURL('image/jpeg',.78)
-    doc.addImage(img,'JPEG',14,117,182,66)
-    startY=190
-   }catch{
-     // Sempre oferece representação geográfica vetorial mesmo quando o mapa de tiles bloqueia captura.
-     const coords=activePlan.geometry.coordinates
-     const minLon=Math.min(...coords.map(c=>c[0])),maxLon=Math.max(...coords.map(c=>c[0]))
-     const minLat=Math.min(...coords.map(c=>c[1])),maxLat=Math.max(...coords.map(c=>c[1]))
-     const xy=([lon,lat])=>[18+(lon-minLon)/Math.max(.0001,maxLon-minLon)*173,122+(maxLat-lat)/Math.max(.0001,maxLat-minLat)*52]
-     doc.setFillColor(247,244,240);doc.roundedRect(14,116,182,65,3,3,'F')
-     doc.setDrawColor(232,119,34);doc.setLineWidth(.9)
-     for(let i=1;i<coords.length;i++){const a=xy(coords[i-1]),b=xy(coords[i]);doc.line(a[0],a[1],b[0],b[1])}
-     const anchors=[activePlan.coordinates[0],...activePlan.coordinates.slice(1,1+activePlan.stops.length)]
-     anchors.forEach((coord,i)=>{const [x,y]=xy(coord);doc.setFillColor(i===0?20:232,i===0?20:119,i===0?20:34);doc.circle(x,y,2.2,'F');doc.setFontSize(7);doc.setTextColor(20);doc.text(i===0?'CD':String(i),x+3,y-2)})
-     doc.setFontSize(7);doc.setTextColor(110);doc.text('Traçado geográfico da rota (sem mapa-base)',18,178)
-     startY=190
-    }
+  const orange=[232,119,34], dark=[17,17,17], muted=[117,107,97]
+  const label=(title,value,x,y)=>{doc.setTextColor(...muted);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text(title,x,y);doc.setTextColor(...dark);doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(value,x,y+7)}
+  const currentVehicle=vehicles.find(v=>v.id===activePlan.vehicle.id)
+  const frete=currentVehicle?.cost===''||currentVehicle?.cost==null?null:num(currentVehicle.cost)
+  doc.setFillColor(...dark);doc.rect(0,0,210,46,'F')
+  doc.setFillColor(...orange);doc.rect(0,43,210,3,'F')
+  doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text('NUTRIALLE   /   PLANEJAMENTO DE ENTREGAS',14,13)
+  doc.setFontSize(23);doc.text('Rota de entrega',14,27)
+  doc.setFont('helvetica','normal');doc.setFontSize(9)
+  doc.text(activePlan.vehicle.name+'  |  '+date.split('-').reverse().join('/')+'  |  '+activePlan.stops.length+' paradas',14,37)
+  label('CARGA',fmt(activePlan.totalKg)+' kg',14,55)
+  label('DISTÂNCIA',fmt(activePlan.km)+' km',62,55)
+  label('TEMPO DE CONDUÇÃO',fmt(activePlan.minutes/60)+' h',112,55)
+  label('FRETE',frete===null?'Não informado':reais(frete),161,55)
+  doc.setTextColor(84);doc.setFont('helvetica','normal');doc.setFontSize(9)
+  doc.text('Frete/kg: '+(frete!==null&&activePlan.totalKg?reais(frete/activePlan.totalKg):'—'),14,75)
+  doc.text('Frete/km: '+(frete!==null&&activePlan.km?reais(frete/activePlan.km):'—'),91,75)
+  doc.text('Capacidade: '+fmt(activePlan.vehicle.capacity)+' kg',155,75)
+  doc.setFontSize(9);doc.setTextColor(...dark);doc.setFont('helvetica','bold');doc.text('ORIGEM',14,84)
+  doc.setFont('helvetica','normal');doc.setFontSize(8.5)
+  doc.text(doc.splitTextToSize(activePlan.origin,176).slice(0,2),14,90)
+  try{
+   const map=await renderRouteMapPdf(activePlan)
+   doc.addImage(map.image,'JPEG',14,100,182,90,undefined,'FAST')
+  }catch(e){
+   console.error('Mapa do PDF:',e)
+   doc.setFillColor(245,241,237);doc.roundedRect(14,100,182,90,3,3,'F')
+   doc.setTextColor(...muted);doc.setFontSize(10);doc.text('Mapa indisponível. Consulte a sequência de paradas abaixo.',20,143)
   }
-  doc.setTextColor(...dark);doc.setFontSize(11);doc.setFont('helvetica','bold');doc.text('Sequência de entregas',14,startY)
-  const lines=activePlan.stops.flatMap((stop,i)=>stop.orders.flatMap(o=>o.lines.map(line=>[i+1,stop.client?.name||'Cliente',stop.client?.city||'—',o.ultra_order_number||o.id,line.product,fmt(line.load)+' kg'])))
-  autoTable(doc,{startY:startY+5,head:[['#','Cliente','Cidade','Pedido','Produto','Quantidade']],body:lines,theme:'striped',
-   styles:{fontSize:7,cellPadding:2.4,overflow:'linebreak'},headStyles:{fillColor:dark,textColor:[255,255,255]},alternateRowStyles:{fillColor:[249,246,242]},
-   columnStyles:{0:{cellWidth:9},1:{cellWidth:42},2:{cellWidth:27},3:{cellWidth:25},4:{cellWidth:46},5:{cellWidth:28}},
-   margin:{left:14,right:14,bottom:23}})
-  let y=(doc.lastAutoTable?.finalY||startY+15)+9
-  if(y>265){doc.addPage();y=18}
-  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('Observações:',14,y)
-  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text(doc.splitTextToSize([notes||'Conferir volumes, documentos fiscais e condições de descarga antes da saída.',...(activePlan.locationNotes||[]).filter(p=>p.approximate).map(p=>'ATENÇÃO: '+p.name+' - localização aproximada; confirmar ponto de entrega.')].join(' | '),180),14,y+6)
-  // Frete total é rateado somente para estimativa, pela quilometragem de cada veículo.
+  doc.setTextColor(...dark);doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text('Roteiro e pedidos',14,201)
+  doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(...muted);doc.text('Paradas na ordem otimizada • endereço cadastrado e quantidades planejadas',14,207)
+  const rows=[]
+  activePlan.stops.forEach((stop,i)=>{
+   const addr=activePlan.addressEdits?.[stop.id]||address(stop.client)
+   rows.push([{content:String(i+1).padStart(2,'0')+'   '+(stop.client?.name||'Cliente sem nome')+'\n'+addr+
+    (activePlan.locationNotes?.[i]?.approximate?'\nATENÇÃO: localização aproximada; confirmar acesso.':''),
+    colSpan:4,styles:{fillColor:[249,238,228],textColor:[37,31,25],fontStyle:'bold',fontSize:8.4,cellPadding:{top:4,bottom:4,left:4,right:4}}}])
+   stop.orders.forEach(o=>{
+    o.lines.forEach(line=>rows.push([
+      {content:'PEDIDO',styles:{textColor:[135,125,116],fontSize:7}},
+      {content:String(o.ultra_order_number||o.id),styles:{fontStyle:'bold'}},
+      {content:line.product},
+      {content:fmt(line.load)+' kg',styles:{halign:'right',fontStyle:'bold'}}
+    ]))
+   })
+  })
+  autoTable(doc,{
+   startY:213,head:[['TIPO','Nº PEDIDO','PRODUTO','QUANTIDADE']],body:rows,theme:'plain',
+   margin:{left:14,right:14,bottom:19,top:17},
+   styles:{fontSize:8,cellPadding:3,overflow:'linebreak',lineColor:[237,232,225],lineWidth:0.12,valign:'middle'},
+   headStyles:{fillColor:dark,textColor:[255,255,255],fontStyle:'bold',fontSize:7.5},
+   columnStyles:{0:{cellWidth:24},1:{cellWidth:34},2:{cellWidth:83},3:{cellWidth:41}},
+   didDrawPage:()=>{}
+  })
+  let y=(doc.lastAutoTable?.finalY||213)+9
+  if(y>265){doc.addPage();y=23}
+  doc.setTextColor(...dark);doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('Observações',14,y)
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(90)
+  doc.text(doc.splitTextToSize(notes||'Conferir volumes, documentos fiscais e condições de descarga.',175),14,y+6)
+  const warning=activePlan.locationNotes?.some(x=>x.approximate)
+  if(warning){
+   y+=16
+   if(y>270){doc.addPage();y=23}
+   doc.setTextColor(166,76,25);doc.setFont('helvetica','bold');doc.setFontSize(8)
+   doc.text(doc.splitTextToSize('ATENÇÃO: há endereços aproximados. Conferir o ponto de entrega antes da viagem.',175),14,y)
+  }
   const count=doc.getNumberOfPages()
-  for(let p=1;p<=count;p++){doc.setPage(p);doc.setTextColor(130);doc.setFontSize(8);doc.text('Nutrialle | km estimados; vias não verificadas | *frete rateado por km, não faturado',14,287);doc.text(p+'/'+count,195,287,{align:'right'})}
-  if(mapsUrl)doc.link(14,100,180,7,{url:mapsUrl})
-  doc.save('nutrialle-rota-'+activePlan.vehicle.name.replace(/[^a-z0-9-]/gi,'-')+'-'+date+'.pdf')
+  for(let p=1;p<=count;p++){
+   doc.setPage(p);doc.setDrawColor(235,229,222);doc.line(14,282,196,282)
+   doc.setFont('helvetica','normal');doc.setTextColor(125);doc.setFontSize(7)
+   doc.text('NUTRIALLE  •  Distâncias estimadas. Confirmar acessos e condições das vias.',14,288)
+   doc.text(p+' / '+count,196,288,{align:'right'})
+  }
+  if(mapsUrl)doc.link(14,100,182,90,{url:mapsUrl})
+  doc.save('Nutrialle-Rota-'+activePlan.vehicle.name.replace(/[^a-z0-9-]/gi,'-')+'-'+date+'.pdf')
  }
  return <>
   <Topbar title="Rotas de entrega" subtitle="Planejamento logístico · pedidos, carregamento e frete" />
@@ -308,7 +324,7 @@ export default function RotasEntrega(){
     <Metric label="Carga selecionada" value={fmt(kg)+' kg'} note={fmt(kg/1000)+' toneladas' } Icon={IconPackage}/>
     <Metric label="Clientes na rota" value={clientCount} note={chosen.length+' pedidos selecionados'} Icon={IconMapPin}/>
     <Metric label="Distância rodoviária" value={plan?fmt(plan.km)+' km':'—'} note={plan?'Percurso calculado':'Calcule a rota para obter'} Icon={IconRoute}/>
-    <Metric label="Custo do frete / kg" value={plan&&freight!==''&&kg?reais(num(freight)/kg):'—'} note={plan&&freight!==''&&plan.km?reais(num(freight)/plan.km)+' / km':'Informe o frete, se desejar'} Icon={IconCurrencyReal}/>
+    <Metric label="Custo do frete / kg" value={plan&&vehicles.some(v=>plan.routes.some(r=>r.vehicle.id===v.id)&&v.cost!=='')&&kg?reais(vehicles.filter(v=>plan.routes.some(r=>r.vehicle.id===v.id)).reduce((sum,v)=>sum+num(v.cost),0)/kg):'—'} note="Somatório dos fretes informados por veículo" Icon={IconCurrencyReal}/>
    </div>
    {error&&<div className="rt-error"><IconAlertTriangle size={19}/>{error}</div>}
    <div className="rt-layout">
@@ -333,23 +349,27 @@ export default function RotasEntrega(){
     </section>
     <section className="rt-pane rt-config">
      <div className="rt-pane-head"><div><h2>02 <span>Configure a viagem</span></h2><p>Origem, itinerário e custos operacionais.</p></div></div>
-     <div className="rt-field"><label>Origem da viagem</label><input value={origin} onChange={e=>{setOrigin(e.target.value);invalidate()}}/></div>
-     <div className="rt-field"><label>Data prevista</label><input type="date" value={date} onChange={e=>setDate(e.target.value)}/></div>
-     <div className="rt-field"><label>Preferência de vias</label><select value={roadProfile} onChange={e=>{setRoadProfile(e.target.value);invalidate()}}><option value="conservador">Conservadora — preferir vias principais</option><option value="equilibrado">Equilibrada</option><option value="rural">Acesso rural permitido</option></select><small className="rt-warning">Preferência informativa nesta fase. O serviço rodoviário atual não possui filtros confiáveis de pavimentação, peso ou altura. Exige conferência manual.</small></div>
-     <div className="rt-fleet"><div className="rt-fleet-title"><strong>Veículos disponíveis</strong><button className="btn btn-ghost btn-sm" type="button" onClick={addVehicle}>+ Adicionar veículo</button></div>
-       {vehicles.map(v=><div className="rt-vehicle" key={v.id}>
-        <label className="rt-toggle"><input type="checkbox" checked={v.enabled} onChange={e=>editVehicle(v.id,'enabled',e.target.checked)}/> Usar este veículo</label>
-        <div className="rt-two"><div className="rt-field"><label>Identificação</label><input value={v.name} onChange={e=>editVehicle(v.id,'name',e.target.value)}/></div>
-         <div className="rt-field"><label>Capacidade (kg)</label><input type="number" min="1" step="1" value={v.capacity} onChange={e=>editVehicle(v.id,'capacity',e.target.value)}/></div></div>
-        <div className="rt-field"><label>Custo fixo estimado de utilização (R$, opcional)</label><input type="number" min="0" step=".01" value={v.fixedCost} onChange={e=>editVehicle(v.id,'fixedCost',e.target.value)}/></div>
-        {vehicles.length>1&&<button className="btn btn-ghost btn-sm" onClick={()=>{setVehicles(prev=>prev.filter(x=>x.id!==v.id));invalidate()}}>Remover veículo</button>}
-       </div>)}
+     <div className="rt-field"><label>Ponto de saída</label><input value={origin} onChange={e=>{setOrigin(e.target.value);invalidate()}}/></div>
+     <div className="rt-fleet rt-fleet-simple">
+      <div className="rt-fleet-title"><div><strong>Veículos da rota</strong><small>Informe apenas a capacidade e, se quiser, o valor do frete de cada um.</small></div><button className="btn btn-ghost btn-sm" type="button" onClick={addVehicle}>+ Veículo</button></div>
+      {vehicles.map((v,i)=><div className="rt-vehicle rt-vehicle-simple" key={v.id}>
+       <div className="rt-vehicle-heading"><strong>{v.name}</strong>{vehicles.length>1&&<button className="rt-remove-vehicle" type="button" onClick={()=>{setVehicles(prev=>prev.filter(x=>x.id!==v.id));invalidate()}}>Remover</button>}</div>
+       <div className="rt-two">
+        <div className="rt-field"><label>Capacidade (kg)</label><input aria-label={'Capacidade '+v.name} type="number" min="1" step="1" value={v.capacity} onChange={e=>editVehicle(v.id,'capacity',e.target.value)}/></div>
+        <div className="rt-field"><label>Frete do veículo (R$) <span style={{fontWeight:400}}>· opcional</span></label><input aria-label={'Frete '+v.name} type="number" min="0" step=".01" placeholder="Não informado" value={v.cost} onChange={e=>editVehicle(v.id,'cost',e.target.value)}/></div>
+       </div>
+      </div>)}
      </div>
-     <div className="rt-field"><label>Objetivo de otimização</label><select value={objective} onChange={e=>{setObjective(e.target.value);invalidate()}}><option value="duration">Menor tempo de deslocamento</option><option value="distance">Menor distância percorrida (km)</option></select></div>
-     <label className="rt-toggle"><input type="checkbox" checked={goBack} onChange={e=>{setGoBack(e.target.checked);invalidate()}}/> Incluir retorno ao ponto de origem</label>
-     <div className="rt-two"><div className="rt-field"><label>Frete total (R$) · opcional</label><input placeholder="0,00" type="number" step="0.01" min="0" value={freight} onChange={e=>setFreight(e.target.value)}/></div><div className="rt-field"><label>Veículo / placa</label><input placeholder="Ex.: ABC-1D23" value={vehicle} onChange={e=>setVehicle(e.target.value)}/></div></div>
-     <div className="rt-field"><label>Motorista</label><input placeholder="Nome do responsável" value={driver} onChange={e=>setDriver(e.target.value)}/></div>
-     <div className="rt-field"><label>Observações de carregamento</label><textarea rows="2" placeholder="Orientações, contatos, restrições..." value={notes} onChange={e=>setNotes(e.target.value)}/></div>
+     <details className="rt-advanced">
+      <summary>Mais opções de rota</summary>
+      <div className="rt-advanced-content">
+       <div className="rt-field"><label>Data prevista</label><input type="date" value={date} onChange={e=>setDate(e.target.value)}/></div>
+       <div className="rt-field"><label>Otimizar por</label><select value={objective} onChange={e=>{setObjective(e.target.value);invalidate()}}><option value="duration">Menor tempo de deslocamento</option><option value="distance">Menor distância percorrida</option></select></div>
+       <label className="rt-toggle"><input type="checkbox" checked={goBack} onChange={e=>{setGoBack(e.target.checked);invalidate()}}/> Incluir retorno ao CD</label>
+       <div className="rt-field"><label>Preferência de vias (informativa)</label><select value={roadProfile} onChange={e=>{setRoadProfile(e.target.value);invalidate()}}><option value="conservador">Conservadora</option><option value="equilibrado">Equilibrada</option><option value="rural">Acesso rural</option></select><small className="rt-warning">A preferência não altera o motor rodoviário atual; confira estradas rurais e restrições de caminhões.</small></div>
+       <div className="rt-field"><label>Observações para o PDF</label><textarea rows="2" placeholder="Orientações de entrega..." value={notes} onChange={e=>setNotes(e.target.value)}/></div>
+      </div>
+     </details>
      <button className="btn btn-primary rt-calc" onClick={optimize} disabled={working||!kg}><IconRoute size={20}/>{working?'Calculando trajetos...':'Otimizar rota de entrega'}</button>
      <p className="rt-disclaimer">Motor próprio para múltiplos veículos, com capacidade em kg e melhor distribuição aproximada de clientes. As restrições de estrada, peso, ponte e pavimentação NÃO estão aplicadas ao percurso: confira manualmente antes da viagem.</p>
     </section>
@@ -359,7 +379,7 @@ export default function RotasEntrega(){
     {activePlan&&<div className="rt-actions"><a href={mapsUrl} target="_blank" rel="noreferrer" className="btn btn-ghost"><IconExternalLink size={17}/> Navegar no Maps</a><button className="btn btn-primary" onClick={pdf}><IconFileTypePdf size={18}/> PDF deste veículo</button></div>}</div>
     {plan?.locationNotes?.some(x=>x.approximate)&&<div className="rt-error"><IconAlertTriangle size={18}/> Há localizações aproximadas. Confira as entradas das propriedades antes de enviar veículos.</div>}
     {plan&&<div className="rt-error"><IconAlertTriangle size={18}/> A preferência de estrada é apenas uma indicação: os dados rodoviários atuais não garantem qualidade, pavimentação nem passagem de caminhões. Confirme os trajetos com o motorista.</div>}
-    {plan&&<div className="rt-vehicle-tabs">{plan.routes.map((r,i)=><button type="button" key={r.vehicle.id} onClick={()=>setActiveRoute(i)} className={'rt-vehicle-tab '+(activeRoute===i?'selected':'')}><strong>{r.vehicle.name}</strong><span>{fmt(r.totalKg)} kg / {fmt(r.vehicle.capacity)} kg</span><span>{fmt(r.km)} km · {fmt(r.minutes/60)} h</span></button>)}</div>}
+    {plan&&<div className="rt-vehicle-tabs">{plan.routes.map((r,i)=><button type="button" key={r.vehicle.id} onClick={()=>setActiveRoute(i)} className={'rt-vehicle-tab '+(activeRoute===i?'selected':'')}><strong>{r.vehicle.name}</strong><span>{fmt(r.totalKg)} kg / {fmt(r.vehicle.capacity)} kg</span><span>{fmt(r.km)} km · {fmt(r.minutes/60)} h</span><span>{vehicles.find(v=>v.id===r.vehicle.id)?.cost!==''?reais(num(vehicles.find(v=>v.id===r.vehicle.id)?.cost))+' de frete':'Frete não informado'}</span></button>)}</div>}
     {activePlan?<div className="rt-route-grid">
      <div className="rt-map" ref={mapRef}/>
      <div className="rt-stops">
