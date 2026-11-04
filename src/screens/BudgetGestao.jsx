@@ -8,6 +8,7 @@ import {
   IconSend, IconShieldCheck, IconUsers, IconX, IconRefresh, IconTrendingUp, IconTrendingDown
 } from '@tabler/icons-react'
 import BudgetExecutiveBreakdown from './BudgetExecutiveBreakdown'
+import BudgetMonthlyDetail from './BudgetMonthlyDetail'
 import './BudgetGestao.css'
 
 const fmt = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -53,6 +54,8 @@ export default function BudgetGestao() {
   const [items, setItems] = useState([])
   const [sellers, setSellers] = useState([])
   const [products, setProducts] = useState([])
+  const [farms, setFarms] = useState([])
+  const [prospects, setProspects] = useState([])
   const [categories, setCategories] = useState([])
   const [classifications, setClassifications] = useState([])
   const [billedProducts, setBilledProducts] = useState([])
@@ -74,7 +77,7 @@ export default function BudgetGestao() {
   async function reload() {
     if (!manager) return
     setLoading(true)
-    const [c, a, i, p, pr, cats, cls, bs] = await Promise.all([
+    const [c, a, i, p, pr, cats, cls, bs, fm, bp] = await Promise.all([
       supabase.from('budget_cycles').select('*').order('created_at', { ascending: false }),
       supabase.from('budget_cycle_sellers').select('*'),
       supabase.from('budget_items').select('*'),
@@ -83,8 +86,10 @@ export default function BudgetGestao() {
       supabase.from('product_categories').select('id,name'),
       supabase.from('product_commercial_classifications').select('codproduto,codproduto_clas,market,segment,category'),
       supabase.rpc('budget_fiscal_product_baselines'),
+      supabase.from('farms').select('id,name'),
+      supabase.from('budget_prospects').select('id,name,cycle_id,seller_id'),
     ])
-    const error = [c, a, i, p, pr, cats, cls, bs].find(r => r.error)?.error
+    const error = [c, a, i, p, pr, cats, cls, bs, fm, bp].find(r => r.error)?.error
     if (error) setNotice({ text: 'Não foi possível atualizar os dados: ' + error.message, kind: 'error' })
     setCycles(c.data || [])
     setAssignments(a.data || [])
@@ -98,6 +103,8 @@ export default function BudgetGestao() {
         && Number(p.ultra_salesman_id) > 0)
       .sort((x, y) => x.name.localeCompare(y.name, 'pt-BR')))
     setProducts(pr.data || [])
+    setFarms(fm.data || [])
+    setProspects(bp.data || [])
     setCategories(cats.data || [])
     setClassifications(cls.data || [])
     setBilledProducts(bs.data || [])
@@ -437,6 +444,16 @@ export default function BudgetGestao() {
               })}
               {!people.length && <div className="bgx-empty-inline">Nenhum participante vinculado a este ciclo.</div>}
             </div>
+            <BudgetMonthlyDetail
+              key={'monthly-' + activeCycle}
+              cycle={selectedCycle}
+              assignments={people}
+              budgetItems={cycleItems}
+              sellers={sellers}
+              products={products}
+              farms={farms}
+              prospects={prospects.filter(p => p.cycle_id === activeCycle)}
+            />
             <BudgetExecutiveBreakdown
               key={activeCycle}
               cycle={selectedCycle}
