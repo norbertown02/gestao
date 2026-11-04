@@ -23,6 +23,7 @@ import {
   IconShieldCheck,
   IconCurrencyDollar,
   IconSitemap,
+  IconTruckDelivery,
 } from '@tabler/icons-react'
 import { useAuth } from '../lib/useAuth'
 import { supabase } from '../lib/supabase'
@@ -55,6 +56,7 @@ const NAV = [
   { to: '/produtos', label: 'Produtos', Icon: IconBuildingStore },
   { to: '/clientes-inteligencia', label: 'Inteligência de Clientes', Icon: IconChartBar },
   { to: '/estoque', label: 'Estoque', Icon: IconBox },
+  { to: '/rotas-entrega', label: 'Rotas de Entrega', Icon: IconTruckDelivery },
   { to: '/fechamentos', label: 'Apresentações', Icon: IconPresentation, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
 
   { section: 'Equipe comercial' },
