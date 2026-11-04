@@ -249,11 +249,12 @@ export default function RotasEntrega(){
   doc.setFontSize(9);doc.text(activePlan.vehicle.name+' · capacidade '+fmt(activePlan.vehicle.capacity)+' kg',14,33)
   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text('Programação '+date.split('-').reverse().join('/')+'   •   '+activePlan.stops.length+' paradas',14,41)
   doc.setTextColor(...dark)
-  const summary=[['Carga',fmt(activePlan.totalKg)+' kg'],['Distância',fmt(activePlan.km)+' km'],['Tempo estimado',fmt(activePlan.minutes/60)+' h'],['Frete',freight===''?'Não informado':reais(num(freight))]]
+  const allocatedFreight=freight===''?null:plan.km>0?num(freight)*(activePlan.km/plan.km):0
+  const summary=[['Carga',fmt(activePlan.totalKg)+' kg'],['Distância',fmt(activePlan.km)+' km'],['Tempo estimado',fmt(activePlan.minutes/60)+' h'],['Frete estimado*',allocatedFreight===null?'Não informado':reais(allocatedFreight)]]
   summary.forEach((x,i)=>{const xx=14+(i%2)*93,yy=57+Math.floor(i/2)*16;doc.setFontSize(8);doc.setTextColor(118);doc.text(x[0],xx,yy);doc.setTextColor(20);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(x[1],xx,yy+6)})
   const costY=94
-  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('Frete/kg: '+(freight!==''&&activePlan.totalKg>0?reais(num(freight)/activePlan.totalKg):'—'),14,costY)
-  doc.text('Frete/km: '+(freight!==''&&activePlan.km>0?reais(num(freight)/activePlan.km):'—'),100,costY)
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('Frete/kg: '+(allocatedFreight!==null&&activePlan.totalKg>0?reais(allocatedFreight/activePlan.totalKg):'—'),14,costY)
+  doc.text('Frete/km: '+(allocatedFreight!==null&&activePlan.km>0?reais(allocatedFreight/activePlan.km):'—'),100,costY)
   doc.setFontSize(9);doc.text('Saída: '+activePlan.origin,14,102)
   doc.text('Motorista: '+(driver||'Não informado')+'     Veículo: '+(vehicle||'Não informado'),14,109)
   let startY=115
@@ -290,9 +291,9 @@ export default function RotasEntrega(){
   if(y>265){doc.addPage();y=18}
   doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('Observações:',14,y)
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text(doc.splitTextToSize([notes||'Conferir volumes, documentos fiscais e condições de descarga antes da saída.',...(activePlan.locationNotes||[]).filter(p=>p.approximate).map(p=>'ATENÇÃO: '+p.name+' - localização aproximada; confirmar ponto de entrega.')].join(' | '),180),14,y+6)
-  doc.setTextColor(130);doc.setFontSize(8);doc.text('Perfil preferido: '+(plan.roadProfile||'não informado')+'. Perfil ainda não aplicado ao motor rodoviário.',14,281)
+  // Frete total é rateado somente para estimativa, pela quilometragem de cada veículo.
   const count=doc.getNumberOfPages()
-  for(let p=1;p<=count;p++){doc.setPage(p);doc.setTextColor(130);doc.setFontSize(8);doc.text('Nutrialle • Planejamento logístico | Distância estimada, sujeita a condições da via',14,287);doc.text(p+'/'+count,195,287,{align:'right'})}
+  for(let p=1;p<=count;p++){doc.setPage(p);doc.setTextColor(130);doc.setFontSize(8);doc.text('Nutrialle | km estimados; vias não verificadas | *frete rateado por km, não faturado',14,287);doc.text(p+'/'+count,195,287,{align:'right'})}
   if(mapsUrl)doc.link(14,100,180,7,{url:mapsUrl})
   doc.save('nutrialle-rota-'+activePlan.vehicle.name.replace(/[^a-z0-9-]/gi,'-')+'-'+date+'.pdf')
  }
