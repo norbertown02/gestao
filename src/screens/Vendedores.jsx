@@ -4,6 +4,7 @@ import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import { isVendedorValido, useVendedores } from '../lib/sellers'
 import Topbar from '../components/Topbar'
 import Metas from './Metas'
+import EstruturaComercial from '../components/EstruturaComercial'
 import './CommercialClarity.css'
 import { CURRENT_MONTH, CURRENT_YEAR, historyStart, monthOptions, periodRange, previousPeriodRange, yearOptions } from '../lib/commercialPeriod'
 import {
@@ -578,6 +579,7 @@ export default function Vendedores() {
 
       <div className="page vendedores-page cc-page" style={{ overflowY: 'auto' }}>
         <div className="cc-intro"><span className="cc-kicker">Desempenho do time</span><h2>Como está cada vendedor?</h2><p>Compare os pedidos do período e clique no nome de um vendedor para ver os detalhes. Os indicadores de visitas, cotações e carteira podem ser exibidos quando você precisar.</p></div>
+        <EstruturaComercial />
         <section className="vendedores-toolbar" style={{ marginBottom: 14 }}>
           <div className="vendedores-toolbar-left">
             <div className="vendedores-filter-icon"><IconFilter size={15} /></div>
