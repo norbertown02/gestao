@@ -24,3 +24,25 @@
 .rt-vehicle-tab{background:#faf8f5;border:1px solid #e5dcd2;padding:12px 15px;border-radius:13px;cursor:pointer;display:flex;flex-direction:column;gap:5px;text-align:left;min-width:180px;color:#201c19}
 .rt-vehicle-tab strong{font-size:12px}.rt-vehicle-tab span{font-size:11px;color:#7e746a}
 .rt-vehicle-tab.selected{border-color:#e87722;background:#fff1e4;box-shadow:inset 3px 0 #e87722}
+
+/* Fluxo de planejamento compacto: cargas e fretes por veículo. */
+.rt-fleet-simple{margin:8px 0 15px;padding:13px;background:#fbf9f6}
+.rt-fleet-simple .rt-fleet-title{align-items:center}
+.rt-fleet-simple .rt-fleet-title strong{display:block;font-size:13px;color:#221c17}
+.rt-fleet-simple .rt-fleet-title small{display:block;font-size:10px;color:#93877d;line-height:1.5;margin-top:4px;max-width:290px}
+.rt-vehicle-simple{padding:12px 13px;border:1px solid #eee4da;background:white;margin-bottom:7px}
+.rt-vehicle-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:11px}
+.rt-vehicle-heading strong{font-size:12px;color:#30241a}
+.rt-remove-vehicle{background:transparent;border:0;color:#a15c2c;font-weight:650;font-size:11px;cursor:pointer;padding:3px}
+.rt-vehicle-simple .rt-two{gap:10px}
+.rt-vehicle-simple .rt-field{margin-bottom:0}
+.rt-vehicle-simple .rt-field label{font-size:10px;white-space:normal}
+.rt-advanced{border:1px solid #eee6dd;border-radius:13px;margin:12px 0 15px;background:#fff}
+.rt-advanced summary{list-style:none;cursor:pointer;padding:12px 14px;font-size:12px;font-weight:750;color:#55483d}
+.rt-advanced summary::-webkit-details-marker{display:none}
+.rt-advanced summary:after{content:'⌄';float:right;font-size:17px;color:#bc7136;line-height:10px}
+.rt-advanced[open] summary:after{content:'⌃'}
+.rt-advanced-content{border-top:1px solid #f0e8df;padding:14px}
+.rt-advanced .rt-toggle{margin:6px 0 15px}
+.rt-advanced .rt-field:last-child{margin-bottom:0}
+@media(max-width:650px){.rt-vehicle-simple .rt-two{grid-template-columns:repeat(2,minmax(0,1fr))}.rt-fleet-simple{padding:10px}.rt-vehicle-simple{padding:10px}}
