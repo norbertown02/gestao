@@ -195,7 +195,20 @@ export default function RotasEntrega(){
     const img=canvas.toDataURL('image/jpeg',.78)
     doc.addImage(img,'JPEG',14,117,182,66)
     startY=190
-   }catch{doc.setFontSize(8);doc.setTextColor(120);doc.text('Mapa interativo: consulte o link de navegação no Gestão.',14,120);startY=130}
+   }catch{
+     // Sempre oferece representação geográfica vetorial mesmo quando o mapa de tiles bloqueia captura.
+     const coords=plan.geometry.coordinates
+     const minLon=Math.min(...coords.map(c=>c[0])),maxLon=Math.max(...coords.map(c=>c[0]))
+     const minLat=Math.min(...coords.map(c=>c[1])),maxLat=Math.max(...coords.map(c=>c[1]))
+     const xy=([lon,lat])=>[18+(lon-minLon)/Math.max(.0001,maxLon-minLon)*173,122+(maxLat-lat)/Math.max(.0001,maxLat-minLat)*52]
+     doc.setFillColor(247,244,240);doc.roundedRect(14,116,182,65,3,3,'F')
+     doc.setDrawColor(232,119,34);doc.setLineWidth(.9)
+     for(let i=1;i<coords.length;i++){const a=xy(coords[i-1]),b=xy(coords[i]);doc.line(a[0],a[1],b[0],b[1])}
+     const anchors=[plan.coordinates[0],...plan.coordinates.slice(1,1+plan.stops.length)]
+     anchors.forEach((coord,i)=>{const [x,y]=xy(coord);doc.setFillColor(i===0?20:232,i===0?20:119,i===0?20:34);doc.circle(x,y,2.2,'F');doc.setFontSize(7);doc.setTextColor(20);doc.text(i===0?'CD':String(i),x+3,y-2)})
+     doc.setFontSize(7);doc.setTextColor(110);doc.text('Traçado geográfico da rota (sem mapa-base)',18,178)
+     startY=190
+    }
   }
   doc.setTextColor(...dark);doc.setFontSize(11);doc.setFont('helvetica','bold');doc.text('Sequência de entregas',14,startY)
   const lines=plan.stops.flatMap((stop,i)=>stop.orders.flatMap(o=>o.lines.map(line=>[i+1,stop.client?.name||'Cliente',stop.client?.city||'—',o.ultra_order_number||o.id,line.product,fmt(line.load)+' kg'])))
@@ -209,6 +222,7 @@ export default function RotasEntrega(){
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text(doc.splitTextToSize(notes||'Conferir volumes, documentos fiscais e condições de descarga antes da saída.',180),14,y+6)
   const count=doc.getNumberOfPages()
   for(let p=1;p<=count;p++){doc.setPage(p);doc.setTextColor(130);doc.setFontSize(8);doc.text('Nutrialle • Planejamento logístico | Distância estimada, sujeita a condições da via',14,287);doc.text(p+'/'+count,195,287,{align:'right'})}
+  if(mapsUrl)doc.link(14,100,180,7,{url:mapsUrl})
   doc.save('nutrialle-rota-'+date+'.pdf')
  }
  return <>
