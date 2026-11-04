@@ -52,12 +52,52 @@ function nearestPath(matrix, returnHome) {
  }
  return path
 }
-async function geocode(text,signal) {
- const response=await fetch('https://nominatim.openstreetmap.org/search?'+new URLSearchParams({q:text,format:'json',limit:'1',countrycodes:'br'}),{signal,headers:{'Accept':'application/json'}})
- if(!response.ok)throw new Error('Serviço de endereços indisponível')
- const data=await response.json()
- if(!data.length)throw new Error('Endereço não localizado: '+text)
- return [Number(data[0].lon),Number(data[0].lat)]
+const BR_STATES={AC:'Acre',AL:'Alagoas',AP:'Amapá',AM:'Amazonas',BA:'Bahia',CE:'Ceará',DF:'Distrito Federal',ES:'Espírito Santo',GO:'Goiás',MA:'Maranhão',MT:'Mato Grosso',MS:'Mato Grosso do Sul',MG:'Minas Gerais',PA:'Pará',PB:'Paraíba',PR:'Paraná',PE:'Pernambuco',PI:'Piauí',RJ:'Rio de Janeiro',RN:'Rio Grande do Norte',RS:'Rio Grande do Sul',RO:'Rondônia',RR:'Roraima',SC:'Santa Catarina',SP:'São Paulo',SE:'Sergipe',TO:'Tocantins'}
+const cleanText=v=>String(v||'').replace(/[\\t\\n\\r]+/g,' ').replace(/\\s+/g,' ').trim()
+const stateName=v=>BR_STATES[cleanText(v).toUpperCase()]||cleanText(v)
+const postal=v=>cleanText(v).replace(/\\D/g,'')
+const usablePostal=v=>postal(v).length===8
+function addressCandidates(f,edited) {
+ if(edited)return [{q:cleanText(edited),precision:'informado'}]
+ const city=cleanText(f?.city), state=stateName(f?.state), street=cleanText(f?.street), number=cleanText(f?.street_number)
+ const district=cleanText(f?.bairro), zip=usablePostal(f?.cep)?postal(f.cep):''
+ const place=[city,state,'Brasil'].filter(Boolean).join(', ')
+ const numberOk=number&&!/^(SN|S\\/N|S N|SEM NUMERO)$/i.test(number)
+ const firstLine=[street,numberOk?number:''].filter(Boolean).join(', ')
+ const candidates=[
+  [firstLine,district,city,state,'Brasil'].filter(Boolean).join(', '),
+  [street,city,state,'Brasil'].filter(Boolean).join(', '),
+  [district&&!/^(RURAL|ZONA RURAL|CENTRO)$/i.test(district)?district:'',city,state,'Brasil'].filter(Boolean).join(', '),
+  zip?[zip,'Brasil'].join(', '):'',
+  place
+ ].filter(Boolean)
+ return [...new Set(candidates)].map((q,i)=>({q,precision:q===place?'municipio':i===0?'endereco':'aproximado'}))
+}
+function parseCoords(value){
+ const raw=cleanText(value).replace(';',',')
+ const at=raw.match(/@(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)/)
+ const pair=at||raw.match(/(-?\\d{1,3}(?:\\.\\d+)?)\\s*,\\s*(-?\\d{1,3}(?:\\.\\d+)?)/)
+ if(!pair)return null
+ const lat=Number(pair[1]),lon=Number(pair[2])
+ return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=-34&&lat<=6&&lon>=-75&&lon<=-30?[lon,lat]:null
+}
+async function geocodeCandidates(candidates,signal){
+ let serverError=false
+ for(const candidate of candidates){
+  try{
+   const response=await fetch('https://nominatim.openstreetmap.org/search?'+new URLSearchParams({q:candidate.q,format:'json',limit:'1',countrycodes:'br',addressdetails:'1'}),{signal,headers:{'Accept':'application/json'}})
+   if(!response.ok){serverError=true;continue}
+   const data=await response.json()
+   if(data.length){
+    const hit=data[0], type=String(hit.type||'').toLowerCase()
+    const nonSpecific=['city','town','village','municipality','administrative','county','state']
+    const approximate=candidate.precision!=='endereco'||nonSpecific.includes(type)
+    return {coordinate:[Number(hit.lon),Number(hit.lat)],approximate,query:candidate.q,display:hit.display_name}
+   }
+  }catch(e){if(e.name==='AbortError')throw e;serverError=true}
+  await sleep(1050)
+ }
+ throw new Error(serverError?'Serviço de geolocalização não respondeu. Tente novamente ou informe as coordenadas.':'Local não encontrado no mapa. Informe um endereço alternativo ou coordenadas GPS.')
 }
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms))
 function Metric({label,value,note,Icon}){return <div className="rt-metric"><div className="rt-metric-top"><span>{label}</span><Icon size={19}/></div><strong>{value}</strong><small>{note}</small></div>}
@@ -76,6 +116,8 @@ export default function RotasEntrega(){
  const [driver,setDriver]=useState('')
  const [vehicle,setVehicle]=useState('')
  const [notes,setNotes]=useState('')
+ const [addressEdits,setAddressEdits]=useState({})
+ const [gpsEdits,setGpsEdits]=useState({})
  const [plan,setPlan]=useState(null)
  const mapRef=useRef(null)
  const mapInstance=useRef(null)
@@ -122,9 +164,16 @@ export default function RotasEntrega(){
    setWorking(true)
    const controller=new AbortController()
    try{
-    const addresses=[origin,...stops.map(s=>address(s.client))]
-    const coords=[]
-    for(const value of addresses){coords.push(await geocode(value,controller.signal));await sleep(1050)}
+    const addresses=[origin,...stops.map(s=>addressEdits[s.id]||address(s.client))]
+    const coords=[],positions=[]
+    for(let i=0;i<addresses.length;i++){
+      const stop=i===0?null:stops[i-1]
+      const direct=stop?parseCoords(gpsEdits[stop.id]):parseCoords(origin)
+      const position=direct?{coordinate:direct,approximate:false,query:'Coordenadas GPS',display:'Ponto GPS informado'}:
+        await geocodeCandidates(stop?addressCandidates(stop.client,addressEdits[stop.id]):[{q:origin,precision:'informado'}],controller.signal)
+      coords.push(position.coordinate);positions.push(position)
+      if(!direct&&i<addresses.length-1)await sleep(1100)
+    }
     const joined=coords.map(c=>c.join(',')).join(';')
     const base='https://router.project-osrm.org'
     const matrixRes=await fetch(base+'/table/v1/driving/'+joined+'?annotations=duration,distance')
@@ -141,7 +190,7 @@ export default function RotasEntrega(){
     const routeData=await res.json()
     if(routeData.code!=='Ok'||!routeData.routes?.length)throw new Error('Rota não encontrada')
     const result=routeData.routes[0]
-    setPlan({stops:ordered,geometry:result.geometry,km:result.distance/1000,minutes:result.duration/60,coordinates:orderedCoords,returnHome:goBack,origin,addresses:addresses,generatedAt:new Date().toISOString(),totalKg:kg})
+    setPlan({stops:ordered,geometry:result.geometry,km:result.distance/1000,minutes:result.duration/60,coordinates:orderedCoords,returnHome:goBack,origin,addresses:addresses,generatedAt:new Date().toISOString(),totalKg:kg,locationNotes:ordered.map(s=>({...positions[stops.findIndex(x=>x.id===s.id)+1],name:s.client?.name})),addressEdits:{...addressEdits},gpsEdits:{...gpsEdits}})
    }catch(e){setError(e.message||'Não foi possível calcular a rota. Verifique os endereços.')}
    finally{setWorking(false)}
  }
@@ -168,7 +217,7 @@ export default function RotasEntrega(){
   show().catch(()=>setError('O mapa não carregou. A sequência de entrega permanece disponível.'))
   return()=>{cancelled=true}
  },[plan])
- const mapsUrl=plan?routeLink([plan.origin,...plan.stops.map(s=>address(s.client)),...(plan.returnHome?[plan.origin]:[])]):''
+ const mapsUrl=plan?routeLink([plan.origin,...plan.stops.map((s,i)=>plan.gpsEdits?.[s.id]||plan.locationNotes?.[i]?.approximate ? plan.coordinates[i+1][1]+','+plan.coordinates[i+1][0] : (plan.addressEdits?.[s.id]||address(s.client))),...(plan.returnHome?[plan.origin]:[])]):''
  async function pdf(){
   if(!plan)return
   const doc=new jsPDF('p','mm','a4')
@@ -219,7 +268,7 @@ export default function RotasEntrega(){
   let y=(doc.lastAutoTable?.finalY||startY+15)+9
   if(y>265){doc.addPage();y=18}
   doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('Observações:',14,y)
-  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text(doc.splitTextToSize(notes||'Conferir volumes, documentos fiscais e condições de descarga antes da saída.',180),14,y+6)
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text(doc.splitTextToSize([notes||'Conferir volumes, documentos fiscais e condições de descarga antes da saída.',...(plan.locationNotes||[]).filter(p=>p.approximate).map(p=>'ATENÇÃO: '+p.name+' - localização aproximada; confirmar ponto de entrega.')].join(' | '),180),14,y+6)
   const count=doc.getNumberOfPages()
   for(let p=1;p<=count;p++){doc.setPage(p);doc.setTextColor(130);doc.setFontSize(8);doc.text('Nutrialle • Planejamento logístico | Distância estimada, sujeita a condições da via',14,287);doc.text(p+'/'+count,195,287,{align:'right'})}
   if(mapsUrl)doc.link(14,100,180,7,{url:mapsUrl})
@@ -250,6 +299,11 @@ export default function RotasEntrega(){
         <span className="rt-order-id">#{r.ultra_order_number||r.id}</span>
        </div>
        <div className="rt-order-address"><IconMapPin size={14}/>{r.client?([r.client.city,r.client.state].filter(Boolean).join(' / ')||'Endereço incompleto'):'Cadastro não vinculado'}</div>
+       <details className="rt-location-edit"><summary>Corrigir localização desta entrega</summary>
+        <label>Endereço alternativo (somente nesta rota)</label><input placeholder="Estrada, localidade, cidade, UF" value={addressEdits[r.farm_id]||''} onChange={e=>{setAddressEdits(prev=>({...prev,[r.farm_id]:e.target.value}));invalidate()}}/>
+        <label>Coordenadas exatas (latitude, longitude) ou link do Google Maps</label><input placeholder="-24.7200, -53.7400" value={gpsEdits[r.farm_id]||''} onChange={e=>{setGpsEdits(prev=>({...prev,[r.farm_id]:e.target.value}));invalidate()}}/>
+        <small>Para sítios e fazendas, prefira a localização GPS da entrada da propriedade. Não altera o cadastro do Ultra.</small>
+       </details>
        {r.lines.map(i=><div className="rt-product" key={i.key}><div><strong>{i.product}</strong><small>Saldo estimado {fmt(i.available)} kg{ i.bagKg>0?' · saca '+fmt(i.bagKg)+' kg':''}</small></div><div className="rt-qty"><input aria-label={'Quantidade de '+i.product} type="number" min="0" max={i.available} step="0.01" value={selected[i.key]??0} onChange={e=>change(i.key,e.target.value,i.available)}/><span>kg</span></div></div>)}
       </article>)}
      </div>
@@ -268,11 +322,12 @@ export default function RotasEntrega(){
    </div>
    <section className="rt-result">
     <div className="rt-pane-head"><div><h2>03 <span>Rota e ordem de entregas</span></h2><p>{plan?'Percurso calculado · confira as paradas antes da saída':'A rota e os indicadores serão exibidos após a otimização.'}</p></div>{plan&&<div className="rt-actions"><a href={mapsUrl} target="_blank" rel="noreferrer" className="btn btn-ghost"><IconExternalLink size={17}/> Navegar no Maps</a><button className="btn btn-primary" onClick={pdf}><IconFileTypePdf size={18}/> Gerar PDF</button></div>}</div>
+    {plan&&plan.locationNotes?.some(x=>x.approximate)&&<div className="rt-error"><IconAlertTriangle size={18}/> Algumas localizações são aproximadas (bairro, CEP ou município). Confira os pontos no mapa e informe o GPS da propriedade antes de enviar o motorista.</div>}
     {plan?<div className="rt-route-grid">
      <div className="rt-map" ref={mapRef} />
      <div className="rt-stops">
       <div className="rt-stop"><span className="rt-stop-index rt-start">CD</span><div><strong>Saída • {plan.origin}</strong><small>Início da rota</small></div></div>
-      {plan.stops.map((s,i)=><div className="rt-stop" key={s.id}><span className="rt-stop-index">{i+1}</span><div><strong>{s.client?.name||'Cliente'}</strong><small>{address(s.client)} · {fmt(s.total)} kg</small>{s.orders.map(o=><div className="rt-stop-product" key={o.id}>{o.ultra_order_number||o.id}: {o.lines.map(i=>i.product+' ('+fmt(i.load)+' kg)').join(' · ')}</div>)}</div></div>)}
+      {plan.stops.map((s,i)=><div className="rt-stop" key={s.id}><span className="rt-stop-index">{i+1}</span><div><strong>{s.client?.name||'Cliente'}</strong><small>{plan.addressEdits?.[s.id]||address(s.client)} · {fmt(s.total)} kg</small>{plan.locationNotes?.[i]?.approximate&&<small style={{color:'#b75b18',fontWeight:800}}>Localização aproximada — confirmar ponto GPS</small>}{s.orders.map(o=><div className="rt-stop-product" key={o.id}>{o.ultra_order_number||o.id}: {o.lines.map(i=>i.product+' ('+fmt(i.load)+' kg)').join(' · ')}</div>)}</div></div>)}
       {plan.returnHome&&<div className="rt-stop"><span className="rt-stop-index rt-start">CD</span><div><strong>Retorno ao CD</strong><small>{plan.origin}</small></div></div>}
       <div className="rt-time"><IconArrowUpRight size={17}/> {fmt(plan.km)} km · aproximadamente {fmt(plan.minutes/60)} h de condução</div>
      </div>
