@@ -19,6 +19,7 @@ import {
   IconClipboardList,
   IconSettings,
   IconCurrencyDollar,
+  IconSitemap,
 } from '@tabler/icons-react'
 import { useAuth } from '../lib/useAuth'
 
@@ -29,6 +30,7 @@ const MAIN = [
 ]
 
 const MORE = [
+  { to: '/estrutura-comercial', label: 'Estrutura Comercial', Icon: IconSitemap, roles: ['admin','gestor'] },
   { to: '/cotacoes', label: 'Oportunidades', Icon: IconChartPie },
   { to: '/regioes', label: 'Regiões', Icon: IconMapPin },
   { to: '/produtos', label: 'Produtos', Icon: IconBuildingStore },
