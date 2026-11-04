@@ -11,6 +11,7 @@ import Checklists from './screens/Checklists'
 import Carteira from './screens/Carteira'
 import InteligenciaClientes from './screens/InteligenciaClientes'
 import Vendedores from './screens/Vendedores'
+import EstruturaComercialPage from './screens/EstruturaComercialPage'
 import Produtos from './screens/Produtos'
 import Regioes from './screens/Regioes'
 import Config from './screens/Config'
@@ -49,6 +50,7 @@ function AppContent() {
           <Route path="/carteira" element={<Navigate to="/clientes-inteligencia" replace />} />
           <Route path="/clientes-inteligencia" element={<InteligenciaClientes />} />
           <Route path="/vendedores" element={<Vendedores />} />
+          <Route path="/estrutura-comercial" element={["admin","gestor"].includes(user?.role) ? <EstruturaComercialPage /> : <Navigate to="/" replace />} />
           <Route path="/produtos" element={<Produtos />} />
           <Route path="/estoque" element={<Estoque />} />
           <Route path="/financeiro" element={<Financeiro />} />

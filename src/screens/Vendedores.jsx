@@ -1,14 +1,16 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabaseAdmin } from '../lib/supabase'
 import { hasNetOrderValue, netOrderValue } from '../lib/commercialMetrics'
 import { isVendedorValido, useVendedores } from '../lib/sellers'
 import Topbar from '../components/Topbar'
 import Metas from './Metas'
-import EstruturaComercial from '../components/EstruturaComercial'
+import { useAuth } from '../lib/useAuth'
 import './CommercialClarity.css'
 import { CURRENT_MONTH, CURRENT_YEAR, historyStart, monthOptions, periodRange, previousPeriodRange, yearOptions } from '../lib/commercialPeriod'
 import {
   IconAlertTriangle,
+  IconSitemap,
   IconBuildingStore,
   IconChartBar,
   IconChevronDown,
@@ -158,6 +160,8 @@ function Empty({ children = 'Sem dados para exibir' }) {
 }
 
 export default function Vendedores() {
+  const navigate = useNavigate()
+  const { user } = useAuth()
   const [periodo, setPeriodo] = useState('mes')
   const [mesReferencia, setMesReferencia] = useState(CURRENT_MONTH)
   const [anoReferencia, setAnoReferencia] = useState(CURRENT_YEAR)
@@ -568,6 +572,7 @@ export default function Vendedores() {
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Topbar title="Equipe Comercial" subtitle="Vendedores, pedidos, atividade e acompanhamento de metas">
+        {["admin","gestor"].includes(user?.role) && <button className="btn btn-primary btn-sm" onClick={() => navigate("/estrutura-comercial")}><IconSitemap size={16} /> Estrutura Comercial</button>}
         <button className="btn btn-primary btn-sm" onClick={() => setMetaTab('cadastro')}>
           <IconTargetArrow size={14} /> Cadastrar metas
         </button>
@@ -579,7 +584,7 @@ export default function Vendedores() {
 
       <div className="page vendedores-page cc-page" style={{ overflowY: 'auto' }}>
         <div className="cc-intro"><span className="cc-kicker">Desempenho do time</span><h2>Como está cada vendedor?</h2><p>Compare os pedidos do período e clique no nome de um vendedor para ver os detalhes. Os indicadores de visitas, cotações e carteira podem ser exibidos quando você precisar.</p></div>
-        <EstruturaComercial />
+        {['admin','gestor'].includes(user?.role) && <button type="button" onClick={() => navigate('/estrutura-comercial')} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,width:'100%',padding:'16px 18px',border:'1px solid #f0c9a8',borderRadius:14,background:'#fff5eb',color:'#7c3d0d',fontWeight:650,fontSize:14,cursor:'pointer',marginBottom:14,textAlign:'left'}}><span style={{display:'flex',alignItems:'center',gap:10}}><IconSitemap size={21}/> Gerenciar Estrutura Comercial <small style={{fontWeight:400,color:'#8a6750'}}>— supervisores e equipes</small></span><IconChevronDown size={17}/></button>}
         <section className="vendedores-toolbar" style={{ marginBottom: 14 }}>
           <div className="vendedores-toolbar-left">
             <div className="vendedores-filter-icon"><IconFilter size={15} /></div>
