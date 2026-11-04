@@ -27,6 +27,7 @@ import DRE from './screens/DRE'
 import ImportarFechamento from './screens/ImportarFechamento'
 import AuditoriaFinanceira from './screens/AuditoriaFinanceira'
 import TabelaPrecos from './screens/TabelaPrecos'
+import RotasEntrega from './screens/RotasEntrega'
 
 function routeKey(pathname) {
   const clean = String(pathname || '').replace(/^\/+|\/+$/g, '')
@@ -45,6 +46,7 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<DashboardFiltrado />} />
           <Route path="/vendas" element={<VendasFiltradasV2 />} />
+          <Route path="/rotas-entrega" element={<RotasEntrega />} />
           <Route path="/visitas" element={<Visitas />} />
           <Route path="/checklists" element={<Checklists />} />
           <Route path="/carteira" element={<Navigate to="/clientes-inteligencia" replace />} />
