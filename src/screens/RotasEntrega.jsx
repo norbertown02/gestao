@@ -53,16 +53,16 @@ function nearestPath(matrix, returnHome) {
  return path
 }
 const BR_STATES={AC:'Acre',AL:'Alagoas',AP:'Amapá',AM:'Amazonas',BA:'Bahia',CE:'Ceará',DF:'Distrito Federal',ES:'Espírito Santo',GO:'Goiás',MA:'Maranhão',MT:'Mato Grosso',MS:'Mato Grosso do Sul',MG:'Minas Gerais',PA:'Pará',PB:'Paraíba',PR:'Paraná',PE:'Pernambuco',PI:'Piauí',RJ:'Rio de Janeiro',RN:'Rio Grande do Norte',RS:'Rio Grande do Sul',RO:'Rondônia',RR:'Roraima',SC:'Santa Catarina',SP:'São Paulo',SE:'Sergipe',TO:'Tocantins'}
-const cleanText=v=>String(v||'').replace(/[\\t\\n\\r]+/g,' ').replace(/\\s+/g,' ').trim()
+const cleanText=v=>String(v||'').replace(/[\t\n\r]+/g,' ').replace(/\s+/g,' ').trim()
 const stateName=v=>BR_STATES[cleanText(v).toUpperCase()]||cleanText(v)
-const postal=v=>cleanText(v).replace(/\\D/g,'')
+const postal=v=>cleanText(v).replace(/\D/g,'')
 const usablePostal=v=>postal(v).length===8
 function addressCandidates(f,edited) {
  if(edited)return [{q:cleanText(edited),precision:'informado'}]
  const city=cleanText(f?.city), state=stateName(f?.state), street=cleanText(f?.street), number=cleanText(f?.street_number)
  const district=cleanText(f?.bairro), zip=usablePostal(f?.cep)?postal(f.cep):''
  const place=[city,state,'Brasil'].filter(Boolean).join(', ')
- const numberOk=number&&!/^(SN|S\\/N|S N|SEM NUMERO)$/i.test(number)
+ const numberOk=number&&!/^(SN|S\/N|S N|SEM NUMERO)$/i.test(number)
  const firstLine=[street,numberOk?number:''].filter(Boolean).join(', ')
  const candidates=[
   [firstLine,district,city,state,'Brasil'].filter(Boolean).join(', '),
@@ -75,8 +75,8 @@ function addressCandidates(f,edited) {
 }
 function parseCoords(value){
  const raw=cleanText(value).replace(';',',')
- const at=raw.match(/@(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)/)
- const pair=at||raw.match(/(-?\\d{1,3}(?:\\.\\d+)?)\\s*,\\s*(-?\\d{1,3}(?:\\.\\d+)?)/)
+ const at=raw.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/)
+ const pair=at||raw.match(/(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/)
  if(!pair)return null
  const lat=Number(pair[1]),lon=Number(pair[2])
  return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=-34&&lat<=6&&lon>=-75&&lon<=-30?[lon,lat]:null
