@@ -39,6 +39,38 @@ function newDiagnosis(summary,details,causes,verification,{confidence='Média',l
   return {summary,details,causes,verification,confidence,limitations,impact}
 }
 export function diagnoseFinanceFinding(f,input) {
+  if(f.id==='continuity-summary'){
+    const indexed=new Map(previousAccounts.map(r=>[`${r.tipo||''}|${r.codigo||r.grupo+'|'+r.conta}`,r]))
+    const detail=accounts.flatMap(row=>{
+      const key=`${row.tipo||''}|${row.codigo||row.grupo+'|'+row.conta}`
+      const prior=indexed.get(key)
+      if(!prior)return []
+      const opening=num(row.saldo_anterior),closing=num(prior.saldo_atual),gap=Math.abs(opening-closing)
+      if(gap<500||gap<Math.abs(closing)*.005)return []
+      return [{code:row.codigo,account:row.conta,opening,closing,gap}]
+    }).sort((a,b)=>b.gap-a.gap)
+    const total=detail.reduce((s,r)=>s+r.gap,0)
+    const main=detail[0]
+    return newDiagnosis(
+      `Comparei o fechamento do balancete anterior com a abertura do atual, conta por conta. Há ${detail.length} contas com alterações materiais, totalizando ${brl(total)} de diferenças absolutas (não somar como prejuízo). ${main?'A principal é '+main.account+' ('+brl(main.gap)+').':''} As movimentações do mês atual fecham matematicamente, portanto a dúvida está na continuidade dos saldos entre os relatórios, não na fórmula do mês atual.`,
+      detail.flatMap(row=>[
+        {label:`${row.account} (#${row.code||'sem código'}) — fim do mês anterior`,value:r2(row.closing),source:'Balancete do mês anterior'},
+        {label:`${row.account} — início deste mês`,value:r2(row.opening),source:'Balancete do mês atual'},
+        {label:`${row.account} — diferença`,value:r2(row.opening-row.closing),source:'Reconciliação por código de conta'}
+      ]),
+      [
+        'As linhas do balancete atual fecham pela relação entre saldo anterior, débito e crédito. O alerta se concentra na mudança de abertura entre os dois arquivos.',
+        'Possíveis explicações: ajuste retroativo após emissão do fechamento anterior, diferença de extração ou mudança de versão dos relatórios. As fontes disponíveis não mostram o lançamento que alterou o saldo.',
+        main?`Prioridade de investigação: ${main.account}, código ${main.code||'não identificado'}, com diferença de ${brl(main.gap)}.`:''
+      ].filter(Boolean),
+      [
+        'Comparar a data e o período de emissão dos dois balancetes e o código de cada conta.',
+        'No Ultra, consultar movimentações retroativas da conta mais relevante entre o fechamento de agosto e a abertura de setembro.',
+        'Se o relatório de agosto tiver sido reprocessado, substituir a comparação pela versão com a mesma data de corte.'
+      ],
+      {confidence:'Alta para diferenças de saldo; causa ainda não comprovada',limitations:['Sem histórico de lançamentos do razão contábil ou versões dos relatórios, não é possível identificar o ajuste específico.'],impact:'Diferenças de posição histórica, não valores comprovadamente perdidos'}
+    )
+  }
   if(f.id?.startsWith('subtotal-resolved-')){
     const section=f.id.replace('subtotal-resolved-','')
     const result=analyzeDreSection(input.dreAccounts||[],section)
