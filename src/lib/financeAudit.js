@@ -130,13 +130,6 @@ export function runFinanceAudit(input) {
       const analysis=analyzeDreSection(rows,section)
       if(analysis.subtotals.length) append(`subtotal-resolved-${section}`,'ok','Conciliação estrutural',`Subtotal não duplicado em ${section.replaceAll('_',' ')}`,'O relatório contém um total intermediário e sua conta detalhada; a soma foi normalizada sem excluir movimentações reais.',analysis.subtotals.map(x=>`${x.subtotal.conta} ${money(x.amount)} = ${x.children.map(y=>y.conta).join(' + ')}`).join('; '),'Nenhuma correção contábil necessária: a origem foi a hierarquia da importação.',null,'DRE detalhada')
     }
-    for(const secao of ['receitas','custos_variaveis','custos_fixos','extra_operacional']){
-      const group=new Map()
-      for(const row of rows.filter(r=>r.secao===secao))group.set(`${normalize(row.grupo)}|${normalize(row.conta)}`,(group.get(`${normalize(row.grupo)}|${normalize(row.conta)}`)||0)+numeric(row.valor))
-      for(const [key,total] of group){
-        if(total<0&&secao==='custos_fixos')append(`negative-cost-${secao}-${key}`,'review','Classificação de despesas','Despesa com sinal invertido','Há lançamento negativo em custos fixos que pode ser estorno ou reclassificação legítima.',`${key}: ${amountBR(total)}`,'Validar estorno e documento de origem; não considerar erro confirmado.',Math.abs(total),'DRE detalhada')
-      }
-    }
     const neutral=['APORTE SOCIOS','DEVOLUCAO DE APORTE AOS SOCIOS','EMPRESTIMO/FINANCIAMENTO','ADIANTAMENTO A FORNECEDOR']
     for(const row of rows.filter(r=>neutral.some(t=>normalize(r.conta).includes(t))&&r.secao!=='extra_operacional')){
       append(`neutral-${normalize(row.conta)}-${row.secao}`,'warning','Classificação de despesas','Possível movimentação patrimonial no resultado',`${row.conta} aparece em ${row.secao}.`,`${row.conta}: ${amountBR(row.valor)}`,'Conferir com a contabilidade se se trata de principal, capital, juros, estorno ou despesa efetiva.',Math.abs(numeric(row.valor)),'DRE detalhada')
@@ -157,6 +150,26 @@ export function runFinanceAudit(input) {
   append('coverage-historical-cmv','info','Cobertura','Custo histórico por item não integrado','A base de pedidos possui valores comerciais, mas não contém o custo histórico fiscal de cada produto.','Não é um erro no custo contabilizado. É uma limitação da análise de CMV por produto.','Consultar detalhamento de custo por item na integração do Ultra.',null,'Integração Ultra')
   append('coverage-titles','info','Cobertura','Títulos individuais ainda não integrados','As previsões estão agregadas por faixas de vencimento.','Sem ID, cliente e baixa de cada título não é possível identificar a origem de algumas diferenças.','Integrar títulos individualizados quando disponível.',null,'Contas a receber e pagar')
   if(!balance)append('missing-balance','info','Cobertura financeira','Balanço completo ausente','Não é possível validar os saldos finais do período.', 'Nenhuma linha de balanço encontrada.','Importar balanço completo.',null,'Balanço')
+  // Consolidar diferenças de continuidade em um único diagnóstico rastreável.
+  // Manter apenas diferenças financeiramente relevantes: maior que R$ 500
+  // e pelo menos 0,5% do saldo anterior (ou saldo anterior zerado).
+  const continuity=extra.filter(x=>x.id.startsWith('account-continuity-') && x.amount>=500)
+  const importantContinuity=continuity.filter(x=>{
+    const key=x.id.replace('account-continuity-','')
+    const previous=previousAccounts.find(p=>`${p.tipo||''}|${p.codigo||p.grupo+'|'+p.conta}`===key)
+    return !previous || x.amount>=Math.abs(numeric(previous.saldo_atual))*.005
+  }).sort((a,b)=>(b.amount||0)-(a.amount||0))
+  for(let ix=extra.length-1;ix>=0;ix--)if(extra[ix].id.startsWith('account-continuity-'))extra.splice(ix,1)
+  if(importantContinuity.length){
+    const total=importantContinuity.reduce((s,f)=>s+(f.amount||0),0)
+    append('continuity-summary','warning','Continuidade de saldos',
+      `${importantContinuity.length} contas com abertura diferente do fechamento anterior`,
+      'As movimentações do mês atual fecham, mas o saldo inicial de algumas contas difere do encerramento importado no mês anterior.',
+      importantContinuity.slice(0,12).map(f=>f.title.replace('Saldo de abertura diverge: ','')+': '+amountBR(f.amount)).join(' | '),
+      'Investigar primeiro as maiores alterações entre agosto e setembro e verificar se houve reprocessamento, ajuste retroativo ou mudança de versão do relatório.',
+      null,'Balancetes consecutivos')
+  }
+
   // Não contabilizar duas vezes a mesma divergência apontada em cruzamentos diferentes.
   const all=[...base,...extra].map(row=>({...row,amount:Number.isFinite(Number(row.amount))&&row.amount!==null?Number(row.amount):null,source:row.source||'Relatórios financeiros',fingerprint:`${competence}:${row.id}`}))
   const rank={critical:0,warning:1,review:2,ok:3}
