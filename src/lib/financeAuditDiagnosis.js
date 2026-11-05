@@ -1,3 +1,4 @@
+import { analyzeDreSection } from './financeAuditStructure'
 // Diagnóstico determinístico: cada conclusão deve estar apoiada nos dados importados.
 const num = v => Number(v || 0)
 const brl = v => num(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})
@@ -8,7 +9,7 @@ const norm = v => String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').
 function comparison({dre,managerial,dreAccounts=[]}) {
   if (!dre || !managerial) return null
   const gross = num(managerial.vendas_total)-num(managerial.custo)
-  const extraVariable=num(dre.custos_variaveis)-sum(dreAccounts,r=>r.secao==='custos_variaveis'&&r.grupo==='CUSTO')
+  const extraVariable=num(dre.custos_variaveis)-sum(analyzeDreSection(dreAccounts,'custos_variaveis').rows,r=>r.grupo==='CUSTO')
   const revenueGap=num(dre.receitas)-num(managerial.vendas_total)
   const cmvGap=num(managerial.custo)-sum(dreAccounts,r=>r.secao==='custos_variaveis'&&r.grupo==='CUSTO')
   const administrative=num(dre.custos_fixos)
@@ -38,6 +39,26 @@ function newDiagnosis(summary,details,causes,verification,{confidence='Média',l
   return {summary,details,causes,verification,confidence,limitations,impact}
 }
 export function diagnoseFinanceFinding(f,input) {
+  if(f.id?.startsWith('subtotal-resolved-')){
+    const section=f.id.replace('subtotal-resolved-','')
+    const result=analyzeDreSection(input.dreAccounts||[],section)
+    return newDiagnosis(
+      `O alerta aparente era uma contagem dupla na importação. A soma bruta é ${brl(result.aggregate)}, mas o total correto das contas analíticas é ${brl(result.cleanTotal)}. Foram identificados ${brl(result.excludedAmount)} em subtotais repetidos.`,
+      [
+        {label:'Soma bruta com subtotais',value:r2(result.aggregate),source:'Linhas importadas'},
+        ...result.subtotals.flatMap(x=>[
+          {label:'Subtotal: '+x.subtotal.conta,value:r2(x.amount),source:'Linha de agrupamento (não somar)'},
+          ...x.children.map(y=>({label:'Conta analítica: '+y.conta,value:r2(y.valor),source:'Composição do subtotal'}))
+        ]),
+        {label:'Subtotal repetido retirado',value:r2(-result.excludedAmount),source:'Normalização estrutural'},
+        {label:'Soma reconciliada',value:r2(result.cleanTotal),source:'Contas analíticas'}
+      ],
+      ['A mesma movimentação estava aparecendo como subtotal e como conta individual. Isso gera falsa inconsistência quando ambos são somados.','A exclusão é aplicada somente quando o subtotal marcado encontra correspondência exata com a conta detalhada dentro do mesmo grupo.'],
+      ['Nenhuma alteração de lançamento é necessária por causa dessa diferença.','Manter a identificação de subtotais nas próximas importações.'],
+      {confidence:'Alta: reconciliação matemática exata',limitations:['A regra identifica a estrutura importada; não certifica a operação fiscal que originou a conta.'],impact:'Erro de somatório da auditoria, não perda financeira'}
+    )
+  }
+
   const {dre,managerial,balance,accounts=[],dreAccounts=[],previousAccounts=[],previousManagerial,files=[]}=input
   const title=norm(f.title)
   const bridge=comparison(input)
@@ -73,10 +94,10 @@ export function diagnoseFinanceFinding(f,input) {
   if(title.includes('CONTAS NAO FECHAM')){
     const section=['receitas','custos_variaveis','custos_fixos','extra_operacional'].find(x=>title.includes(norm(x.replaceAll('_',' '))))
     if(section && dre){
-      const total=num(dre[section]),detail=sum(dreAccounts,r=>r.secao===section)
+      const total=num(dre[section]),detail=analyzeDreSection(dreAccounts,section).cleanTotal
       return newDiagnosis(
         `A seção ${section.replaceAll('_',' ')} registra ${brl(total)} no resumo, mas as contas detalhadas somam ${brl(detail)}. Diferença de ${brl(total-detail)}.`,
-        [...driversBySection(dreAccounts,section,10),{label:'Total das contas detalhadas',value:r2(detail),source:'DRE detalhada'},{label:'Total do resumo',value:r2(total),source:'DRE mensal'},{label:'Resíduo',value:r2(total-detail),source:'Cálculo'}],
+        [...driversBySection(analyzeDreSection(dreAccounts,section).rows,section,10),{label:'Total das contas detalhadas',value:r2(detail),source:'DRE detalhada'},{label:'Total do resumo',value:r2(total),source:'DRE mensal'},{label:'Resíduo',value:r2(total-detail),source:'Cálculo'}],
         [dreAccounts.some(r=>r.secao===section)?'Existem contas detalhadas, mas a soma não coincide com o resumo. Pode haver linha omitida, reprocessamento parcial ou diferença de filtros.':'Não existem contas detalhadas dessa seção: o total não pode ser auditado.'],
         ['Conferir as contas apresentadas acima na fonte importada.','Comparar se resumo e detalhe foram processados na mesma versão e competência.'],
         {confidence:'Alta para a diferença, não para a origem',limitations:['Os relatórios possuem valores agregados por conta; o documento individual não está vinculado.']})
