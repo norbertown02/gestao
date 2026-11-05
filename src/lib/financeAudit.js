@@ -1,3 +1,4 @@
+import { analyzeDreSection } from './financeAuditStructure'
 const n=value=>Number(value||0)
 const close=(a,b,tolerance=1)=>Math.abs(n(a)-n(b))<=tolerance
 const pctDiff=(a,b)=>Math.abs(n(b))?Math.abs(n(a)-n(b))/Math.abs(n(b))*100:(n(a)?100:0)
@@ -26,8 +27,9 @@ function runBaseFinanceAudit({dre,managerial,balance,accounts=[],dreAccounts=[],
     checks.forEach(([label,expected,actual,formula])=>close(expected,actual)?ok('Integridade matemática',`${label} fecha matematicamente`,formula,`Calculado ${money(expected)} | informado ${money(actual)}`):add('critical','Integridade matemática',`${label} não fecha`,`${formula} apresenta diferença.`,`Calculado ${money(expected)} | informado ${money(actual)} | diferença ${money(expected-n(actual))}`,'Revisar a classificação ou o total do DRE no ULTRA.'))
     const sectionTotals={receitas:n(dre.receitas),custos_variaveis:n(dre.custos_variaveis),custos_fixos:n(dre.custos_fixos),extra_operacional:n(dre.extra_operacional)}
     Object.entries(sectionTotals).forEach(([section,total])=>{
-      const accountTotal=dreAccounts.filter(row=>row.secao===section).reduce((sum,row)=>sum+n(row.valor),0)
-      if(close(accountTotal,total)) ok('Contas detalhadas',`${section.replaceAll('_',' ')} conciliado`,'A soma das contas corresponde ao total da seção.',`Contas ${money(accountTotal)} | total ${money(total)}`)
+      const analysis=analyzeDreSection(dreAccounts,section)
+      const accountTotal=analysis.cleanTotal
+      if(close(accountTotal,total)) ok('Contas detalhadas',`${section.replaceAll('_',' ')} conciliado`,analysis.subtotals.length?'Conciliação correta após identificar subtotais que repetem valores de contas analíticas.':'A soma das contas corresponde ao total da seção.',`Contas ${money(accountTotal)} | total ${money(total)}${analysis.subtotals.length?' | subtotais não duplicados '+analysis.subtotals.map(s=>s.subtotal.conta+': '+money(s.amount)).join('; '):''}`)
       else add('critical','Contas detalhadas',`Contas não fecham em ${section.replaceAll('_',' ')}`,'Existem valores no total sem correspondência completa nas contas detalhadas.',`Contas ${money(accountTotal)} | total ${money(total)} | diferença ${money(total-accountTotal)}`,'Abrir o DRE no nível mais baixo e localizar a conta ausente ou duplicada.')
     })
   }
@@ -140,6 +142,10 @@ export function runFinanceAudit(input) {
   }
   if(dre){
     const rows=input.dreAccounts||[]
+    for(const section of ['receitas','custos_variaveis','custos_fixos','extra_operacional']){
+      const analysis=analyzeDreSection(rows,section)
+      if(analysis.subtotals.length) append(`subtotal-resolved-${section}`,'ok','Conciliação estrutural',`Subtotal não duplicado em ${section.replaceAll('_',' ')}`,'O relatório contém um total intermediário e sua conta detalhada; a soma foi normalizada sem excluir movimentações reais.',analysis.subtotals.map(x=>`${x.subtotal.conta} ${money(x.amount)} = ${x.children.map(y=>y.conta).join(' + ')}`).join('; '),'Nenhuma correção contábil necessária: a origem foi a hierarquia da importação.',null,'DRE detalhada')
+    }
     for(const secao of ['receitas','custos_variaveis','custos_fixos','extra_operacional']){
       const group=new Map()
       for(const row of rows.filter(r=>r.secao===secao))group.set(`${normalize(row.grupo)}|${normalize(row.conta)}`,(group.get(`${normalize(row.grupo)}|${normalize(row.conta)}`)||0)+numeric(row.valor))
