@@ -129,7 +129,7 @@ export function runFinanceAudit(input) {
       const d=diff(actual,previous+debit-credit),c=diff(actual,previous-debit+credit)
       if(Math.min(d,c)>tolerance(actual))append(`account-rollforward-${key}`,'critical','Integridade contábil',`Movimentação não reconcilia: ${row.conta}`,'Saldo anterior e movimentações não explicam o saldo final sob nenhuma das duas convenções de sinal.',`Anterior ${amountBR(previous)} · Débito ${amountBR(debit)} · Crédito ${amountBR(credit)} · Final ${amountBR(actual)} · menor diferença ${amountBR(Math.min(d,c))}`,'Verificar sinal, natureza da conta, saldos e a origem do balancete.',Math.min(d,c),'Balancete')
     }
-    if(previousAccounts.length){
+    if(previousAccounts.length && previousAccounts.every(r=>r.period_start && r.period_end && isoMonth(r.period_start)===isoMonth(r.period_end))){
       const prior=new Map(previousAccounts.filter(r=>isoMonth(r.competencia_date)!=='' ).map(r=>[`${r.tipo||''}|${r.codigo||r.grupo+'|'+r.conta}`,r]))
       for(const [key,row] of uniqueRows){
         const previousRow=prior.get(key);if(!previousRow)continue
@@ -174,8 +174,8 @@ export function runFinanceAudit(input) {
     const first=rows[0],quality=normalize(first.data_quality)
     if(quality&&quality!=='OK'&&quality!=='COMPLETO')append(`order-quality-${id}`,'review','Rastreabilidade comercial',`Pedido com dados de itens incompletos: ${id}`,`Cliente: ${first.customer_name||'não identificado'}.`,`Qualidade: ${first.data_quality} · itens: ${rows.length}`,'Conferir o pedido original e os valores de cada item no Ultra.',null,'Pedidos / Ultra')
   }
-  if(!itemRows.length)append('missing-item-cost','review','Cobertura do CMV','Custo individual por produto ainda indisponível','A base comercial acessível não fornece custo de aquisição histórico por item; não é possível atestar CMV por produto.',`Itens comerciais consultados: ${itemRows.length}.`,'Integrar custo histórico por item e movimento de estoque do Ultra, preservando data e versão.',null,'Integração Ultra')
-  if(!maturities.length)append('missing-title-data','review','Cobertura de títulos','Conciliação individual de títulos indisponível','Sem parcelas individualizadas não se pode confirmar duplicidade de pagamentos ou recebimentos.', 'Fonte disponível contém saldos e faixas agregadas.','Integrar títulos e baixas individualizadas antes de marcar duplicidades como confirmadas.',null,'Contas a pagar/receber')
+  append('missing-item-cost','review','Cobertura do CMV','Custo individual por produto ainda indisponível','A base comercial acessível não fornece custo de aquisição histórico por item; não é possível atestar CMV por produto.',`Itens comerciais consultados: ${itemRows.length}.`,'Integrar custo histórico por item e movimento de estoque do Ultra, preservando data e versão.',null,'Integração Ultra')
+  append('missing-title-data','review','Cobertura de títulos','Conciliação individual de títulos indisponível','Sem parcelas individualizadas não se pode confirmar duplicidade de pagamentos ou recebimentos.', 'Fonte disponível contém saldos e faixas agregadas.','Integrar títulos e baixas individualizadas antes de marcar duplicidades como confirmadas.',null,'Contas a pagar/receber')
   if(!balance)append('missing-balance','review','Cobertura financeira','Balanço completo ausente','Não é possível validar os saldos finais do período.', 'Nenhuma linha de balanço encontrada.','Importar balanço completo.',null,'Balanço')
   // Não contabilizar duas vezes a mesma divergência apontada em cruzamentos diferentes.
   const all=[...base,...extra].map(row=>({...row,amount:Number.isFinite(Number(row.amount))&&row.amount!==null?Number(row.amount):null,source:row.source||'Relatórios financeiros',fingerprint:`${competence}:${row.id}`}))
