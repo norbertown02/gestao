@@ -9488,3 +9488,34 @@ table td {
 }
 .pipeline-table-wrap td:last-child,
 .pipeline-table-wrap th:last-child { min-width: 115px; white-space: nowrap; }
+
+
+/* Lista de cotações compacta: seis colunas visíveis sem rolagem lateral */
+.pipeline-table-wrap { width: 100%; overflow-x: hidden; }
+.pipeline-table-wrap > table { width: 100%; min-width: 0; table-layout: fixed; }
+.pipeline-table-wrap > table th,
+.pipeline-table-wrap > table td { box-sizing: border-box; padding-left: 7px; padding-right: 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pipeline-table-wrap > table th:nth-child(1),
+.pipeline-table-wrap > table td:nth-child(1) { width: 29%; min-width: 0; }
+.pipeline-table-wrap > table th:nth-child(2),
+.pipeline-table-wrap > table td:nth-child(2) { width: 22%; min-width: 0; }
+.pipeline-table-wrap > table th:nth-child(3),
+.pipeline-table-wrap > table td:nth-child(3) { width: 12%; }
+.pipeline-table-wrap > table th:nth-child(4),
+.pipeline-table-wrap > table td:nth-child(4) { width: 14%; }
+.pipeline-table-wrap > table th:nth-child(5),
+.pipeline-table-wrap > table td:nth-child(5) { width: 7%; }
+.pipeline-table-wrap > table th:nth-child(6),
+.pipeline-table-wrap > table td:nth-child(6) { width: 16%; min-width: 0; text-align: right; }
+.pipeline-table-wrap .pipeline-client-line { display: flex; width: 100%; min-width: 0; gap: 3px; }
+.pipeline-table-wrap .pipeline-truncated-name { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.pipeline-table-wrap .pipeline-seller-name { max-width: 100%; }
+.pipeline-table-wrap .pipeline-prospect { padding: 2px 5px; font-size: 9px; }
+.pipeline-table-wrap .pipeline-total { font-size: clamp(11px, 1vw, 13px); letter-spacing: -.02em; }
+.pipeline-table-wrap .pipeline-quote-expanded-row td { width: auto; text-align: left; white-space: normal; overflow: visible; }
+@media (max-width: 850px) {
+  .pipeline-table-wrap > table th,
+  .pipeline-table-wrap > table td { font-size: 10px; padding-left: 4px; padding-right: 4px; }
+  .pipeline-table-wrap .pipeline-prospect { font-size: 8px; padding: 2px 3px; }
+  .pipeline-table-wrap .pipeline-total { font-size: 10px; }
+}
