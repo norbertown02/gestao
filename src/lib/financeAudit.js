@@ -67,7 +67,7 @@ function runBaseFinanceAudit({dre,managerial,balance,accounts=[],dreAccounts=[],
       const delta=Math.abs(left-right)
       const threshold=Math.max(100,Math.max(Math.abs(left),Math.abs(right))*.005)
       if(delta<=threshold)ok('Cruzamento',`${label} conciliado`,'Mesma competência e valores dentro da tolerância.',`Balanço ${money(left)} | Gerencial ${money(right)} | diferença ${money(delta)}`)
-      else add('warning','Cruzamento',`${label} diverge entre relatórios`,'Os dois relatórios informam posições de saldo distintas na mesma competência.',`Balanço ${money(left)} | Gerencial ${money(right)} | diferença ${money(delta)}`,'Conferir saldo analítico na mesma data de corte.')
+      else add('info','Cruzamento',`${label} diverge entre relatórios`,'Os dois relatórios informam posições de saldo distintas na mesma competência.',`Balanço ${money(left)} | Gerencial ${money(right)} | diferença ${money(delta)}`,'Conferir saldo analítico na mesma data de corte.')
     }
   }
 
@@ -132,7 +132,7 @@ export function runFinanceAudit(input) {
     }
     const neutral=['APORTE SOCIOS','DEVOLUCAO DE APORTE AOS SOCIOS','EMPRESTIMO/FINANCIAMENTO','ADIANTAMENTO A FORNECEDOR']
     for(const row of rows.filter(r=>neutral.some(t=>normalize(r.conta).includes(t))&&r.secao!=='extra_operacional')){
-      append(`neutral-${normalize(row.conta)}-${row.secao}`,'warning','Classificação de despesas','Possível movimentação patrimonial no resultado',`${row.conta} aparece em ${row.secao}.`,`${row.conta}: ${amountBR(row.valor)}`,'Conferir com a contabilidade se se trata de principal, capital, juros, estorno ou despesa efetiva.',Math.abs(numeric(row.valor)),'DRE detalhada')
+      append(`neutral-${normalize(row.conta)}-${row.secao}`,'info','Classificação de despesas','Possível movimentação patrimonial no resultado',`${row.conta} aparece em ${row.secao}.`,`${row.conta}: ${amountBR(row.valor)}`,'Conferir com a contabilidade se se trata de principal, capital, juros, estorno ou despesa efetiva.',Math.abs(numeric(row.valor)),'DRE detalhada')
     }
   }
   if(managerial){
@@ -162,7 +162,7 @@ export function runFinanceAudit(input) {
   for(let ix=extra.length-1;ix>=0;ix--)if(extra[ix].id.startsWith('account-continuity-'))extra.splice(ix,1)
   if(importantContinuity.length){
     const total=importantContinuity.reduce((s,f)=>s+(f.amount||0),0)
-    append('continuity-summary','warning','Continuidade de saldos',
+    append('continuity-summary','info','Continuidade de saldos',
       `${importantContinuity.length} contas com abertura diferente do fechamento anterior`,
       'As movimentações do mês atual fecham, mas o saldo inicial de algumas contas difere do encerramento importado no mês anterior.',
       importantContinuity.slice(0,12).map(f=>f.title.replace('Saldo de abertura diverge: ','')+': '+amountBR(f.amount)).join(' | '),
