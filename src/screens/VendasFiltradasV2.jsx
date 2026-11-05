@@ -128,6 +128,66 @@ function Metric({ icon: Icon, label, value, note, tone = 'ink' }) {
   )
 }
 
+
+function GraficoDiario({ dados }) {
+  const width = 1000
+  const height = 320
+  const left = 76
+  const right = 22
+  const top = 20
+  const bottom = 40
+  const plotWidth = width - left - right
+  const plotHeight = height - top - bottom
+  const maxValue = Math.max(1, ...dados.flatMap(d => [Number(d.Pedidos) || 0, Number(d.Faturamento) || 0]))
+  const upper = Math.max(100, Math.ceil(maxValue / 1000) * 1000)
+  const point = (d, i, key) => {
+    const x = left + (dados.length > 1 ? i / (dados.length - 1) : 0.5) * plotWidth
+    const y = top + plotHeight - (Math.max(0, Number(d[key]) || 0) / upper) * plotHeight
+    return [x, y]
+  }
+  const pathFor = key => dados.map((d, i) => {
+    const [x, y] = point(d, i, key)
+    return `${i ? 'L' : 'M'}${x.toFixed(2)},${y.toFixed(2)}`
+  }).join(' ')
+  const invoicePath = pathFor('Faturamento')
+  const salesPath = pathFor('Pedidos')
+  const axisAmount = value => value >= 1000000 ? `${(value / 1000000).toLocaleString('pt-BR', {maximumFractionDigits:1})} mi` : `${(value / 1000).toLocaleString('pt-BR', {maximumFractionDigits:1})} mil`
+  const zeroY = top + plotHeight
+  const step = Math.max(1, Math.ceil(dados.length / 7))
+  return (
+    <svg className="commerce-daily-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Gráfico de pedidos e faturamento por dia" preserveAspectRatio="none" style={{ display:'block', width:'100%', height:'100%', overflow:'visible' }}>
+      <defs>
+        <linearGradient id="commerceDailyBillingGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#E87722" stopOpacity="0.22" />
+          <stop offset="100%" stopColor="#E87722" stopOpacity="0.01" />
+        </linearGradient>
+      </defs>
+      {[0,1,2,3,4].map(tick => {
+        const y = top + (tick / 4) * plotHeight
+        const amount = upper * (1 - tick / 4)
+        return <g key={tick}>
+          <line x1={left} x2={width-right} y1={y} y2={y} stroke="#E9E4DE" strokeDasharray="3 7"/>
+          <text x={left - 12} y={y + 4} textAnchor="end" fill="#817B73" fontSize="13">{axisAmount(amount)}</text>
+        </g>
+      })}
+      {dados.map((d, i) => (i % step === 0 || i === dados.length - 1) && <text key={i} x={point(d,i,'Pedidos')[0]} y={height-13} textAnchor="middle" fill="#817B73" fontSize="13">{d.dia}</text>)}
+      {dados.length > 0 && <>
+        <path d={`${invoicePath} L${point(dados[dados.length - 1], dados.length - 1, 'Faturamento')[0]},${zeroY} L${point(dados[0],0,'Faturamento')[0]},${zeroY} Z`} fill="url(#commerceDailyBillingGradient)" />
+        <path d={invoicePath} fill="none" stroke="#E87722" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        <path d={salesPath} fill="none" stroke="#292623" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        {dados.map((d, i) => {
+          const [x1,y1] = point(d,i,'Pedidos')
+          const [x2,y2] = point(d,i,'Faturamento')
+          return <g key={d.dia}>
+            <circle cx={x1} cy={y1} r="5" fill="#292623" stroke="#fff" strokeWidth="1.5"><title>{`Dia ${d.dia} — Pedidos: ${money(d.Pedidos)}`}</title></circle>
+            <circle cx={x2} cy={y2} r="4" fill="#E87722" stroke="#fff" strokeWidth="1.5"><title>{`Dia ${d.dia} — Faturamento: ${money(d.Faturamento)}`}</title></circle>
+          </g>
+        })}
+      </>}
+    </svg>
+  )
+}
+
 function Empty({ children }) { return <div className="commerce-empty">{children}</div> }
 
 export default function VendasFiltradasV2() {
@@ -466,17 +526,7 @@ export default function VendasFiltradasV2() {
         <section className="commerce-panel commerce-daily-chart">
           <div className="commerce-panel-head"><div><span>Ritmo da competência</span><h3>Pedidos e faturamento por dia</h3></div><div className="chart-meta"><small>valores diários com os filtros aplicados</small><div className="chart-legend"><i className="billing" />Faturamento<i className="orders" />Pedidos</div></div></div>
           <div className="commerce-daily-plot">
-            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-            <ComposedChart data={dailySeries} margin={{ top: 12, right: 10, left: 0, bottom: 6 }}>
-              <defs><linearGradient id="dailyBillingArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E87722" stopOpacity={0.2} /><stop offset="90%" stopColor="#E87722" stopOpacity={0.01} /></linearGradient></defs>
-              <CartesianGrid stroke="#E9E4DE" strokeDasharray="2 7" vertical={false} />
-              <XAxis dataKey="dia" tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={18} tickMargin={8} />
-              <YAxis tickLine={false} axisLine={false} tickMargin={4} tickFormatter={value => `${Math.round(value / 1000)}k`} width={52} />
-              <Tooltip cursor={{ stroke: '#D8D0C8', strokeDasharray: '3 5' }} formatter={(value, name) => [money(value), name]} />
-              <Area type="monotone" dataKey="Faturamento" stroke="#E87722" fill="url(#dailyBillingArea)" strokeWidth={3.2} dot={false} activeDot={{ r: 5, fill: '#E87722', stroke: '#fff', strokeWidth: 3 }} />
-              <Line type="monotone" dataKey="Pedidos" stroke="#292623" strokeWidth={2.7} dot={false} activeDot={{ r: 5, fill: '#292623', stroke: '#fff', strokeWidth: 3 }} />
-            </ComposedChart>
-            </ResponsiveContainer>
+            <GraficoDiario dados={dailySeries} />
           </div>
         </section>
 
