@@ -867,7 +867,7 @@ export default function Cotacoes() {
                       <th>Criada em</th>
                       <th>Status</th>
                       <th>Dias</th>
-                      <th style={{ textAlign: 'right' }}>Valor</th>
+                      <th style={{ textAlign: 'left' }}>Valor</th>
                     </tr>
                   </thead>
 
@@ -897,7 +897,7 @@ export default function Cotacoes() {
                               </span>
                             </td>
                             <td>{fmtInt(q.diasAberta)}</td>
-                            <td style={{ textAlign: 'right' }}>
+                            <td style={{ textAlign: 'left' }}>
                               <strong className="pipeline-total">{fmtK(q.totalNumber)}</strong>
                             </td>
                           </tr>
