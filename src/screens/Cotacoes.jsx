@@ -35,6 +35,14 @@ function fmt(n) {
   })
 }
 
+function nomeCompacto(nome, limite = 25) {
+  const texto = String(nome || '—').trim()
+  if (texto.length <= limite) return texto
+  const partes = texto.split(/\s+/)
+  while (partes.length > 2 && partes.join(' ').length > limite) partes.pop()
+  return partes.join(' ')
+}
+
 function fmtInt(n) {
   return Number(n || 0).toLocaleString('pt-BR', {
     maximumFractionDigits: 0,
@@ -757,7 +765,7 @@ export default function Cotacoes() {
                 </div>
 
                 <div className="pipeline-funnel">
-                  {dados.funil.map(item => (
+                  {dados.funil.filter(item => item.key !== 'enviada').map(item => (
                     <div key={item.key} className={`pipeline-funnel-row ${STATUS[item.key]?.className || ''}`}>
                       <div>
                         <strong>{item.label}</strong>
@@ -880,10 +888,10 @@ export default function Cotacoes() {
                           <Fragment key={q.id}>
                           <tr className="pipeline-quote-clickable" onClick={() => toggleQuote(q.id)} aria-expanded={expandedQuote === q.id}>
                             <td>
-                              <strong>{q.farmName}</strong> {expandedQuote === q.id ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
-                              {q.farmProspect && <span className="pipeline-prospect">prospecto</span>}
+                              <span className="pipeline-client-line" title={q.farmName}><strong className="pipeline-truncated-name">{nomeCompacto(q.farmName)}</strong>{expandedQuote === q.id ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}{q.farmProspect && <span className="pipeline-prospect">prospecto</span>}</span>
+
                             </td>
-                            <td>{q.sellerName}</td>
+                            <td><span className="pipeline-seller-name" title={q.sellerName}>{nomeCompacto(q.sellerName, 22)}</span></td>
                             <td>{dataCurta(q.created_at)}</td>
                             <td>
                               <span className={`pipeline-status ${st.className}`}>
