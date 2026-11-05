@@ -14,7 +14,7 @@ function runBaseFinanceAudit({dre,managerial,balance,accounts=[],dreAccounts=[],
 
   ;['dre','gerencial','balanco','balancete'].forEach(type=>{
     const structured=type==='dre'?dre:type==='gerencial'?managerial:type==='balanco'?hasFullBalance:accounts.length
-    if(structured) ok('Documentação',`${sourceNames[type]} disponível`,'A fonte está estruturada e participa dos cruzamentos.',present.has(type)?'Arquivo processado pela Central.':'Dados existentes no sistema; arquivo não consta na Central.')
+    if(structured) add('info','Documentação',`${sourceNames[type]} disponível`,'A fonte está estruturada e participa dos cruzamentos.',present.has(type)?'Arquivo processado pela Central.':'Dados existentes no sistema; arquivo não consta na Central.','Informação de cobertura; não é teste de integridade financeira.')
     else add('info','Documentação',`${sourceNames[type]} ausente`,`A auditoria desta competência fica limitada sem essa fonte.`,type==='balanco'&&balance?'Há saldos parciais de previsões, mas o Balanço Financeiro completo não foi processado.':present.has(type)?'Existe arquivo, mas não há dados estruturados.':'Nenhum dado estruturado ou arquivo processado.','Enviar e processar o relatório quando estiver disponível.')
   })
 
