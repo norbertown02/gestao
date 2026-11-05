@@ -48,10 +48,10 @@ function runBaseFinanceAudit({dre,managerial,balance,accounts=[],dreAccounts=[],
 
   if(dre&&managerial){
     const salesGap=pctDiff(dre.receitas,managerial.vendas_total)
-    if(salesGap<=1)ok('Cruzamento', 'Receita conciliada entre DRE e Gerencial','Os dois relatórios apresentam vendas compatíveis.',`DRE ${money(dre.receitas)} | Gerencial ${money(managerial.vendas_total)}`)
+    if(Math.abs(n(dre.receitas)-n(managerial.vendas_total))<=Math.max(250,n(managerial.vendas_total)*.005))ok('Cruzamento', 'Receita conciliada entre DRE e Gerencial','Os dois relatórios apresentam vendas compatíveis.',`DRE ${money(dre.receitas)} | Gerencial ${money(managerial.vendas_total)}`)
     else add(salesGap>5?'critical':'warning','Cruzamento','Receita diverge entre DRE e Gerencial','Os relatórios apresentam bases diferentes para as vendas do mesmo mês.',`DRE ${money(dre.receitas)} | Gerencial ${money(managerial.vendas_total)} | diferença ${salesGap.toFixed(1)}%`,'Conferir devoluções, data de emissão, cancelamentos e regime utilizado.')
     const cmv=dreAccounts.filter(row=>row.secao==='custos_variaveis'&&row.grupo==='CUSTO').reduce((s,row)=>s+n(row.valor),0)
-    if(close(cmv,managerial.custo,Math.max(10,n(managerial.custo)*.01)))ok('Cruzamento','CMV conciliado com o Gerencial','O custo de mercadoria está consistente entre as fontes.',`DRE ${money(cmv)} | Gerencial ${money(managerial.custo)}`)
+    if(close(cmv,managerial.custo,Math.max(50,n(managerial.custo)*.005)))ok('Cruzamento','CMV conciliado com o Gerencial','O custo de mercadoria está consistente entre as fontes.',`DRE ${money(cmv)} | Gerencial ${money(managerial.custo)}`)
     else add('warning','Cruzamento','CMV diverge do custo gerencial','O custo reconhecido no DRE não corresponde ao custo das vendas do Gerencial.',`DRE ${money(cmv)} | Gerencial ${money(managerial.custo)} | diferença ${money(Math.abs(cmv-n(managerial.custo)))}`,'Conferir CMV automático, devoluções e custo dos produtos vendidos.')
   }
 
@@ -172,6 +172,6 @@ export function runFinanceAudit(input) {
 
   // Não contabilizar duas vezes a mesma divergência apontada em cruzamentos diferentes.
   const all=[...base,...extra].map(row=>({...row,amount:Number.isFinite(Number(row.amount))&&row.amount!==null?Number(row.amount):null,source:row.source||'Relatórios financeiros',fingerprint:`${competence}:${row.id}`}))
-  const rank={critical:0,warning:1,review:2,ok:3}
+  const rank={critical:0,warning:1,review:2,info:3,ok:4}
   return all.sort((a,b)=>rank[a.severity]-rank[b.severity]||(b.amount||0)-(a.amount||0))
 }
