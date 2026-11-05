@@ -866,7 +866,6 @@ export default function Cotacoes() {
                       <th>Vendedor</th>
                       <th>Criada em</th>
                       <th>Status</th>
-                      <th>Validade</th>
                       <th>Dias</th>
                       <th style={{ textAlign: 'right' }}>Valor</th>
                     </tr>
@@ -875,14 +874,13 @@ export default function Cotacoes() {
                   <tbody>
                     {dados.lista.length === 0 ? (
                       <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>
+                        <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-faint)' }}>
                           Nenhuma cotação encontrada
                         </td>
                       </tr>
                     ) : (
                       dados.lista.map(q => {
                         const st = STATUS[q.statusNorm] || STATUS.rascunho
-                        const expirou = q.valid_until && q.valid_until < new Date().toISOString().split('T')[0]
 
                         return (
                           <Fragment key={q.id}>
@@ -898,17 +896,13 @@ export default function Cotacoes() {
                                 {st.label}
                               </span>
                             </td>
-                            <td className={expirou ? 'pipeline-expired' : ''}>
-                              {dataBR(q.valid_until)}
-                              {expirou && ' ⚠️'}
-                            </td>
                             <td>{fmtInt(q.diasAberta)}</td>
                             <td style={{ textAlign: 'right' }}>
                               <strong className="pipeline-total">{fmtK(q.totalNumber)}</strong>
                             </td>
                           </tr>
                           {expandedQuote === q.id && (
-                            <tr className="pipeline-quote-expanded-row"><td colSpan={7}><QuotationProducts quote={q} /></td></tr>
+                            <tr className="pipeline-quote-expanded-row"><td colSpan={6}><QuotationProducts quote={q} /></td></tr>
                           )}
                           </Fragment>
                         )
