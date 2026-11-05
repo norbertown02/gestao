@@ -12,7 +12,6 @@ import {
   IconMapPin,
   IconBuildingStore,
   IconChartPie,
-  IconTarget,
   IconCalendarStats,
   IconArrowLeft,
   IconBox,
@@ -22,7 +21,6 @@ import {
   IconCloudUpload,
   IconShieldCheck,
   IconCurrencyDollar,
-  IconSitemap,
   IconTruckDelivery,
 } from '@tabler/icons-react'
 import { useAuth } from '../lib/useAuth'
@@ -49,29 +47,28 @@ const NAV = [
   { section: 'Geral' },
   { to: '/', label: 'Dashboard', Icon: IconLayoutDashboard },
 
-  { section: 'Operação comercial' },
+  { section: 'Comercial' },
   { to: '/vendas', label: 'Gestão Comercial', Icon: IconReceipt },
   { to: '/cotacoes', label: 'Oportunidades', Icon: IconChartPie },
   { to: '/regioes', label: 'Regiões', Icon: IconMapPin },
   { to: '/produtos', label: 'Produtos', Icon: IconBuildingStore },
   { to: '/clientes-inteligencia', label: 'Inteligência de Clientes', Icon: IconChartBar },
-  { to: '/estoque', label: 'Estoque', Icon: IconBox },
-  { to: '/rotas-entrega', label: 'Rotas de Entrega', Icon: IconTruckDelivery },
+  { to: '/vendedores', label: 'Equipe Comercial e Metas', Icon: IconUsers },
+  { to: '/budget', label: 'Previsão de Vendas', Icon: IconCalendarStats, roles: ['admin', 'gestor', 'gestor_comercial'] },
   { to: '/fechamentos', label: 'Apresentações', Icon: IconPresentation, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
 
-  { section: 'Equipe comercial' },
-  { to: '/vendedores', label: 'Equipe Comercial e Metas', Icon: IconUsers },
-  { to: '/estrutura-comercial', label: 'Estrutura Comercial', Icon: IconSitemap, roles: ['admin', 'gestor'] },
-  { to: '/budget', label: 'Budget Comercial', Icon: IconCalendarStats, roles: ['admin', 'gestor', 'gestor_comercial'] },
+  { section: 'Logística' },
+  { to: '/rotas-entrega', label: 'Rotas de Entrega', Icon: IconTruckDelivery },
 
   { section: 'Financeiro' },
-  { to: '/tabela-precos', label: 'Tabela de Preços', Icon: IconCurrencyDollar, roles: ['gestor', 'gestor_financeiro'] },
   { to: '/financeiro', label: 'Financeiro', Icon: IconReportMoney, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
   { to: '/dre', label: 'DRE', Icon: IconFileInvoice, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
+  { to: '/tabela-precos', label: 'Tabela de Preços', Icon: IconCurrencyDollar, roles: ['gestor', 'gestor_financeiro'] },
   { to: '/financeiro/importar', label: 'Importar fechamento', Icon: IconCloudUpload, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
   { to: '/financeiro/auditoria', label: 'Auditoria financeira', Icon: IconShieldCheck, roles: ['admin', 'gestor', 'gestor_comercial', 'gestor_financeiro'] },
 
-  { section: 'Execução em campo' },
+  { section: 'Estoque e campo' },
+  { to: '/estoque', label: 'Estoque', Icon: IconBox },
   { to: '/visitas', label: 'Visitas', Icon: IconRoute },
   { to: '/checklists', label: 'Diagnósticos', Icon: IconClipboardList },
 
