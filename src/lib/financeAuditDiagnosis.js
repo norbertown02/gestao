@@ -61,7 +61,7 @@ export function diagnoseFinanceFinding(f,input) {
         {confidence:'Alta para valores; limitada para origem',limitations:['Sem itens das notas fiscais para explicar cada diferença.']})
     }
   }
-  if (bridge && (title.includes('LUCRO') || title.includes('RESULTADO') || title.includes('CROSS-RESULT'))) {
+  if (bridge && f.category!=='Integridade matemática' && (title.includes('LUCRO') || title.includes('RESULTADO') || title.includes('CROSS-RESULT'))) {
     return newDiagnosis(
       `O Gerencial apresenta ${brl(managerial.lucro_liquido)} de lucro líquido, enquanto a DRE apresenta ${brl(dre.resultado_liquido)}. A diferença principal é explicada por custos variáveis adicionais, custos fixos e despesas extraoperacionais reconhecidos na DRE.`,
       [...bridge.netBridge.map(x=>({label:x.label,value:x.value,source:x.type==='base'?'Gerencial':x.type==='result'?'DRE':'Ponte entre relatórios'})),...driversBySection(dreAccounts,'custos_fixos',5),...driversBySection(dreAccounts,'extra_operacional',4)],
@@ -170,6 +170,49 @@ export function diagnoseFinanceFinding(f,input) {
       ['A comparação pode produzir falso alerta quando o balancete está acumulado e o demonstrativo é mensal.'],
       ['Identificar início e fim do período de cada documento.','Usar apenas documentos compatíveis ou comparar movimentações equivalentes.'],
       {confidence:'Alta para metadados de período',limitations:['Os metadados não comprovam que as linhas internas estejam completas.'],impact:'Risco de leitura incorreta, sem perda quantificada'})
+  }
+
+  if(title.includes('NAO FECHA')&&dre&&f.category==='Integridade matemática'){
+    const checks=[
+      ['MARGEM DE CONTRIBUICAO',num(dre.receitas)-num(dre.custos_variaveis),num(dre.margem_contribuicao),[['Receitas',dre.receitas],['Custos variáveis',-num(dre.custos_variaveis)]]],
+      ['RESULTADO OPERACIONAL',num(dre.margem_contribuicao)-num(dre.custos_fixos),num(dre.resultado_operacional),[['Margem de contribuição',dre.margem_contribuicao],['Custos fixos',-num(dre.custos_fixos)]]],
+      ['RESULTADO LIQUIDO',num(dre.resultado_operacional)-num(dre.extra_operacional),num(dre.resultado_liquido),[['Resultado operacional',dre.resultado_operacional],['Extraoperacional',-num(dre.extra_operacional)]]]
+    ]
+    const match=checks.find(x=>title.includes(x[0]))
+    if(match)return newDiagnosis(
+      `A fórmula do ${match[0].toLowerCase()} produz ${brl(match[1])}, mas o DRE informa ${brl(match[2])}. Resíduo ${brl(num(match[1])-num(match[2]))}.`,
+      [...match[3].map(([label,value])=>({label,value:r2(value),source:'DRE'})),{label:'Valor calculado',value:r2(match[1]),source:'Fórmula do DRE'},{label:'Valor informado',value:r2(match[2]),source:'DRE mensal'},{label:'Diferença',value:r2(num(match[1])-num(match[2])),source:'Conciliação'}],
+      ['A fórmula e o campo publicado não estão conciliados. Uma diferença pequena pode ser arredondamento de importação; uma diferença grande pode indicar conta omitida ou classificação divergente.'],
+      ['Comparar a composição de cada subtotal no DRE de origem.','Confirmar sinal de estornos e valores negativos.'],
+      {confidence:'Alta para cálculo matemático',limitations:['A fórmula não identifica isoladamente a transação que produziu o erro.']})
+  }
+  if(f.category==='Documentação'||title.includes('AUSENTE')){
+    const kind=title.includes('BALANCETE')?'balancete':title.includes('BALANCO')?'balanco':title.includes('DRE')?'dre':title.includes('GERENCIAL')?'gerencial':null
+    const matched=kind?files.filter(x=>x.report_type===kind):[]
+    return newDiagnosis(
+      `A fonte necessária não está estruturada para realizar esta verificação. ${f.description}`,
+      [...matched.map(x=>({label:x.file_name||x.report_type,value:x.status,source:'Central de importação'})),{label:'Registros encontrados',value:kind==='balancete'?accounts.length:kind==='dre'?(dre?1:0):kind==='gerencial'?(managerial?1:0):kind==='balanco'?(balance?1:0):'não avaliados',source:'Banco de dados'}],
+      [matched.length?'Existe registro de arquivo, mas pode não haver extração válida.':'Não há arquivo processado deste tipo na competência.','Sem essa fonte não se pode classificar o teste como conciliado nem como erro contábil.'],
+      ['Confirmar competência, tipo de relatório e status da importação.','Processar a fonte faltante e executar novamente a auditoria.'],
+      {confidence:'Alta para verificação de cobertura',limitations:['O teste contábil não foi executado por falta de fonte.'],impact:'Lacuna de dados, não inconsistência monetária'})
+  }
+  if(title.includes('CONTAS MOVIMENTADAS')||title.includes('NAO APARECEM AGORA')){
+    const current=new Set(accounts.filter(x=>num(x.credito)||num(x.debito)).map(x=>`${x.tipo}|${x.grupo}|${x.conta}`))
+    const missing=previousAccounts.filter(x=>(num(x.credito)||num(x.debito))&&!current.has(`${x.tipo}|${x.grupo}|${x.conta}`))
+    return newDiagnosis(
+      `${missing.length} contas que tiveram movimento no mês anterior não aparecem movimentadas na competência atual. Isso pode ser legítimo e não representa despesa omitida confirmada.`,
+      missing.sort((a,b)=>Math.max(Math.abs(num(b.debito)),Math.abs(num(b.credito)))-Math.max(Math.abs(num(a.debito)),Math.abs(num(a.credito)))).slice(0,15).map(x=>({label:x.conta,value:r2(Math.max(Math.abs(num(x.debito)),Math.abs(num(x.credito)))),source:'Movimento no balancete anterior'})),
+      ['Conta sem movimento atual não é necessariamente erro; é necessário verificar se houve obrigação recorrente ou pagamento em outra competência.'],
+      ['Identificar despesas com contrato recorrente dentre as contas acima.','Conferir se o período atual está completo antes de concluir ausência.'],
+      {confidence:'Alta para comparação de contas; baixa para suspeita de omissão',limitations:['Não há contrato ou título por conta para comprovar recorrência.']})
+  }
+  if(title.includes('PEDIDO COM DADOS')||title.includes('CUSTO INDIVIDUAL')||title.includes('CONCILIACAO INDIVIDUAL')){
+    return newDiagnosis(
+      f.description,
+      [{label:'Evidência gerada pela regra',value:f.evidence||'Sem detalhes',source:f.source||f.category}],
+      [title.includes('PEDIDO')?'O cadastro comercial informa qualidade incompleta ou não canônica para os itens daquele pedido; não comprova diferença financeira.':'O conjunto de dados disponível contém apenas totais ou valores comerciais, sem custo histórico ou títulos e baixas de pagamento individualizados.'],
+      [title.includes('PEDIDO')?'Abrir o pedido mencionado e comparar itens, valores e número da venda na origem.':'Disponibilizar registros transacionais e a data de cada movimento antes de classificar erro financeiro.'],
+      {confidence:'Alta para identificação da lacuna; não conclusiva para irregularidade',limitations:['A fonte transacional necessária não foi disponibilizada.'],impact:'Cobertura insuficiente para diagnóstico de lançamento'})
   }
   return newDiagnosis(
     f.description || 'Ocorrência detectada pelas regras de conciliação.',
