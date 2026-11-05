@@ -1,3 +1,4 @@
+import { analyzeDreSection } from '../lib/financeAuditStructure'
 import { useEffect, useMemo, useState } from 'react'
 import { IconArrowDownRight, IconArrowUpRight, IconChevronDown, IconCoins, IconPercentage, IconReceipt, IconScale, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react'
 import Topbar from '../components/Topbar'
@@ -82,7 +83,8 @@ function aggregate(monthly, accounts, year, start, end) {
 
   const bySecao = {}
   ;['receitas', 'custos_variaveis', 'custos_fixos', 'extra_operacional'].forEach(key => { bySecao[key] = { total: 0, grupos: new Map() } })
-  accountsInRange.forEach(row => {
+  const normalizedAccounts = Array.from({length:end-start+1},(_,i)=>start+i).flatMap(m=>['receitas','custos_variaveis','custos_fixos','extra_operacional'].flatMap(section=>analyzeDreSection(accountsInRange.filter(row=>row.ano===year&&row.mes===m),section).rows))
+  normalizedAccounts.forEach(row => {
     const bucket = bySecao[row.secao]
     if (!bucket) return
     bucket.total += Number(row.valor)
