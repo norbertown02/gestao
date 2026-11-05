@@ -9506,7 +9506,7 @@ table td {
 .pipeline-table-wrap > table th:nth-child(5),
 .pipeline-table-wrap > table td:nth-child(5) { width: 7%; }
 .pipeline-table-wrap > table th:nth-child(6),
-.pipeline-table-wrap > table td:nth-child(6) { width: 16%; min-width: 0; text-align: right; }
+.pipeline-table-wrap > table td:nth-child(6) { width: 16%; min-width: 0; text-align: left; }
 .pipeline-table-wrap .pipeline-client-line { display: flex; width: 100%; min-width: 0; gap: 3px; }
 .pipeline-table-wrap .pipeline-truncated-name { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
 .pipeline-table-wrap .pipeline-seller-name { max-width: 100%; }
