@@ -37,3 +37,7 @@
 .audit-diagnostic-limit{border-left-color:#9b9287}
 .audit-diagnostic-foot{border-top:1px solid #ece3da;padding-top:10px;font-size:10px;color:#82776d}
 @media(max-width:650px){.audit-diagnostic{padding:12px}.audit-diagnostic-head{flex-direction:column}.audit-confidence{text-align:left}.audit-diagnostic-values>div{align-items:flex-start}.audit-diagnostic-values>div>b{max-width:42%;white-space:normal;overflow-wrap:anywhere;text-align:right}}
+
+.audit-finding.info .audit-finding-icon{background:#edf0f2;color:#66717a}
+.audit-finding.info>button>b{background:#edf0f2;color:#68727d}
+.audit-toolbar button:focus-visible,.audit-summary button:focus-visible,.audit-finding>button:focus-visible{outline:2px solid #d77c36;outline-offset:2px}
