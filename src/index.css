@@ -8843,6 +8843,9 @@ td,
 .macro-reading h3 { margin: 9px 0; color: #fff; font-size: 25px; }
 .macro-reading p { margin: 0; color: #c8c0b9; font-size: 13px; line-height: 1.6; }
 .commerce-daily-chart { margin-bottom: 16px; padding-bottom: 12px; }
+/* Mantém área mensurável para o Recharts; sem altura o gráfico desaparece. */
+.commerce-daily-plot { width: 100%; height: 310px; min-height: 310px; padding: 12px 18px 6px; box-sizing: border-box; }
+@media (max-width: 700px) { .commerce-daily-plot { height: 260px; min-height: 260px; padding: 8px; } }
 .commerce-daily-chart .commerce-panel-head small { color: var(--text-faint); white-space: nowrap; }
 
 /* números executivos nunca devem quebrar em duas linhas -- exceto no Financeiro/DRE
