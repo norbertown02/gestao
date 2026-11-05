@@ -529,7 +529,7 @@ export default function Cotacoes() {
     }
   }, [quotes, quotesAnt, sellers, farms, filtroStatus, filtroSegmento])
 
-  const funilMax = Math.max(...dados.funil.map(f => f.value), 1)
+  const funilMax = Math.max(...dados.funil.filter(f => f.key !== 'enviada').map(f => f.value), 1)
   const vendedorMax = Math.max(...dados.porVendedor.map(v => v.valor), 1)
   const abertasMax = Math.max(...dados.topAbertas.map(q => q.totalNumber), 1)
 
