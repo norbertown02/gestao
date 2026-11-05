@@ -59,7 +59,7 @@ export function diagnoseFinanceFinding(f,input) {
     )
   }
 
-  const {dre,managerial,balance,accounts=[],dreAccounts=[],previousAccounts=[],previousManagerial,files=[]}=input
+  const {dre,managerial,balance,accounts=[],dreAccounts=[],previousAccounts=[],previousManagerial,files=[],maturities=[]}=input
   const title=norm(f.title)
   const bridge=comparison(input)
   if(bridge && (title.includes('LUCRO') || title.includes('RESULTADO') || title.includes('CMV DIVERGE') || (title.includes('RECEITA')&&title.includes('DIVERGE')))){
@@ -119,6 +119,33 @@ export function diagnoseFinanceFinding(f,input) {
     ]:title.includes('CONTAS A PAGAR')?[
       ['Pagar vencido curto',balance.contas_pagar_vencido_curto],['Pagar vencido médio',balance.contas_pagar_vencido_medio],['A vencer curto',balance.contas_pagar_a_vencer_curto],['A vencer médio',balance.contas_pagar_a_vencer_medio],['A vencer longo',balance.contas_pagar_a_vencer_longo],['Total reportado',balance.contas_pagar_total]
     ]:[]
+    if(keys.length && title.includes('CONTAS A RECEBER')){
+      const schedule=maturities.filter(x=>x.nature==='receber')
+      const scheduleTotal=schedule.reduce((s,x)=>s+num(x.amount),0)
+      const components=num(balance.contas_receber_vencido)+num(balance.contas_receber_a_vencer_curto)+num(balance.contas_receber_a_vencer_medio)+num(balance.duplicatas_descontadas)
+      const remainder=r2(num(balance.contas_receber_total)-components)
+      const scheduleMatch=Math.abs(scheduleTotal-components)<.02
+      return newDiagnosis(
+        `O Balanço informa ${brl(balance.contas_receber_total)}, mas suas quatro parcelas disponíveis somam apenas ${brl(components)}. A diferença é ${brl(remainder)}. ${scheduleMatch?'A previsão de recebimentos confirma exatamente as parcelas do Balanço: a diferença está no total consolidado ou em uma parcela ausente da estrutura importada.':'As próprias previsões também divergem da composição do Balanço.'}`,
+        [
+          ...keys.map(([label,value])=>({label,value:r2(value),source:'Balanço financeiro'})),
+          ...schedule.map(x=>({label:'Previsão: '+x.bucket_key,value:r2(x.amount),source:'Contas a receber · vencimentos'})),
+          {label:'Soma das faixas de vencimento',value:r2(scheduleTotal),source:'Previsão de recebimentos'},
+          {label:'Valor não explicado pelas faixas',value:remainder,source:'Total do Balanço menos composição'}
+        ],
+        [
+          scheduleMatch?'O valor de cada faixa está confirmado por duas bases agregadas independentes: composição do Balanço e previsão financeira.':'Há divergência também na previsão das faixas de vencimento.',
+          'As possibilidades ainda abertas são: parcela ou faixa não importada, título considerado somente no total consolidado, ou total com data de corte diferente. Não há evidência para escolher uma dessas hipóteses.',
+          'Uma diferença de saldo não deve ser classificada como perda ou título incorreto até que seu detalhamento seja encontrado.'
+        ],
+        [
+          'Comparar o total e os grupos no arquivo Balanço Financeiro.pdf original.',
+          'Confrontar as parcelas no arquivo Contas a receber.pdf e conferir a mesma data-base.',
+          'Se o arquivo original repetir a diferença, obter os títulos individualizados que compõem os R$ '+remainder.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'.'
+        ],
+        {confidence:scheduleMatch?'Alta para localização da diferença; causa transacional não confirmada':'Média para localização da diferença',limitations:['Os registros disponíveis agregam os títulos por faixa de vencimento, sem código do título, cliente ou baixa correspondente.'],impact:'Saldo de contas a receber não explicado pela composição, não prejuízo comprovado'}
+      )
+    }
     if(keys.length)return newDiagnosis(
       'O total informado no balanço não coincide com seus componentes. Abaixo estão os valores que foram efetivamente utilizados na comparação.',
       keys.map(([label,value])=>({label,value:r2(value),source:'Balanço financeiro'})),
