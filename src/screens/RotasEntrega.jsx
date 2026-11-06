@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import Topbar from '../components/Topbar'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import 'leaflet/dist/leaflet.css'
 import './RotasEntrega.css'
 import { renderRouteMapPdf } from '../lib/routePdfMap'
 import { optimizeFleet } from '../lib/fleetOptimizer'
@@ -124,6 +125,8 @@ export default function RotasEntrega(){
  const [plan,setPlan]=useState(null)
  const mapRef=useRef(null)
  const mapInstance=useRef(null)
+ const [mapFallback,setMapFallback]=useState('')
+ const [mapNotice,setMapNotice]=useState('')
  const locations=useMemo(()=>Object.fromEntries(farms.map(f=>[f.id,f])),[farms])
  const refresh=async()=>{
   setLoading(true);setError('')
@@ -211,27 +214,80 @@ export default function RotasEntrega(){
    finally{setWorking(false)}
  }
  useEffect(()=>{
-  if(!activePlan){if(mapInstance.current){mapInstance.current.remove();mapInstance.current=null}return}
+  if(!activePlan){
+   if(mapInstance.current){mapInstance.current.remove();mapInstance.current=null}
+   return
+  }
   let cancelled=false
+  let map=null
+  let observer=null
+  let resizeTimer=null
+  let tileTimer=null
+  let tileLoads=0
+  setMapFallback('')
+  setMapNotice('')
+  // O traçado do PDF é independente do Leaflet e serve de reserva quando
+  // o navegador não consegue carregar o mapa interativo ou suas peças.
+  const fallback=async(message)=>{
+   try{
+    const snapshot=await renderRouteMapPdf(activePlan)
+    if(!cancelled && tileLoads===0){
+     setMapFallback(snapshot.image)
+     setMapNotice(message)
+    }
+   }catch(e){
+    console.error('Mapa alternativo indisponível:',e)
+    if(!cancelled)setMapNotice('Não foi possível exibir o mapa. A sequência de paradas e o link do Maps continuam disponíveis.')
+   }
+  }
   const show=async()=>{
-   const L=(await import('leaflet')).default
+   const leaflet=await import('leaflet')
    if(cancelled||!mapRef.current)return
-   if(mapInstance.current)mapInstance.current.remove()
-   const map=L.map(mapRef.current,{zoomControl:true,scrollWheelZoom:false})
+   const L=leaflet.default||leaflet
+   if(mapInstance.current){mapInstance.current.remove();mapInstance.current=null}
+   const container=mapRef.current
+   map=L.map(container,{zoomControl:true,scrollWheelZoom:false})
    mapInstance.current=map
-   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',crossOrigin:true,maxZoom:19}).addTo(map)
-   const latlngs=activePlan.geometry.coordinates.map(([lon,lat])=>[lat,lon])
+   const tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(map)
+   tiles.on('tileload',()=>{
+    tileLoads++
+    if(!cancelled){clearTimeout(tileTimer);setMapFallback('');setMapNotice('')}
+   })
+   const latlngs=(activePlan.geometry?.coordinates||[])
+    .filter(([lon,lat])=>Number.isFinite(lon)&&Number.isFinite(lat))
+    .map(([lon,lat])=>[lat,lon])
+   if(!latlngs.length)throw Error('Rota sem coordenadas para exibir o mapa.')
    L.polyline(latlngs,{color:'#e87722',weight:6,opacity:.93}).addTo(map)
    const makeMarker=(coord,label,background)=>{
-     L.marker([coord[1],coord[0]],{icon:L.divIcon({className:'',html:'<div style="background:'+background+';color:#fff;border:3px solid #fff;border-radius:50%;box-shadow:0 3px 10px #0005;width:32px;height:32px;display:grid;place-items:center;font-weight:800">'+label+'</div>',iconSize:[32,32],iconAnchor:[16,16]})}).addTo(map)
+    if(!coord)return
+    L.marker([coord[1],coord[0]],{icon:L.divIcon({className:'',html:'<div style="background:'+background+';color:#fff;border:3px solid #fff;border-radius:50%;box-shadow:0 3px 10px #0005;width:32px;height:32px;display:grid;place-items:center;font-weight:800">'+label+'</div>',iconSize:[32,32],iconAnchor:[16,16]})}).addTo(map)
    }
-   makeMarker(activePlan.coordinates[0],'CD','#161616')
-   activePlan.stops.forEach((s,i)=>makeMarker(activePlan.coordinates[i+1],i+1,'#e87722'))
+   makeMarker(activePlan.coordinates?.[0],'CD','#161616')
+   activePlan.stops.forEach((s,i)=>makeMarker(activePlan.coordinates?.[i+1],i+1,'#e87722'))
    map.fitBounds(L.latLngBounds(latlngs),{padding:[35,35]})
-   setTimeout(()=>{if(!cancelled)map.invalidateSize()},200)
+   requestAnimationFrame(()=>{if(!cancelled)map?.invalidateSize()})
+   resizeTimer=setTimeout(()=>{if(!cancelled)map?.invalidateSize()},300)
+   if(typeof ResizeObserver!=='undefined'){
+    observer=new ResizeObserver(()=>{if(!cancelled)map?.invalidateSize()})
+    observer.observe(container)
+   }
+   // Se os tiles forem bloqueados, ainda mostramos a rota como no PDF.
+   tileTimer=setTimeout(()=>{if(!cancelled && tileLoads===0)void fallback('Mapa alternativo da rota: o mapa interativo não carregou neste navegador.')},7000)
   }
-  show().catch(()=>setError('O mapa não carregou. A sequência de entrega permanece disponível.'))
-  return()=>{cancelled=true}
+  show().catch(e=>{
+   console.error('Falha ao inicializar mapa interativo:',e)
+   if(!cancelled){
+    if(map){map.remove();if(mapInstance.current===map)mapInstance.current=null;map=null}
+    void fallback('Mapa alternativo da rota: não foi possível iniciar o mapa interativo.')
+   }
+  })
+  return()=>{
+   cancelled=true
+   clearTimeout(resizeTimer)
+   clearTimeout(tileTimer)
+   observer?.disconnect()
+   if(map){map.remove();if(mapInstance.current===map)mapInstance.current=null}
+  }
  },[activePlan])
  const mapsUrl=activePlan?routeLink([activePlan.origin,...activePlan.stops.map((stop,i)=>activePlan.gpsEdits?.[stop.id]||activePlan.locationNotes?.[i]?.approximate ? activePlan.coordinates[i+1][1]+','+activePlan.coordinates[i+1][0] : (activePlan.addressEdits?.[stop.id]||address(stop.client))),...(activePlan.returnHome?[activePlan.origin]:[])]):''
  async function pdf(){
@@ -381,7 +437,11 @@ export default function RotasEntrega(){
     {plan&&<div className="rt-error"><IconAlertTriangle size={18}/> A preferência de estrada é apenas uma indicação: os dados rodoviários atuais não garantem qualidade, pavimentação nem passagem de caminhões. Confirme os trajetos com o motorista.</div>}
     {plan&&<div className="rt-vehicle-tabs">{plan.routes.map((r,i)=><button type="button" key={r.vehicle.id} onClick={()=>setActiveRoute(i)} className={'rt-vehicle-tab '+(activeRoute===i?'selected':'')}><strong>{r.vehicle.name}</strong><span>{fmt(r.totalKg)} kg / {fmt(r.vehicle.capacity)} kg</span><span>{fmt(r.km)} km · {fmt(r.minutes/60)} h</span><span>{vehicles.find(v=>v.id===r.vehicle.id)?.cost!==''?reais(num(vehicles.find(v=>v.id===r.vehicle.id)?.cost))+' de frete':'Frete não informado'}</span></button>)}</div>}
     {activePlan?<div className="rt-route-grid">
-     <div className="rt-map" ref={mapRef}/>
+     <div className="rt-map-shell">
+      <div className="rt-map" ref={mapRef}/>
+      {mapFallback&&<img className="rt-map-fallback" src={mapFallback} alt="Mapa da rota de entrega com traçado e paradas"/>}
+      {mapNotice&&<div className="rt-map-notice" role="status">{mapNotice}</div>}
+     </div>
      <div className="rt-stops">
       <div className="rt-stop"><span className="rt-stop-index rt-start">CD</span><div><strong>Saída • {activePlan.origin}</strong><small>Início da rota</small></div></div>
       {activePlan.stops.map((stop,i)=><div className="rt-stop" key={stop.id}><span className="rt-stop-index">{i+1}</span><div><strong>{stop.client?.name||'Cliente'}</strong><small>{activePlan.addressEdits?.[stop.id]||address(stop.client)} · {fmt(stop.total)} kg</small>
