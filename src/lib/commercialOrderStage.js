@@ -18,4 +18,6 @@ export const commercialStageLabel = {
   cancelado: 'Cancelado',
   cancelado_apos_faturamento: 'Cancelado após faturamento',
   sem_faturamento: 'Sem faturamento',
+  pendente_integracao: 'Pendente no Ultra',
+  erro_integracao: 'Erro de integração',
 }
