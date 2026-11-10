@@ -8491,6 +8491,10 @@ td,
 .commerce-status.faturado { color: #4a4540; background: #efedea; }
 .commerce-status.em_aberto { color: #9c5a17; background: #fff1df; }
 .commerce-status.estornado, .commerce-status.cancelado, .commerce-status.cancelado_apos_faturamento { color: #ad4842; background: #ffedeb; }
+.commerce-status.erro_integracao { color: #ad4842; background: #ffedeb; }
+.commerce-status.pendente_integracao { color: #9c5a17; background: #fff1df; }
+.commerce-integration-alert { margin: 12px 0; padding: 10px 13px; border: 1px solid #f0d4aa; border-radius: 10px; background: #fff8ed; color: #75521e; font-size: 12px; line-height: 1.5; }
+.commerce-integration-alert strong { font-weight: 700; }
 .commerce-ledger { max-height: 455px; overflow-y: auto; padding: 8px 16px; }
 .commerce-ledger-row { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid #edf0ee; }
 .commerce-ledger-row:last-child { border-bottom: 0; }
