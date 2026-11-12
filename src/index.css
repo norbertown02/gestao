@@ -9526,3 +9526,157 @@ table td {
   .pipeline-table-wrap .pipeline-prospect { font-size: 8px; padding: 2px 3px; }
   .pipeline-table-wrap .pipeline-total { font-size: 10px; }
 }
+
+
+/* Visitas: histórico clicável e consulta das anotações completas */
+.visitas-history-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+.visitas-table-wrap tbody tr.visitas-historico-row {
+  cursor: pointer;
+  transition: background-color .15s ease;
+}
+.visitas-table-wrap tbody tr.visitas-historico-row:hover {
+  background: rgba(35, 102, 61, .07);
+}
+.visitas-table-wrap tbody tr.visitas-historico-row:focus-visible {
+  outline: 2px solid #2c7b4d;
+  outline-offset: -2px;
+  background: rgba(35, 102, 61, .07);
+}
+.visitas-table-wrap td.visitas-notes {
+  max-width: 260px;
+  white-space: nowrap;
+}
+.visitas-notes-preview {
+  display: inline-block;
+  max-width: calc(100% - 25px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.visitas-notes svg {
+  margin-left: 6px;
+  vertical-align: middle;
+  color: var(--text-faint);
+}
+.visitas-detail-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  background: rgba(16, 27, 19, .54);
+}
+.visitas-detail-dialog {
+  width: min(700px, 100%);
+  max-height: min(88vh, 850px);
+  overflow-y: auto;
+  border-radius: 18px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #e5e7eb);
+  box-shadow: 0 24px 72px rgba(0, 0, 0, .20);
+  color: var(--text);
+}
+.visitas-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 26px 18px;
+  border-bottom: 1px solid var(--line, #e5e7eb);
+}
+.visitas-detail-header h2 {
+  margin: 6px 0 4px;
+  font-size: 22px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.visitas-detail-header p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.visitas-detail-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 10px;
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+}
+.visitas-detail-close:hover {
+  background: rgba(35, 102, 61, .07);
+}
+.visitas-detail-close:focus-visible {
+  outline: 2px solid #2c7b4d;
+  outline-offset: 2px;
+}
+.visitas-detail-body {
+  padding: 22px 26px 28px;
+}
+.visitas-detail-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 22px;
+  margin-bottom: 24px;
+}
+.visitas-detail-fields > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.visitas-detail-fields small {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.visitas-detail-fields strong {
+  font-weight: 600;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.visitas-detail-section + .visitas-detail-section {
+  margin-top: 22px;
+}
+.visitas-detail-section h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.visitas-detail-section p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.visitas-detail-section .visitas-detail-notes {
+  padding: 16px;
+  min-height: 70px;
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 10px;
+  background: rgba(120, 130, 120, .05);
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .visitas-detail-backdrop { padding: 12px; }
+  .visitas-detail-header { padding: 20px 18px 16px; }
+  .visitas-detail-header h2 { font-size: 18px; }
+  .visitas-detail-body { padding: 18px; }
+  .visitas-detail-fields { gap: 14px; }
+}
