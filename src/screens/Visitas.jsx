@@ -9,6 +9,8 @@ import {
   IconChartBar,
   IconClock,
   IconDownload,
+  IconEye,
+  IconX,
   IconFilter,
   IconMapPin,
   IconRoute,
@@ -199,6 +201,17 @@ export default function Visitas() {
   const [visits, setVisits] = useState([])
   const [visitsAnt, setVisitsAnt] = useState([])
   const [loading, setLoading] = useState(true)
+  const [visitaAberta, setVisitaAberta] = useState(null)
+
+  useEffect(() => {
+    if (!visitaAberta) return undefined
+
+    const fecharAoEsc = (event) => {
+      if (event.key === 'Escape') setVisitaAberta(null)
+    }
+    document.addEventListener('keydown', fecharAoEsc)
+    return () => document.removeEventListener('keydown', fecharAoEsc)
+  }, [visitaAberta])
 
   useEffect(() => {
     carregarBase()
@@ -464,7 +477,7 @@ export default function Visitas() {
       problemáticas,
       lista,
     }
-  }, [visits, visitsAnt, farms, profiles, segmento, resultado])
+  }, [visits, visitsAnt, farms, profiles, segmento, resultado, motivo, objetivo, vendedorFiltro])
 
   const vendedorMax = Math.max(...dados.porVendedor.map(v => v.total), 1)
   const fazendaMax = Math.max(...dados.porFazenda.map(f => f.total), 1)
@@ -847,6 +860,7 @@ export default function Visitas() {
                 <div>
                   <span className="visitas-eyebrow">Histórico</span>
                   <h3>Lista completa de visitas</h3>
+                  <p className="visitas-history-hint">Clique em uma visita para ver o registro e as anotações completas.</p>
                 </div>
 
                 <small>{fmtInt(dados.lista.length)} registros</small>
@@ -880,7 +894,20 @@ export default function Visitas() {
                         const outcome = OUTCOME[v.outcomeNorm] || OUTCOME.neutra
 
                         return (
-                          <tr key={v.id}>
+                          <tr
+                            key={v.id}
+                            className="visitas-historico-row"
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Ver detalhes da visita à fazenda ${v.farmName}, em ${dataBR(v.visit_date)}`}
+                            onClick={() => setVisitaAberta(v)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault()
+                                setVisitaAberta(v)
+                              }
+                            }}
+                          >
                             <td>{dataBR(v.visit_date)}</td>
                             <td>
                               <strong>{v.farmName}</strong>
@@ -896,7 +923,10 @@ export default function Visitas() {
                             </td>
                             <td>{visitPurposeLabel(v.visit_purpose)}</td>
                             <td style={{minWidth:240}}>{(v.outcome_reasons || []).map(visitReasonLabel).join('; ') || '—'}</td>
-                            <td className="visitas-notes">{v.notes || '—'}</td>
+                            <td className="visitas-notes">
+                              <span className="visitas-notes-preview">{v.notes || 'Sem anotação'}</span>
+                              <IconEye size={15} aria-hidden="true" />
+                            </td>
                             <td>{dataBR(v.next_visit_date)}</td>
                           </tr>
                         )
@@ -909,6 +939,60 @@ export default function Visitas() {
           </>
         )}
       </div>
+      {visitaAberta && (
+        <div className="visitas-detail-backdrop" onClick={() => setVisitaAberta(null)}>
+          <section
+            className="visitas-detail-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="visitas-detail-title"
+            aria-describedby="visitas-detail-subtitle"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="visitas-detail-header">
+              <div>
+                <span className="visitas-eyebrow">Registro da visita</span>
+                <h2 id="visitas-detail-title">{visitaAberta.farmName}</h2>
+                <p id="visitas-detail-subtitle">
+                  {dataBR(visitaAberta.visit_date)} · {visitaAberta.sellerName}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="visitas-detail-close"
+                onClick={() => setVisitaAberta(null)}
+                aria-label="Fechar detalhes da visita"
+                autoFocus
+              >
+                <IconX size={20} />
+              </button>
+            </header>
+            <div className="visitas-detail-body">
+              <div className="visitas-detail-fields">
+                <div><small>Segmento</small><strong>{visitaAberta.farmSegment}</strong></div>
+                <div>
+                  <small>Resultado</small>
+                  <span className={`visitas-pill ${(OUTCOME[visitaAberta.outcomeNorm] || OUTCOME.neutra).className}`}>
+                    {(OUTCOME[visitaAberta.outcomeNorm] || OUTCOME.neutra).label}
+                  </span>
+                </div>
+                <div><small>Objetivo</small><strong>{visitPurposeLabel(visitaAberta.visit_purpose)}</strong></div>
+                <div><small>Próxima visita</small><strong>{dataBR(visitaAberta.next_visit_date)}</strong></div>
+              </div>
+              <div className="visitas-detail-section">
+                <h3>Motivos registrados</h3>
+                <p>{(visitaAberta.outcome_reasons || []).map(visitReasonLabel).join('; ') || 'Nenhum motivo registrado.'}</p>
+              </div>
+              <div className="visitas-detail-section">
+                <h3>Anotações do vendedor</h3>
+                <p className="visitas-detail-notes">
+                  {String(visitaAberta.notes || '').trim() || 'Nenhuma anotação registrada nesta visita.'}
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }
