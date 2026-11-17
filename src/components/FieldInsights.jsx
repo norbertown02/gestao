@@ -52,7 +52,7 @@ function ReasonBoard({ group, rows, denominator, active, onReasonChange }) {
               <span className="field-intel-reason-line"><span className="field-intel-reason-index">{String(index + 1).padStart(2, '0')}</span><strong>{row.label}</strong><b>{row.count}</b></span>
               <span className="field-intel-track"><span style={{ width: (row.count / max * 100) + '%' }} /></span>
               <span className="field-intel-reason-detail">
-                <span>{percent(row.count, denominator)}% das visitas classificadas neste grupo</span>
+                <span>{percent(row.count, denominator)}% das visitas desse resultado</span>
                 <span>Ver visitas <IconArrowRight size={13} /></span>
               </span>
             </button>
