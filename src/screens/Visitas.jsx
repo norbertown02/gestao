@@ -2,6 +2,8 @@ import { VISIT_PURPOSES, VISIT_REASONS, visitPurposeLabel, visitReasonLabel } fr
 import { useEffect, useMemo, useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 import Topbar from '../components/Topbar'
+import FieldInsights from '../components/FieldInsights'
+import '../visit-intelligence.css'
 import {
   IconAlertTriangle,
   IconBuildingStore,
@@ -19,17 +21,6 @@ import {
   IconTrendingUp,
   IconUsers,
 } from '@tabler/icons-react'
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts'
 
 function fmtInt(n) {
   return Number(n || 0).toLocaleString('pt-BR', {
@@ -299,10 +290,22 @@ export default function Visitas() {
       ant = ant.filter(v => String(v.farmSegment || '').toLowerCase() === segmento)
     }
 
-    if (resultado !== 'todos') vs = vs.filter(v => v.outcomeNorm === resultado)
-    if (motivo !== 'todos') vs = vs.filter(v => (v.outcome_reasons || []).includes(motivo))
-    if (objetivo !== 'todos') vs = vs.filter(v => v.visit_purpose === objetivo)
-    if (vendedorFiltro !== 'todos') vs = vs.filter(v => v.seller_id === vendedorFiltro)
+    if (resultado !== 'todos') {
+      vs = vs.filter(v => v.outcomeNorm === resultado)
+      ant = ant.filter(v => v.outcomeNorm === resultado)
+    }
+    if (motivo !== 'todos') {
+      vs = vs.filter(v => (v.outcome_reasons || []).includes(motivo))
+      ant = ant.filter(v => (v.outcome_reasons || []).includes(motivo))
+    }
+    if (objetivo !== 'todos') {
+      vs = vs.filter(v => v.visit_purpose === objetivo)
+      ant = ant.filter(v => v.visit_purpose === objetivo)
+    }
+    if (vendedorFiltro !== 'todos') {
+      vs = vs.filter(v => v.seller_id === vendedorFiltro)
+      ant = ant.filter(v => v.seller_id === vendedorFiltro)
+    }
     const baseParaKpi = vs
 
     const lista = vs
@@ -509,7 +512,7 @@ export default function Visitas() {
 
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Topbar title="Execução de Campo" subtitle="Visitas, cobertura da carteira e acompanhamento comercial">
+      <Topbar title="Execução de Campo" subtitle="Inteligência das visitas, motivos, obstáculos e oportunidades comerciais">
         <button className="btn btn-ghost btn-sm" onClick={exportCSV}>
           <IconDownload size={14} />
           Exportar CSV
@@ -656,83 +659,24 @@ export default function Visitas() {
               </section>
             )}
 
-            <section className="visitas-main-grid">
-              <div className="visitas-card visitas-chart-card">
-                <div className="visitas-card-head">
-                  <div>
-                    <span className="visitas-eyebrow">Evolução</span>
-                    <h3>Visitas e qualidade do atendimento</h3>
-                  </div>
-                </div>
-
-                {dados.evolucao.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={290}>
-                    <AreaChart data={dados.evolucao} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="visitasTotal" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="var(--orange)" stopOpacity={0.23} />
-                          <stop offset="95%" stopColor="var(--orange)" stopOpacity={0.02} />
-                        </linearGradient>
-
-                        <linearGradient id="visitasPositivas" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#23864A" stopOpacity={0.18} />
-                          <stop offset="95%" stopColor="#23864A" stopOpacity={0.01} />
-                        </linearGradient>
-                      </defs>
-
-                      <CartesianGrid strokeDasharray="4 6" />
-                      <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                      <YAxis tickLine={false} axisLine={false} />
-                      <Tooltip />
-
-                      <Area
-                        type="monotone"
-                        dataKey="Visitas"
-                        stroke="var(--orange)"
-                        strokeWidth={2.5}
-                        fill="url(#visitasTotal)"
-                        dot={{ r: 3 }}
-                        activeDot={{ r: 5 }}
-                      />
-
-                      <Area
-                        type="monotone"
-                        dataKey="Positivas"
-                        stroke="#23864A"
-                        strokeWidth={2.3}
-                        fill="url(#visitasPositivas)"
-                        dot={{ r: 3 }}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <Empty>Sem evolução no período</Empty>
-                )}
-              </div>
-
-              <div className="visitas-card">
-                <div className="visitas-card-head">
-                  <div>
-                    <span className="visitas-eyebrow">Segmentos</span>
-                    <h3>Distribuição das visitas</h3>
-                  </div>
-                </div>
-
-                {dados.porSegmento.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={290}>
-                    <BarChart data={dados.porSegmento} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="4 6" />
-                      <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                      <YAxis tickLine={false} axisLine={false} />
-                      <Tooltip />
-                      <Bar dataKey="Visitas" fill="var(--orange)" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <Empty>Sem dados por segmento</Empty>
-                )}
-              </div>
-            </section>
+            <FieldInsights
+              visits={dados.lista}
+              periodo={periodo}
+              motivoAtivo={motivo}
+              resultadoAtivo={resultado}
+              vendedorAtivo={vendedorFiltro}
+              onReasonChange={id => setMotivo(motivo === id ? 'todos' : id)}
+              onOutcomeChange={id => {
+                setMotivo('todos')
+                setResultado(resultado === id ? 'todos' : id)
+              }}
+              onSellerChange={id => setVendedorFiltro(vendedorFiltro === id ? 'todos' : id)}
+              onResetFilters={() => {
+                setMotivo('todos')
+                setResultado('todos')
+                setVendedorFiltro('todos')
+              }}
+            />
 
             <section className="visitas-grid-2">
               <div className="visitas-card">
@@ -844,17 +788,6 @@ export default function Visitas() {
               </div>
             </section>
 
-            <section className="visitas-grid-2" style={{marginBottom:20}}>
-              <div className="visitas-card">
-                <div className="visitas-card-head"><div><span className="visitas-eyebrow">Motivos das visitas</span><h3>O que está acontecendo no campo</h3></div></div>
-                <p style={{padding:'0 18px',color:'var(--text-dim)',fontSize:12}}>{dados.visitasComMotivo} de {dados.total} visitas com motivo registrado. Uma visita pode ter múltiplos motivos.</p>
-                {dados.motivosFrequentes.length ? <div className="visitas-list">{dados.motivosFrequentes.map(([id,n],i)=><div className="visitas-list-row" key={id}><div><strong>{visitReasonLabel(id)}</strong><span>{fmtInt(n)} ocorrência(s) · {dados.visitasComMotivo ? Math.round(n / dados.visitasComMotivo * 100) : 0}% das visitas com motivo</span></div></div>)}</div> : <Empty>Aguardando visitas com motivos classificados</Empty>}
-              </div>
-              <div className="visitas-card">
-                <div className="visitas-card-head"><div><span className="visitas-eyebrow">Objetivos</span><h3>Por que visitamos</h3></div></div>
-                {dados.objetivosFrequentes.length ? <div className="visitas-list">{dados.objetivosFrequentes.map(([id,n])=><div className="visitas-list-row" key={id}><div><strong>{visitPurposeLabel(id)}</strong><span>{fmtInt(n)} visitas</span></div></div>)}</div> : <Empty>Aguardando objetivos das visitas</Empty>}
-              </div>
-            </section>
             <section className="visitas-card">
               <div className="visitas-card-head">
                 <div>
